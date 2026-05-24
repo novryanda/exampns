@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 
-import { BadgeCheck, Bell, Check, CreditCard, LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { BadgeCheck, Bell, Check, CreditCard, Loader2, LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -13,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { performLogout } from "@/lib/auth/logout";
 import { cn, getInitials } from "@/lib/utils";
 
 export function AccountSwitcher({
@@ -26,7 +29,26 @@ export function AccountSwitcher({
     readonly role: string;
   }>;
 }) {
+  const router = useRouter();
   const [activeUser, setActiveUser] = useState(users[0]);
+  const [isPending, startTransition] = useTransition();
+
+  const handleSignOut = () => {
+    startTransition(() => {
+      void (async () => {
+        const result = await performLogout();
+
+        if (!result.success) {
+          toast.error(result.message);
+          return;
+        }
+
+        toast.success("Anda berhasil keluar.");
+        router.replace("/auth/login");
+        router.refresh();
+      })();
+    });
+  };
 
   if (!activeUser) {
     return null;
@@ -90,8 +112,14 @@ export function AccountSwitcher({
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <LogOut />
+        <DropdownMenuItem
+          onSelect={(event) => {
+            event.preventDefault();
+            handleSignOut();
+          }}
+          disabled={isPending}
+        >
+          {isPending ? <Loader2 className="size-4 animate-spin" /> : <LogOut />}
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>

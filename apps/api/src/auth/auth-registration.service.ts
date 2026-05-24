@@ -46,7 +46,7 @@ export class AuthRegistrationService {
         email,
         password: input.password,
         phone: input.phone,
-        callbackURL: `${frontendUrl}/auth/verify-email`,
+        callbackURL: `${frontendUrl}/auth/login?verified=1`,
       },
     });
 
@@ -105,7 +105,7 @@ export class AuthRegistrationService {
       headers: this.toInternalAuthHeaders(),
       body: {
         email,
-        callbackURL: `${frontendUrl}/auth/verify-email`,
+        callbackURL: `${frontendUrl}/auth/login?verified=1`,
       },
     });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
@@ -31,9 +31,6 @@ const formSchema = z
 export function RegisterForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [isRegistered, setIsRegistered] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState("");
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -56,9 +53,10 @@ export function RegisterForm() {
             password: values.password,
           });
 
-          setRegisteredEmail(values.email.trim().toLowerCase());
-          setIsRegistered(true);
-          toast.success("Registrasi berhasil. Silakan cek email verifikasi Anda.");
+          const email = values.email.trim().toLowerCase();
+          toast.success("Registrasi berhasil. Cek email verifikasi, lalu login.");
+          router.replace(`/auth/login?pending=1&email=${encodeURIComponent(email)}`);
+          router.refresh();
         } catch (error) {
           if (error instanceof RegisterApiError) {
             if (error.code === "EMAIL_ALREADY_REGISTERED") {
@@ -87,26 +85,6 @@ export function RegisterForm() {
       })();
     });
   };
-
-  if (isRegistered) {
-    return (
-      <div className="space-y-4 rounded-lg border border-border bg-muted/30 p-4 text-sm">
-        <p className="font-medium">Cek email Anda</p>
-        <p className="text-muted-foreground">
-          Kami mengirim link verifikasi ke <span className="font-medium text-foreground">{registeredEmail}</span>.
-          Setelah verifikasi, trial akan aktif dan Anda bisa login.
-        </p>
-        <Button
-          type="button"
-          className="w-full"
-          variant="outline"
-          onClick={() => router.push(`/auth/login?email=${encodeURIComponent(registeredEmail)}`)}
-        >
-          Ke halaman login
-        </Button>
-      </div>
-    );
-  }
 
   return (
     <form noValidate onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">

@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/auth/config";
 
-const authRoutes = new Set(["/auth/login", "/auth/register", "/auth/verify-email"]);
+const guestOnlyAuthRoutes = new Set(["/auth/login", "/auth/register"]);
 
 export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request, {
@@ -16,12 +16,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  if (sessionCookie && authRoutes.has(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL(sessionCookie ? "/dashboard" : "/auth/login", request.url));
+  if (sessionCookie && guestOnlyAuthRoutes.has(pathname)) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return NextResponse.next();

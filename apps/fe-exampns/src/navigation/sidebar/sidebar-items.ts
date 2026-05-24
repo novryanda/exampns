@@ -196,7 +196,6 @@ export const sidebarItems: NavGroup[] = [
         title: "Logout",
         url: "/dashboard/logout",
         icon: LogOut,
-        comingSoon: true,
       },
     ],
   },

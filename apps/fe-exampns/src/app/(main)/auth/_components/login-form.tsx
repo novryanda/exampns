@@ -21,13 +21,13 @@ const formSchema = z.object({
   remember: z.boolean().optional(),
 });
 
-export function LoginForm() {
+export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      email: defaultEmail,
       password: "",
       remember: true,
     },
@@ -43,7 +43,15 @@ export function LoginForm() {
         });
 
         if (error) {
-          toast.error(error.message ?? "Login gagal. Periksa kembali email dan password Anda.");
+          const message = error.message ?? "Login gagal. Periksa kembali email dan password Anda.";
+          const normalized = message.toLowerCase();
+
+          if (normalized.includes("verify") || normalized.includes("verif")) {
+            toast.error("Email belum diverifikasi. Cek inbox atau kirim ulang link verifikasi.");
+          } else {
+            toast.error(message);
+          }
+
           return;
         }
 

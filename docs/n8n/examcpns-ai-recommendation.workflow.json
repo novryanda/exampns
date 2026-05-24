@@ -1,0 +1,126 @@
+{
+  "name": "ExamCPNS - AI Recommendation",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "generate-recommendation",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "responseData": "firstEntryJson",
+        "options": {}
+      },
+      "id": "c1d59ea3-5d8e-4a5f-9209-e8e8a1d50201",
+      "name": "AI Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        260,
+        300
+      ],
+      "webhookId": "examcpns-generate-recommendation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const incoming = $input.first().json;\nconst headers = incoming.headers ?? {};\nconst body = incoming.body ?? incoming;\nconst apiKey = headers['x-api-key'] ?? headers['X-Api-Key'] ?? headers['X-API-KEY'];\nconst secret = $env.N8N_WEBHOOK_SECRET;\n\nif (!secret) {\n  throw new Error('N8N_WEBHOOK_SECRET is not configured');\n}\n\nif (apiKey !== secret) {\n  throw new Error('Unauthorized: invalid x-api-key');\n}\n\nif (!body.examResultId || !body.score || !body.passingStatus || !Array.isArray(body.weakAreas)) {\n  throw new Error('Invalid payload: examResultId, score, passingStatus, and weakAreas are required');\n}\n\nconst weakAreas = body.weakAreas.slice(0, 5);\nconst weakAreaMap = Object.fromEntries(\n  weakAreas.map((item) => [`${item.category}::${item.subCategory}::${item.topicTag}`, true]),\n);\n\nconst prompt = [\n  'Anda adalah mesin rekomendasi belajar CPNS.',\n  'Gunakan hanya weakAreas yang diberikan oleh backend.',\n  'Jangan mengarang topicTag baru.',\n  'Jangan bertindak seperti chatbot.',\n  'Jangan menjanjikan pasti lulus.',\n  'Keluarkan JSON valid saja tanpa markdown fence.',\n  '',\n  'Format output wajib:',\n  JSON.stringify({\n    summary: 'string',\n    overallAssessment: 'string',\n    recommendations: [\n      {\n        priority: 1,\n        priorityLevel: 'HIGH',\n        category: 'TWK',\n        subCategory: 'Tata Negara',\n        topicTag: 'Hak dan Kewajiban Warga Negara',\n        reason: 'string',\n        suggestedFocus: ['string']\n      }\n    ],\n    nextTryoutStrategy: 'string'\n  }, null, 2),\n  '',\n  'Input JSON dari backend:',\n  JSON.stringify(body, null, 2),\n].join('\\n');\n\nconst model = $env.OPENAI_MODEL || 'gpt-4.1-mini';\nconst llmRequest = {\n  model,\n  temperature: 0.2,\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'Anda menghasilkan rekomendasi belajar CPNS berbentuk JSON valid.'\n    },\n    {\n      role: 'user',\n      content: prompt\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    body,\n    weakAreaMap,\n    weakAreas,\n    llmRequest\n  }\n}];"
+      },
+      "id": "69588b47-f3a8-45f6-afba-0f2149c0d602",
+      "name": "Validate Payload And Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions'}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.llmRequest) }}",
+        "options": {}
+      },
+      "id": "ec2d7824-e9ae-4a1e-a1f4-6b5a5f613103",
+      "name": "Call OpenAI Compatible API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const llmResponse = $input.first().json;\nconst context = $('Validate Payload And Build Prompt').first().json;\nconst weakSet = new Set(context.weakAreas.map((item) => `${item.category}::${item.subCategory}::${item.topicTag}`));\n\nlet raw = llmResponse.choices?.[0]?.message?.content ?? llmResponse.output_text ?? llmResponse.content ?? llmResponse;\nif (Array.isArray(raw)) {\n  raw = raw.map((item) => item?.text ?? '').join('\\n');\n}\nif (typeof raw === 'object') {\n  raw = JSON.stringify(raw);\n}\nif (typeof raw !== 'string') {\n  throw new Error('LLM response does not contain string content');\n}\n\nconst cleaned = raw\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```$/i, '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch {\n  throw new Error('LLM returned invalid JSON');\n}\n\nif (\n  typeof parsed.summary !== 'string' ||\n  typeof parsed.overallAssessment !== 'string' ||\n  typeof parsed.nextTryoutStrategy !== 'string' ||\n  !Array.isArray(parsed.recommendations)\n) {\n  throw new Error('Recommendation shape is invalid');\n}\n\nif (parsed.recommendations.length > 5) {\n  throw new Error('Recommendation count exceeds 5');\n}\n\nconst forbiddenWords = ['pasti lulus', 'jamin lulus', 'dijamin lulus', '100% lulus'];\nconst resultRecommendations = parsed.recommendations.map((item, index) => {\n  const key = `${item.category}::${item.subCategory}::${item.topicTag}`;\n  if (!weakSet.has(key)) {\n    throw new Error(`Invented topicTag detected: ${key}`);\n  }\n\n  const reason = typeof item.reason === 'string' ? item.reason.trim() : '';\n  const suggestedFocus = Array.isArray(item.suggestedFocus)\n    ? item.suggestedFocus.filter((value) => typeof value === 'string' && value.trim().length > 0)\n    : [];\n\n  const textBlob = `${reason} ${suggestedFocus.join(' ')} ${parsed.nextTryoutStrategy}`.toLowerCase();\n  if (forbiddenWords.some((word) => textBlob.includes(word))) {\n    throw new Error('Recommendation contains forbidden passing guarantee language');\n  }\n\n  return {\n    priority: Number(item.priority ?? index + 1),\n    priorityLevel: item.priorityLevel ?? 'MEDIUM',\n    category: item.category,\n    subCategory: item.subCategory,\n    topicTag: item.topicTag,\n    reason,\n    suggestedFocus,\n  };\n});\n\nreturn [{\n  json: {\n    summary: parsed.summary.trim(),\n    overallAssessment: parsed.overallAssessment.trim(),\n    recommendations: resultRecommendations,\n    nextTryoutStrategy: parsed.nextTryoutStrategy.trim()\n  }\n}];"
+      },
+      "id": "2b07b3d0-0a1d-4223-b53f-7e2d4b4d7104",
+      "name": "Parse And Validate Recommendation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        300
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "AI Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Payload And Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Payload And Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "Call OpenAI Compatible API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call OpenAI Compatible API": {
+      "main": [
+        [
+          {
+            "node": "Parse And Validate Recommendation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4c5996ae-92d0-432a-a822-a9349c8bb001",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "examcpnsAiRecommendationWorkflow",
+  "tags": []
+}

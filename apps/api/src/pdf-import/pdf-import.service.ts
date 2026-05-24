@@ -1,0 +1,489 @@
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  ImportBatchStatus,
+  ParsedQuestionStatus,
+  QuestionCategory,
+  QuestionStatus,
+  SourceType,
+} from '../../generated/prisma/client.js';
+import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { PrismaService } from '../common/prisma.service.js';
+import { ValidationService } from '../common/validation.service.js';
+import { assertQuestionOptionRules } from '../question-bank/question-bank.rules.js';
+import {
+  approveParsedQuestionSchema,
+  listPdfImportBatchesQuerySchema,
+  rejectParsedQuestionSchema,
+  updateParsedQuestionSchema,
+  uploadPdfMetadataSchema,
+} from './pdf-import.schemas.js';
+import {
+  assertPdfFile,
+  buildQuestionPreview,
+  deriveParsedQuestionStatusCounters,
+  toInputJson,
+  toQuestionOptionCreateMany,
+  type ParsedQuestionOptionPayload,
+  type UploadedPdfFile,
+} from './pdf-import.helpers.js';
+
+@Injectable()
+export class PdfImportService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly validationService: ValidationService,
+  ) {}
+
+  async uploadPdfForParsing(
+    file: UploadedPdfFile | undefined,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(uploadPdfMetadataSchema, rawBody);
+    const maxUploadSizeMb = await this.getMaxUploadSizeMb();
+    assertPdfFile(file, maxUploadSizeMb * 1024 * 1024);
+    if (!file) {
+      throw new NotFoundException('File PDF wajib diunggah');
+    }
+    const uploadedFile = file;
+
+    const batch = await this.prisma.questionImportBatch.create({
+      data: {
+        uploadedBy: actor.id,
+        fileName: uploadedFile.originalname,
+        fileUrl: null,
+        fileSizeBytes: uploadedFile.size,
+        status: ImportBatchStatus.processing,
+      },
+      select: {
+        id: true,
+        status: true,
+        fileName: true,
+      },
+    });
+
+    void this.processPdfImportBatch(batch.id, uploadedFile, payload.categoryHint).catch(() => undefined);
+
+    return {
+      batchId: batch.id,
+      status: batch.status,
+      fileName: batch.fileName,
+    };
+  }
+
+  async listPdfImportBatches(rawQuery: unknown) {
+    const query = this.validationService.validate(listPdfImportBatchesQuerySchema, rawQuery);
+    const skip = (query.page - 1) * query.limit;
+    const where = query.status ? { status: query.status } : {};
+
+    const [batches, totalItems] = await Promise.all([
+      this.prisma.questionImportBatch.findMany({
+        where,
+        include: {
+          uploadedByUser: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      this.prisma.questionImportBatch.count({ where }),
+    ]);
+
+    return {
+      data: batches.map((batch) => ({
+        batchId: batch.id,
+        fileName: batch.fileName,
+        status: batch.status,
+        totalDetected: batch.totalDetected,
+        validCount: batch.validCount,
+        invalidCount: batch.invalidCount,
+        uploadedBy: batch.uploadedByUser.name,
+        createdAt: batch.createdAt,
+        completedAt: batch.completedAt,
+      })),
+      meta: {
+        page: query.page,
+        limit: query.limit,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+      },
+    };
+  }
+
+  async getPdfImportBatchDetail(batchId: string) {
+    const batch = await this.prisma.questionImportBatch.findUnique({
+      where: { id: batchId },
+      include: {
+        parsedQuestions: {
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('PDF import batch tidak ditemukan');
+    }
+
+    return {
+      batchId: batch.id,
+      fileName: batch.fileName,
+      status: batch.status,
+      totalDetected: batch.totalDetected,
+      validCount: batch.validCount,
+      invalidCount: batch.invalidCount,
+      parsedQuestions: batch.parsedQuestions.map((item) => ({
+        id: item.id,
+        questionPreview: buildQuestionPreview(item.questionText),
+        category: item.category,
+        subCategory: item.subCategory,
+        topicTag: item.topicTag,
+        difficulty: item.difficulty,
+        confidenceScore: item.confidenceScore === null ? null : Number(item.confidenceScore),
+        status: item.status,
+      })),
+    };
+  }
+
+  async getParsedQuestionDetail(parsedQuestionId: string) {
+    const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
+      where: { id: parsedQuestionId },
+    });
+
+    if (!parsedQuestion) {
+      throw new NotFoundException('Parsed question tidak ditemukan');
+    }
+
+    return {
+      id: parsedQuestion.id,
+      batchId: parsedQuestion.batchId,
+      questionText: parsedQuestion.questionText,
+      options: parsedQuestion.optionsJson,
+      detectedAnswer: parsedQuestion.detectedAnswer,
+      category: parsedQuestion.category,
+      subCategory: parsedQuestion.subCategory,
+      topicTag: parsedQuestion.topicTag,
+      difficulty: parsedQuestion.difficulty,
+      confidenceScore:
+        parsedQuestion.confidenceScore === null ? null : Number(parsedQuestion.confidenceScore),
+      status: parsedQuestion.status,
+      rawAiOutput: parsedQuestion.rawAiOutput,
+    };
+  }
+
+  async updateParsedQuestion(
+    parsedQuestionId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(updateParsedQuestionSchema, rawBody);
+    assertQuestionOptionRules(payload.category, payload.options);
+
+    const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
+      where: { id: parsedQuestionId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!parsedQuestion) {
+      throw new NotFoundException('Parsed question tidak ditemukan');
+    }
+
+    if (parsedQuestion.status === ParsedQuestionStatus.approved) {
+      throw new ConflictException('Parsed question yang sudah approved tidak dapat diubah');
+    }
+
+    await this.prisma.parsedQuestionReview.update({
+      where: { id: parsedQuestionId },
+      data: {
+        questionText: payload.questionText,
+        optionsJson: toInputJson(payload.options),
+        detectedAnswer: payload.detectedAnswer ?? null,
+        category: payload.category,
+        subCategory: payload.subCategory,
+        topicTag: payload.topicTag,
+        difficulty: payload.difficulty,
+        status: ParsedQuestionStatus.pending_review,
+        reviewNotes: null,
+        reviewedBy: actor.id,
+        reviewedAt: new Date(),
+      },
+    });
+  }
+
+  async approveParsedQuestion(
+    parsedQuestionId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(approveParsedQuestionSchema, rawBody);
+    const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
+      where: { id: parsedQuestionId },
+    });
+
+    if (!parsedQuestion) {
+      throw new NotFoundException('Parsed question tidak ditemukan');
+    }
+
+    if (parsedQuestion.questionId) {
+      throw new ConflictException('Parsed question sudah pernah di-approve');
+    }
+
+    if (
+      !parsedQuestion.category ||
+      !parsedQuestion.subCategory ||
+      !parsedQuestion.topicTag ||
+      !parsedQuestion.difficulty
+    ) {
+      throw new ConflictException('Parsed question belum lengkap untuk di-approve');
+    }
+
+    const options = parsedQuestion.optionsJson as unknown as ParsedQuestionOptionPayload[];
+    assertQuestionOptionRules(parsedQuestion.category, options.map((option) => ({
+      label: option.label,
+      text: option.text,
+      isCorrect:
+        parsedQuestion.category === QuestionCategory.TKP
+          ? undefined
+          : option.label === parsedQuestion.detectedAnswer,
+      tkpWeight: undefined,
+    })));
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const question = await tx.question.create({
+        data: {
+          questionText: parsedQuestion.questionText,
+          category: parsedQuestion.category!,
+          subCategory: parsedQuestion.subCategory!,
+          topicTag: parsedQuestion.topicTag!,
+          competencyArea: null,
+          difficulty: parsedQuestion.difficulty!,
+          questionType: 'multiple_choice',
+          sourceType: SourceType.pdf_import,
+          status: payload.status ?? QuestionStatus.active,
+          explanation: null,
+          createdBy: actor.id,
+          updatedBy: actor.id,
+        },
+        select: { id: true },
+      });
+
+      await tx.questionOption.createMany({
+        data: toQuestionOptionCreateMany(
+          question.id,
+          parsedQuestion.category!,
+          options,
+          parsedQuestion.detectedAnswer ?? undefined,
+        ),
+      });
+
+      await tx.parsedQuestionReview.update({
+        where: { id: parsedQuestionId },
+        data: {
+          questionId: question.id,
+          status: ParsedQuestionStatus.approved,
+          reviewNotes: payload.reviewNotes,
+          reviewedBy: actor.id,
+          reviewedAt: new Date(),
+        },
+      });
+
+      return question;
+    });
+
+    await this.refreshBatchCounters(parsedQuestion.batchId);
+
+    return {
+      questionId: result.id,
+      parsedQuestionStatus: ParsedQuestionStatus.approved,
+    };
+  }
+
+  async rejectParsedQuestion(
+    parsedQuestionId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(rejectParsedQuestionSchema, rawBody);
+    const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
+      where: { id: parsedQuestionId },
+      select: {
+        id: true,
+        batchId: true,
+        status: true,
+      },
+    });
+
+    if (!parsedQuestion) {
+      throw new NotFoundException('Parsed question tidak ditemukan');
+    }
+
+    if (parsedQuestion.status === ParsedQuestionStatus.approved) {
+      throw new ConflictException('Parsed question yang sudah approved tidak dapat ditolak');
+    }
+
+    await this.prisma.parsedQuestionReview.update({
+      where: { id: parsedQuestionId },
+      data: {
+        status: ParsedQuestionStatus.rejected,
+        reviewNotes: payload.reviewNotes,
+        reviewedBy: actor.id,
+        reviewedAt: new Date(),
+      },
+    });
+
+    await this.refreshBatchCounters(parsedQuestion.batchId);
+  }
+
+  private async processPdfImportBatch(
+    batchId: string,
+    file: UploadedPdfFile,
+    categoryHint?: 'TWK' | 'TIU' | 'TKP' | 'auto',
+  ) {
+    const webhookUrl = process.env.PDF_IMPORT_WEBHOOK_URL?.trim();
+    if (!webhookUrl) {
+      await this.prisma.questionImportBatch.update({
+        where: { id: batchId },
+        data: {
+          status: ImportBatchStatus.failed,
+          errorMessage: 'AI workflow unavailable',
+          completedAt: new Date(),
+        },
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          batchId,
+          fileName: file.originalname,
+          fileMimeType: file.mimetype,
+          fileContentBase64: file.buffer.toString('base64'),
+          categoryHint: categoryHint ?? 'auto',
+        }),
+      });
+
+      const responseJson = (await response.json().catch(() => null)) as
+        | {
+            parsedQuestions?: Array<{
+              questionText: string;
+              options: ParsedQuestionOptionPayload[];
+              detectedAnswer?: string | null;
+              category?: QuestionCategory | null;
+              subCategory?: string | null;
+              topicTag?: string | null;
+              difficulty?: 'easy' | 'medium' | 'hard' | null;
+              confidenceScore?: number | null;
+              rawAiOutput?: unknown;
+              status?: ParsedQuestionStatus;
+            }>;
+            errorMessage?: string;
+          }
+        | null;
+
+      if (!response.ok || !responseJson?.parsedQuestions) {
+        await this.prisma.questionImportBatch.update({
+          where: { id: batchId },
+          data: {
+            status: ImportBatchStatus.failed,
+            errorMessage: responseJson?.errorMessage ?? 'AI workflow unavailable',
+            completedAt: new Date(),
+          },
+        });
+        return;
+      }
+
+      const parsedQuestions = responseJson.parsedQuestions;
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.parsedQuestionReview.createMany({
+          data: parsedQuestions.map((item) => ({
+            batchId,
+            rawAiOutput: toInputJson(item.rawAiOutput ?? item),
+            questionText: item.questionText,
+            optionsJson: toInputJson(item.options),
+            detectedAnswer: item.detectedAnswer ?? null,
+            category: item.category ?? null,
+            subCategory: item.subCategory ?? null,
+            topicTag: item.topicTag ?? null,
+            difficulty: item.difficulty ?? null,
+            confidenceScore: item.confidenceScore ?? null,
+            status: item.status ?? ParsedQuestionStatus.pending_review,
+          })),
+        });
+
+        const createdRows = parsedQuestions.map((item) => ({
+          status: item.status ?? ParsedQuestionStatus.pending_review,
+        }));
+        const counters = deriveParsedQuestionStatusCounters(createdRows);
+        const nextStatus =
+          counters.invalidCount > 0 ? ImportBatchStatus.partial_failed : ImportBatchStatus.completed;
+
+        await tx.questionImportBatch.update({
+          where: { id: batchId },
+          data: {
+            status: nextStatus,
+            totalDetected: counters.totalDetected,
+            validCount: counters.validCount,
+            invalidCount: counters.invalidCount,
+            errorMessage: null,
+            completedAt: new Date(),
+          },
+        });
+      });
+    } catch {
+      await this.prisma.questionImportBatch.update({
+        where: { id: batchId },
+        data: {
+          status: ImportBatchStatus.failed,
+          errorMessage: 'AI workflow unavailable',
+          completedAt: new Date(),
+        },
+      });
+    }
+  }
+
+  private async refreshBatchCounters(batchId: string) {
+    const parsedQuestions = await this.prisma.parsedQuestionReview.findMany({
+      where: { batchId },
+      select: { status: true },
+    });
+    const counters = deriveParsedQuestionStatusCounters(parsedQuestions);
+
+    await this.prisma.questionImportBatch.update({
+      where: { id: batchId },
+      data: {
+        totalDetected: counters.totalDetected,
+        validCount: counters.validCount,
+        invalidCount: counters.invalidCount,
+      },
+    });
+  }
+
+  private async getMaxUploadSizeMb() {
+    const setting = await this.prisma.systemSetting.findUnique({
+      where: { key: 'pdf.max_upload_size_mb' },
+      select: { value: true },
+    });
+
+    if (!setting || typeof setting.value !== 'number') {
+      return 20;
+    }
+
+    return setting.value;
+  }
+}

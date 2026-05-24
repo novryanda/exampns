@@ -1,0 +1,74 @@
+import { BadRequestException } from '@nestjs/common';
+import {
+  ParsedQuestionStatus,
+  QuestionCategory,
+  type Prisma,
+} from '../../generated/prisma/client.js';
+
+export interface UploadedPdfFile {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+}
+
+export interface ParsedQuestionOptionPayload {
+  label: 'A' | 'B' | 'C' | 'D' | 'E';
+  text: string;
+}
+
+export const buildQuestionPreview = (text: string) => {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  return compact.length <= 120 ? compact : `${compact.slice(0, 117)}...`;
+};
+
+export const assertPdfFile = (file: UploadedPdfFile | undefined | null, maxSizeBytes: number) => {
+  if (!file) {
+    throw new BadRequestException({
+      code: 'INVALID_FILE_TYPE',
+      message: 'File PDF wajib diunggah',
+    });
+  }
+
+  const lowerName = file.originalname.toLowerCase();
+  const isPdf = file.mimetype === 'application/pdf' || lowerName.endsWith('.pdf');
+  if (!isPdf) {
+    throw new BadRequestException({
+      code: 'INVALID_FILE_TYPE',
+      message: 'File harus berformat PDF',
+    });
+  }
+
+  if (file.size > maxSizeBytes) {
+    throw new BadRequestException({
+      code: 'FILE_TOO_LARGE',
+      message: 'Ukuran file melebihi batas maksimum',
+    });
+  }
+};
+
+export const toInputJson = (value: unknown): Prisma.InputJsonValue =>
+  value as Prisma.InputJsonValue;
+
+export const toQuestionOptionCreateMany = (
+  questionId: string,
+  category: QuestionCategory,
+  options: ParsedQuestionOptionPayload[],
+  detectedAnswer?: string,
+) =>
+  options.map((option, index) => ({
+    questionId,
+    label: option.label,
+    optionText: option.text,
+    isCorrect: category === QuestionCategory.TKP ? false : option.label === detectedAnswer,
+    tkpWeight: null,
+    displayOrder: index + 1,
+  }));
+
+export const deriveParsedQuestionStatusCounters = (
+  parsedQuestions: Array<{ status: ParsedQuestionStatus }>,
+) => ({
+  totalDetected: parsedQuestions.length,
+  validCount: parsedQuestions.filter((item) => item.status === ParsedQuestionStatus.approved).length,
+  invalidCount: parsedQuestions.filter((item) => item.status === ParsedQuestionStatus.rejected).length,
+});

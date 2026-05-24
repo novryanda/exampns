@@ -1,0 +1,11 @@
+import { PaymentStatus, SubscriptionStatus, type ActivationSource } from '../../generated/prisma/client.js';
+export declare const buildInvoiceNumber: (sequence: number, now?: Date) => string;
+export declare const buildPaymentUrl: (baseUrl: string, paymentTransactionId: string) => string;
+export declare const computeDaysRemaining: (endDate: Date, now?: Date) => number;
+export declare const computeTryoutRemaining: (tryoutLimit: number | null, tryoutUsed: number) => number | null;
+export declare const addDays: (date: Date, durationDays: number) => Date;
+export declare const statusAllowsSubscriptionActivation: (status: PaymentStatus) => status is "success";
+export declare const mapWebhookStatusToPaymentStatus: (status: string) => "pending" | "expired" | "cancelled" | "success" | "failed" | "refunded";
+export declare const verifyWebhookSignature: (payload: unknown, signature: string | undefined, secret: string | undefined) => boolean;
+export declare const normalizeActivationSource: (source: ActivationSource) => ActivationSource;
+export declare const isSubscriptionCurrentlyActive: (status: SubscriptionStatus, endDate: Date, now?: Date) => boolean;

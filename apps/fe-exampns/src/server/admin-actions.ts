@@ -6,24 +6,7 @@ import { revalidatePath } from "next/cache";
 
 import { serverApiFetch } from "@/server/api-client";
 
-export interface AdminActionState {
-  status: "idle" | "success" | "error";
-  message: string;
-}
-
-export const initialAdminActionState: AdminActionState = {
-  status: "idle",
-  message: "",
-};
-
-export interface CreateTryoutActionState extends AdminActionState {
-  createdId?: string;
-}
-
-export const initialCreateTryoutActionState: CreateTryoutActionState = {
-  status: "idle",
-  message: "",
-};
+import type { AdminActionState, CreateTryoutActionState } from "@/server/admin-action-state";
 
 function parseBoolean(value: FormDataEntryValue | null) {
   return value === "on" || value === "true" || value === "1";
@@ -164,6 +147,170 @@ export async function updateAiRecommendationSettingsAction(
         error instanceof Error
           ? error.message
           : "Gagal memperbarui konfigurasi AI recommendation.",
+    };
+  }
+}
+
+export async function createAdminAccountAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const phone = String(formData.get("phone") ?? "").trim();
+
+    await serverApiFetch<{ success: true; message?: string }>("/api/v1/super-admin/admins", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        fullName: String(formData.get("fullName") ?? "").trim(),
+        email: String(formData.get("email") ?? "").trim().toLowerCase(),
+        ...(phone ? { phone } : {}),
+      }),
+    });
+
+    revalidatePath("/dashboard/admin-accounts");
+    revalidatePath("/dashboard/users");
+
+    return {
+      status: "success",
+      message: "Akun admin dibuat (inactive). Link atur password telah dikirim ke email admin.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal membuat akun admin.",
+    };
+  }
+}
+
+export async function deactivateAdminAccountAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const adminId = String(formData.get("adminId") ?? "");
+    const reason = String(formData.get("reason") ?? "").trim();
+
+    await serverApiFetch<{ success: true; message?: string }>(
+      `/api/v1/super-admin/admins/${adminId}/deactivate`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ reason }),
+      },
+    );
+
+    revalidatePath("/dashboard/admin-accounts");
+
+    return {
+      status: "success",
+      message: "Admin berhasil dinonaktifkan.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal menonaktifkan admin.",
+    };
+  }
+}
+
+export async function createPlatformUserAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const phone = String(formData.get("phone") ?? "").trim();
+
+    await serverApiFetch<{ success: true; message?: string }>("/api/v1/super-admin/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        fullName: String(formData.get("fullName") ?? "").trim(),
+        email: String(formData.get("email") ?? "").trim().toLowerCase(),
+        ...(phone ? { phone } : {}),
+      }),
+    });
+
+    revalidatePath("/dashboard/users");
+
+    return {
+      status: "success",
+      message: "User dibuat (inactive). Link atur password telah dikirim ke email user.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal membuat user.",
+    };
+  }
+}
+
+export async function updatePlatformUserStatusAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const userId = String(formData.get("userId") ?? "");
+    const status = String(formData.get("status") ?? "");
+
+    await serverApiFetch<{ success: true; message?: string }>(
+      `/api/v1/super-admin/users/${userId}/status`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ status }),
+      },
+    );
+
+    revalidatePath("/dashboard/users");
+    revalidatePath(`/dashboard/users/${userId}`);
+
+    const label =
+      status === "active" ? "diaktifkan" : status === "suspended" ? "ditangguhkan" : "dinonaktifkan";
+
+    return {
+      status: "success",
+      message: `User berhasil ${label}.`,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal memperbarui status user.",
+    };
+  }
+}
+
+export async function deletePlatformUserAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const userId = String(formData.get("userId") ?? "");
+    const reason = String(formData.get("reason") ?? "").trim();
+
+    await serverApiFetch<{ success: true; message?: string }>(
+      `/api/v1/super-admin/users/${userId}`,
+      {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(reason ? { reason } : {}),
+      },
+    );
+
+    revalidatePath("/dashboard/users");
+
+    return {
+      status: "success",
+      message: "User berhasil dihapus.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal menghapus user.",
     };
   }
 }

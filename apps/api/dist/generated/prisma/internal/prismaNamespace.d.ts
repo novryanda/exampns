@@ -2389,6 +2389,7 @@ export declare const UserScalarFieldEnum: {
     readonly status: "status";
     readonly emailVerified: "emailVerified";
     readonly emailVerifiedAt: "emailVerifiedAt";
+    readonly passwordSetAt: "passwordSetAt";
     readonly lastLoginAt: "lastLoginAt";
     readonly createdAt: "createdAt";
     readonly updatedAt: "updatedAt";

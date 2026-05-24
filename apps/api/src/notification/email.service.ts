@@ -145,9 +145,9 @@ const buildAuthEmailContent = (
   }
 
   return {
-    subject: `Reset password — ${appName}`,
-    text: `Halo,\n\nKami menerima permintaan reset password untuk akun ${appName}. Klik link berikut:\n\n${url}\n\nJika bukan Anda, abaikan email ini.`,
-    html: `<p>Halo,</p><p>Klik link berikut untuk reset password <strong>${appName}</strong>:</p><p><a href="${url}">${url}</a></p>`,
+    subject: `Atur password — ${appName}`,
+    text: `Halo,\n\nKlik link berikut untuk mengatur password akun ${appName} Anda:\n\n${url}\n\nLink berlaku 1 jam. Jika Anda tidak meminta ini, abaikan email ini.`,
+    html: `<p>Halo,</p><p>Klik link berikut untuk <strong>mengatur password</strong> akun ${appName} Anda:</p><p><a href="${url}">Atur password sekarang</a></p><p>Atau salin link ini ke browser:<br/><a href="${url}">${url}</a></p><p>Link berlaku 1 jam.</p>`,
   };
 };
 

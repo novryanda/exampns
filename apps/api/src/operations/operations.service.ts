@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
@@ -19,14 +20,16 @@ import { auth } from '../auth/auth.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
-import { sendEmail } from '../notification/email.service.js';
 import {
   adminTransactionsQuerySchema,
   adminUsersQuerySchema,
   auditLogsQuerySchema,
   createAdminSchema,
+  createPlatformUserSchema,
   createSubscriptionPlanSchema,
   deactivateAdminSchema,
+  deletePlatformUserSchema,
+  updatePlatformUserStatusSchema,
   manualSubscriptionActivationSchema,
   updateAiRecommendationSettingsSchema,
   updatePassingGradeSchema,
@@ -360,6 +363,166 @@ export class OperationsService {
     };
   }
 
+  async createPlatformUser(rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(createPlatformUserSchema, rawBody);
+    const normalizedEmail = payload.email.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, deletedAt: true },
+    });
+
+    if (existingUser && existingUser.deletedAt === null) {
+      throw new ConflictException('Email sudah terdaftar');
+    }
+
+    const temporaryPassword = this.generateTemporaryPassword();
+    const authResponse = await auth.api.signUpEmail({
+      asResponse: true,
+      headers: this.toInternalAuthHeaders(),
+      body: {
+        name: payload.fullName,
+        email: normalizedEmail,
+        password: temporaryPassword,
+        phone: payload.phone,
+      },
+    });
+
+    if (!authResponse.ok) {
+      let message = 'Gagal membuat akun user';
+      try {
+        const responsePayload = (await authResponse.json()) as { message?: string };
+        if (responsePayload.message) {
+          message = responsePayload.message;
+        }
+      } catch {
+        // keep default
+      }
+      throw new ConflictException(message);
+    }
+
+    const createdUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, email: true, emailVerifiedAt: true },
+    });
+
+    if (!createdUser) {
+      throw new NotFoundException('User tidak ditemukan setelah dibuat');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: createdUser.id },
+        data: {
+          name: payload.fullName,
+          phone: payload.phone ?? null,
+          role: UserRole.USER,
+          status: UserStatus.inactive,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          passwordSetAt: null,
+          deletedAt: null,
+        },
+      });
+
+      await tx.session.deleteMany({ where: { userId: createdUser.id } });
+    });
+
+    await this.sendSetPasswordLink(normalizedEmail);
+
+    await this.createAuditLog({
+      actor,
+      action: 'CREATE_PLATFORM_USER',
+      module: 'user_management',
+      targetType: 'user',
+      targetId: createdUser.id,
+      metadata: {
+        email: normalizedEmail,
+        fullName: payload.fullName,
+      },
+    });
+
+    return {
+      id: createdUser.id,
+      email: createdUser.email,
+      role: UserRole.USER,
+      status: UserStatus.inactive,
+    };
+  }
+
+  async updatePlatformUserStatus(
+    userId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(updatePlatformUserStatusSchema, rawBody);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: payload.status },
+      });
+
+      if (payload.status !== UserStatus.active) {
+        await tx.session.deleteMany({ where: { userId } });
+      }
+    });
+
+    await this.createAuditLog({
+      actor,
+      action: 'UPDATE_USER_STATUS',
+      module: 'user_management',
+      targetType: 'user',
+      targetId: userId,
+      metadata: {
+        previousStatus: user.status,
+        nextStatus: payload.status,
+      },
+    });
+
+    return {
+      id: userId,
+      status: payload.status,
+    };
+  }
+
+  async deletePlatformUser(userId: string, rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(deletePlatformUserSchema, rawBody);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          deletedAt: new Date(),
+          status: UserStatus.inactive,
+        },
+      });
+
+      await tx.session.deleteMany({ where: { userId } });
+    });
+
+    await this.createAuditLog({
+      actor,
+      action: 'DELETE_PLATFORM_USER',
+      module: 'user_management',
+      targetType: 'user',
+      targetId: userId,
+      metadata: {
+        email: user.email,
+        reason: payload.reason,
+      },
+    });
+  }
+
   async listTransactionsForMonitoring(rawQuery: unknown) {
     const query = this.validationService.validate(adminTransactionsQuerySchema, rawQuery);
     const where: Prisma.PaymentTransactionWhereInput = {
@@ -496,9 +659,10 @@ export class OperationsService {
           name: payload.fullName,
           phone: payload.phone ?? null,
           role: UserRole.ADMIN,
-          status: UserStatus.active,
+          status: UserStatus.inactive,
           emailVerified: true,
-          emailVerifiedAt: createdAdmin.emailVerifiedAt ?? new Date(),
+          emailVerifiedAt: new Date(),
+          passwordSetAt: null,
         },
       });
 
@@ -518,23 +682,7 @@ export class OperationsService {
       });
     });
 
-    await sendEmail({
-      to: normalizedEmail,
-      subject: 'Akun admin ExamCPNS telah dibuat',
-      text: [
-        `Halo ${payload.fullName},`,
-        '',
-        'Akun admin Anda telah dibuat oleh super admin.',
-        `Email: ${normalizedEmail}`,
-        `Temporary password: ${temporaryPassword}`,
-        '',
-        'Silakan login dan segera ubah password Anda.',
-      ].join('\n'),
-      meta: {
-        type: 'admin-account-created',
-        createdBy: actor.email,
-      },
-    });
+    await this.sendSetPasswordLink(normalizedEmail);
 
     await this.createAuditLog({
       actor,
@@ -552,7 +700,7 @@ export class OperationsService {
       id: createdAdmin.id,
       email: createdAdmin.email,
       role: UserRole.ADMIN,
-      status: UserStatus.active,
+      status: UserStatus.inactive,
     };
   }
 
@@ -1077,6 +1225,35 @@ export class OperationsService {
         metadata: params.metadata as Prisma.InputJsonValue | undefined,
       },
     });
+  }
+
+  private getFrontendUrl() {
+    return process.env.FRONTEND_URL ?? 'http://localhost:3000';
+  }
+
+  private async sendSetPasswordLink(email: string) {
+    const authResponse = await auth.api.requestPasswordReset({
+      asResponse: true,
+      headers: this.toInternalAuthHeaders(),
+      body: {
+        email,
+        redirectTo: `${this.getFrontendUrl()}/auth/reset-password`,
+      },
+    });
+
+    if (!authResponse.ok) {
+      let message = 'Gagal mengirim email atur password';
+      try {
+        const responsePayload = (await authResponse.json()) as { message?: string };
+        if (responsePayload.message) {
+          message = responsePayload.message;
+        }
+      } catch {
+        // keep default
+      }
+
+      throw new InternalServerErrorException(message);
+    }
   }
 
   private toInternalAuthHeaders() {

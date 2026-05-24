@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { AUTH_COOKIE_PREFIX } from "@/lib/auth/config";
 
-const authRoutes = new Set(["/auth/login", "/auth/register"]);
+const authRoutes = new Set(["/auth/login", "/auth/register", "/auth/verify-email"]);
 
 export function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request, {

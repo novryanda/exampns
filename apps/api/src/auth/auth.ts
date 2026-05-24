@@ -65,19 +65,29 @@ export const auth = betterAuth({
     maxPasswordLength: 128,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
-      void sendAuthEmail('reset-password', user.email, url, {
-        appName: 'ExamCPNS API',
-      });
+      try {
+        await sendAuthEmail('reset-password', user.email, url, {
+          appName: 'ExamCPNS',
+        });
+      } catch (error: unknown) {
+        console.error('[email] failed to send reset-password email', error);
+        throw error;
+      }
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
-      void sendAuthEmail('verify-email', user.email, url, {
-        appName: 'ExamCPNS API',
-      });
+      try {
+        await sendAuthEmail('verify-email', user.email, url, {
+          appName: 'ExamCPNS',
+        });
+      } catch (error: unknown) {
+        console.error('[email] failed to send verify-email to', user.email, error);
+        throw error;
+      }
     },
     sendOnSignUp: true,
-    autoSignInAfterVerification: true,
+    autoSignInAfterVerification: false,
     expiresIn: 60 * 60 * 24,
   },
   session: {

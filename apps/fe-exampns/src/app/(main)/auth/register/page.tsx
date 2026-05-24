@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { APP_CONFIG } from "@/config/app-config";
+import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { getServerAuthSession } from "@/lib/auth/server-auth";
 
 import { RegisterForm } from "../_components/register-form";
@@ -9,7 +10,7 @@ import { RegisterForm } from "../_components/register-form";
 export default async function RegisterV2() {
   const session = await getServerAuthSession();
   if (session?.user) {
-    redirect("/dashboard");
+    redirect(getPostAuthRedirectPath(session.user.role));
   }
 
   return (

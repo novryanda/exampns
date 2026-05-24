@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { signIn } from "@/lib/auth/auth-client";
+import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldContent, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -36,7 +37,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(() => {
       void (async () => {
-        const { error } = await signIn.email({
+        const { data, error } = await signIn.email({
           email: values.email,
           password: values.password,
           rememberMe: values.remember ?? true,
@@ -55,8 +56,13 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           return;
         }
 
-        toast.success("Login berhasil. Mengarahkan ke dashboard...");
-        router.replace("/dashboard");
+        const redirectPath = getPostAuthRedirectPath(data?.user?.role);
+        toast.success(
+          redirectPath === "/dashboard"
+            ? "Login berhasil. Mengarahkan ke dashboard..."
+            : "Login berhasil. Selamat datang di ExamCPNS.",
+        );
+        router.replace(redirectPath);
         router.refresh();
       })();
     });

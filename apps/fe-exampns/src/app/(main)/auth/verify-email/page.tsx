@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { APP_CONFIG } from "@/config/app-config";
-import { getServerAuthSession } from "@/lib/auth/server-auth";
 
 type VerifyEmailPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -17,17 +16,16 @@ function readParam(value: string | string[] | undefined) {
 }
 
 export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageProps) {
-  const session = await getServerAuthSession();
-  if (session?.user?.emailVerified) {
-    redirect("/dashboard");
-  }
-
   const params = await searchParams;
   const error = readParam(params.error);
   const verified = readParam(params.verified);
 
-  const isSuccess = verified === "true" || (!error && session?.user?.emailVerified);
+  const isSuccess = verified === "true";
   const isError = Boolean(error);
+
+  if (isSuccess) {
+    redirect("/auth/login?verified=1");
+  }
 
   return (
     <>
@@ -38,28 +36,20 @@ export default async function VerifyEmailPage({ searchParams }: VerifyEmailPageP
           </h1>
           <p className="text-muted-foreground text-sm">
             {isSuccess
-              ? "Akun Anda sudah aktif. Trial akan tersedia setelah login jika konfigurasi trial aktif di sistem."
+              ? "Akun Anda sudah aktif. Silakan login untuk mulai menggunakan ExamCPNS."
               : isError
-                ? "Link verifikasi tidak valid atau sudah kedaluwarsa. Kirim ulang email verifikasi dari halaman login."
-                : "Buka link verifikasi dari email Anda. Jika belum menerima email, kirim ulang dari halaman login."}
+                ? "Link verifikasi tidak valid atau sudah kedaluwarsa. Daftar ulang atau hubungi admin jika perlu bantuan."
+                : "Setelah mengklik link verifikasi di email, Anda akan diarahkan ke halaman login. Lalu masuk dengan akun yang sudah didaftarkan."}
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
           <Link
-            href="/auth/login"
+            href={isSuccess ? "/auth/login?verified=1" : "/auth/login"}
             className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-primary-foreground text-sm font-medium"
           >
-            Ke halaman login
+            {isSuccess ? "Login sekarang" : "Ke halaman login"}
           </Link>
-          {!isSuccess ? (
-            <Link
-              href="/auth/login?resend=1"
-              className="inline-flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium"
-            >
-              Kirim ulang verifikasi
-            </Link>
-          ) : null}
         </div>
       </div>
 

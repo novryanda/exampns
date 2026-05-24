@@ -12,13 +12,20 @@ if [ ! -x "$PG_BIN/pg_ctl" ]; then
   exit 1
 fi
 
-if "$PG_BIN/pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
+PG_CTL_OPTS='-p 5432 -c unix_socket_directories=/tmp -c listen_addresses=localhost'
+
+if "$PG_BIN/pg_isready" -h 127.0.0.1 -p 5432 >/dev/null 2>&1; then
   echo "PostgreSQL already running."
-  "$PG_BIN/pg_isready" -h localhost -p 5432
+  "$PG_BIN/pg_isready" -h 127.0.0.1 -p 5432
   exit 0
 fi
 
-"$PG_BIN/pg_ctl" -D "$PGDATA" -l "$HOME/pgsql.log" -o "-p 5432" start
+if "$PG_BIN/pg_ctl" -D "$PGDATA" status >/dev/null 2>&1; then
+  echo "Removing stale postmaster.pid (server not accepting connections)."
+  rm -f "$PGDATA/postmaster.pid"
+fi
+
+"$PG_BIN/pg_ctl" -D "$PGDATA" -l "$HOME/pgsql.log" -o "$PG_CTL_OPTS" start
 sleep 2
-"$PG_BIN/pg_isready" -h localhost -p 5432
+"$PG_BIN/pg_isready" -h 127.0.0.1 -p 5432
 echo "PostgreSQL ready on localhost:5432 (user: postgres, db: exampns_api)"

@@ -66,22 +66,3 @@ export async function registerUser(payload: RegisterPayload) {
 
   return parseResponse<RegisterSuccessData>(response);
 }
-
-export async function resendVerificationEmail(email: string) {
-  const response = await fetch(`${BACKEND_API_URL}/api/v1/auth/resend-verification`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email }),
-  });
-
-  const payload = (await response.json()) as ApiSuccessResponse<unknown> | ApiErrorResponse;
-
-  if (!response.ok || !payload.success) {
-    const errorPayload = payload as ApiErrorResponse;
-    throw new RegisterApiError(errorPayload.message ?? "Gagal mengirim ulang email verifikasi.");
-  }
-
-  return (payload as ApiSuccessResponse<unknown>).message;
-}

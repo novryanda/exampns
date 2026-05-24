@@ -66,7 +66,7 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={sidebarItems} />
+        <NavMain items={sidebarItems} userRole={currentUser.role} />
       </SidebarContent>
       <SidebarFooter>
         <SidebarSupportCard />

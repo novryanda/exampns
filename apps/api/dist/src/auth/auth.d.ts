@@ -10,7 +10,7 @@ export declare const auth: import("better-auth").Auth<{
     trustedOrigins: string[];
     databaseHooks: {
         user: {
-            create: {
+            update: {
                 after(user: {
                     id: string;
                     createdAt: Date;
@@ -63,6 +63,9 @@ export declare const auth: import("better-auth").Auth<{
         minPasswordLength: number;
         maxPasswordLength: number;
         revokeSessionsOnPasswordReset: true;
+        onPasswordReset: ({ user }: {
+            user: import("better-auth").User;
+        }) => Promise<void>;
         sendResetPassword: ({ user, url }: {
             user: import("better-auth").User;
             url: string;
@@ -75,8 +78,8 @@ export declare const auth: import("better-auth").Auth<{
             url: string;
             token: string;
         }) => Promise<void>;
-        sendOnSignUp: true;
-        autoSignInAfterVerification: true;
+        sendOnSignUp: false;
+        autoSignInAfterVerification: false;
         expiresIn: number;
     };
     session: {

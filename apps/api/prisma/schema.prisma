@@ -183,6 +183,7 @@ model User {
   status                    UserStatus             @default(active)
   emailVerified             Boolean                @default(false) @map("email_verified")
   emailVerifiedAt           DateTime?              @map("email_verified_at")
+  passwordSetAt             DateTime?              @map("password_set_at")
   lastLoginAt               DateTime?              @map("last_login_at")
   createdAt                 DateTime               @default(now()) @map("created_at")
   updatedAt                 DateTime               @updatedAt @map("updated_at")

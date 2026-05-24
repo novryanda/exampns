@@ -111,6 +111,17 @@ export declare class OperationsService {
             lastExamAt: Date;
         };
     }>;
+    createPlatformUser(rawBody: unknown, actor: AuthenticatedUser): Promise<{
+        id: string;
+        email: string;
+        role: "USER";
+        status: "inactive";
+    }>;
+    updatePlatformUserStatus(userId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<{
+        id: string;
+        status: "active" | "inactive" | "suspended";
+    }>;
+    deletePlatformUser(userId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     listTransactionsForMonitoring(rawQuery: unknown): Promise<{
         data: {
             id: string;
@@ -142,7 +153,7 @@ export declare class OperationsService {
         id: string;
         email: string;
         role: "ADMIN";
-        status: "active";
+        status: "inactive";
     }>;
     deactivateAdmin(adminId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     createSubscriptionPlan(rawBody: unknown, actor: AuthenticatedUser): Promise<{
@@ -223,6 +234,8 @@ export declare class OperationsService {
     }>;
     private deriveSubscriptionStatus;
     private createAuditLog;
+    private getFrontendUrl;
+    private sendSetPasswordLink;
     private toInternalAuthHeaders;
     private generateTemporaryPassword;
 }

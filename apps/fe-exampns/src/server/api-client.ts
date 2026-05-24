@@ -35,7 +35,16 @@ export async function serverApiFetch<T>(path: string, init?: RequestInit): Promi
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${path} (${response.status})`);
+    let message = `API request failed: ${path} (${response.status})`;
+    try {
+      const payload = (await response.json()) as { message?: string };
+      if (payload.message) {
+        message = payload.message;
+      }
+    } catch {
+      // keep default message
+    }
+    throw new Error(message);
   }
 
   return (await response.json()) as T;

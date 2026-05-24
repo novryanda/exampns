@@ -22,9 +22,11 @@ export const auth = betterAuth({
   trustedOrigins: [appUrl, frontendUrl],
   databaseHooks: {
     user: {
-      create: {
+      update: {
         async after(user) {
-          await provisionTrialSubscriptionForUser(user.id);
+          if (user.emailVerified) {
+            await provisionTrialSubscriptionForUser(user.id);
+          }
         },
       },
     },
@@ -76,7 +78,7 @@ export const auth = betterAuth({
     },
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    expiresIn: 60 * 60,
+    expiresIn: 60 * 60 * 24,
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7,

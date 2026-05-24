@@ -34,6 +34,7 @@ export interface NavMainItem {
   icon?: LucideIcon;
   subItems?: NavSubItem[];
   comingSoon?: boolean;
+  superAdminOnly?: boolean;
   newTab?: boolean;
   isNew?: boolean;
 }
@@ -97,7 +98,7 @@ export const sidebarItems: NavGroup[] = [
         title: "Admin Accounts",
         url: "/dashboard/admin-accounts",
         icon: ShieldUser,
-        comingSoon: true,
+        superAdminOnly: true,
       },
       {
         title: "Manual Activation",

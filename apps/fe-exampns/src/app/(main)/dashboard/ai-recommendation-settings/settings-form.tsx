@@ -9,10 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { AiRecommendationSettings } from "@/server/admin-data";
-import {
-  initialAdminActionState,
-  updateAiRecommendationSettingsAction,
-} from "@/server/admin-actions";
+import { initialAdminActionState } from "@/server/admin-action-state";
+import { updateAiRecommendationSettingsAction } from "@/server/admin-actions";
 
 function ToggleField({
   name,

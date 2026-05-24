@@ -90,6 +90,26 @@ export class AuthRegistrationService {
       });
     }
 
+    const verificationResponse = await auth.api.sendVerificationEmail({
+      asResponse: true,
+      headers: this.toInternalAuthHeaders(),
+      body: {
+        email,
+        callbackURL: `${frontendUrl}/auth/login?verified=1`,
+      },
+    });
+
+    if (!verificationResponse.ok) {
+      const payload = await this.parseAuthError(verificationResponse);
+      throw new InternalServerErrorException({
+        success: false,
+        message: payload.message ?? 'Registrasi berhasil tetapi gagal mengirim email verifikasi.',
+        error: {
+          code: payload.code ?? 'VERIFICATION_EMAIL_FAILED',
+        },
+      });
+    }
+
     return {
       userId: user.id,
       email: user.email,

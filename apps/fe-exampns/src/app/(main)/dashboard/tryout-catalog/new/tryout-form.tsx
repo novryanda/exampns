@@ -14,10 +14,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { PassingGradeConfig } from "@/server/admin-data";
-import {
-  createTryoutCatalogAction,
-  initialCreateTryoutActionState,
-} from "@/server/admin-actions";
+import { initialCreateTryoutActionState } from "@/server/admin-action-state";
+import { createTryoutCatalogAction } from "@/server/admin-actions";
 
 const steps = [
   "Basic Info",

@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query, } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Put, Query, } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { apiData, apiMessage, apiPaginated, } from '../common/api-response.js';
@@ -21,10 +21,20 @@ let SuperAdminController = class SuperAdminController {
         this.operationsService = operationsService;
     }
     async createAdmin(body, actor) {
-        return apiData(await this.operationsService.createAdmin(body, actor), 'Akun admin berhasil dibuat');
+        return apiData(await this.operationsService.createAdmin(body, actor), 'Akun admin dibuat (inactive). Admin harus atur password dari link di email.');
     }
     async listAdmins() {
         return apiData(await this.operationsService.listAdmins());
+    }
+    async createPlatformUser(body, actor) {
+        return apiData(await this.operationsService.createPlatformUser(body, actor), 'Akun user dibuat (inactive). User harus atur password dari link di email.');
+    }
+    async updatePlatformUserStatus(userId, body, actor) {
+        return apiData(await this.operationsService.updatePlatformUserStatus(userId, body, actor), 'Status user berhasil diperbarui');
+    }
+    async deletePlatformUser(userId, body, actor) {
+        await this.operationsService.deletePlatformUser(userId, body, actor);
+        return apiMessage('User berhasil dihapus');
     }
     async deactivateAdmin(adminId, body, actor) {
         await this.operationsService.deactivateAdmin(adminId, body, actor);
@@ -81,6 +91,33 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], SuperAdminController.prototype, "listAdmins", null);
+__decorate([
+    Post('users'),
+    HttpCode(HttpStatus.CREATED),
+    __param(0, Body()),
+    __param(1, CurrentUser()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "createPlatformUser", null);
+__decorate([
+    Patch('users/:userId/status'),
+    __param(0, Param('userId')),
+    __param(1, Body()),
+    __param(2, CurrentUser()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "updatePlatformUserStatus", null);
+__decorate([
+    Delete('users/:userId'),
+    __param(0, Param('userId')),
+    __param(1, Body()),
+    __param(2, CurrentUser()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], SuperAdminController.prototype, "deletePlatformUser", null);
 __decorate([
     Patch('admins/:adminId/deactivate'),
     __param(0, Param('adminId')),

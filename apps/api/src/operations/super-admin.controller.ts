@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -36,13 +37,47 @@ export class SuperAdminController {
   ): Promise<ApiSuccessResponse<{ id: string; email: string; role: string; status: string }>> {
     return apiData(
       await this.operationsService.createAdmin(body, actor),
-      'Akun admin berhasil dibuat',
+      'Akun admin dibuat (inactive). Admin harus atur password dari link di email.',
     );
   }
 
   @Get('admins')
   async listAdmins(): Promise<ApiSuccessResponse<unknown[]>> {
     return apiData(await this.operationsService.listAdmins());
+  }
+
+  @Post('users')
+  @HttpCode(HttpStatus.CREATED)
+  async createPlatformUser(
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<{ id: string; email: string; role: string; status: string }>> {
+    return apiData(
+      await this.operationsService.createPlatformUser(body, actor),
+      'Akun user dibuat (inactive). User harus atur password dari link di email.',
+    );
+  }
+
+  @Patch('users/:userId/status')
+  async updatePlatformUserStatus(
+    @Param('userId') userId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<{ id: string; status: string }>> {
+    return apiData(
+      await this.operationsService.updatePlatformUserStatus(userId, body, actor),
+      'Status user berhasil diperbarui',
+    );
+  }
+
+  @Delete('users/:userId')
+  async deletePlatformUser(
+    @Param('userId') userId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiMessageResponse> {
+    await this.operationsService.deletePlatformUser(userId, body, actor);
+    return apiMessage('User berhasil dihapus');
   }
 
   @Patch('admins/:adminId/deactivate')

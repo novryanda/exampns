@@ -29,6 +29,7 @@ import type { NavGroup, NavMainItem } from "@/navigation/sidebar/sidebar-items";
 
 interface NavMainProps {
   readonly items: readonly NavGroup[];
+  readonly userRole?: string;
 }
 
 const IsComingSoon = () => (
@@ -141,13 +142,23 @@ const NavItemCollapsed = ({
   );
 };
 
-export function NavMain({ items }: NavMainProps) {
+export function NavMain({ items, userRole }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile } = useSidebar();
+
+  const visibleItems = items.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => !item.superAdminOnly || userRole === "SUPER_ADMIN",
+    ),
+  }));
 
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
     if (subItems?.length) {
       return subItems.some((sub) => path.startsWith(sub.url));
+    }
+    if (url !== "/dashboard" && path.startsWith(`${url}/`)) {
+      return true;
     }
     return path === url;
   };
@@ -166,7 +177,7 @@ export function NavMain({ items }: NavMainProps) {
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
-      {items.map((group) => (
+      {visibleItems.map((group) => (
         <SidebarGroup key={group.id}>
           {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
           <SidebarGroupContent className="flex flex-col gap-2">

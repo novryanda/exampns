@@ -84,4 +84,15 @@ export const createAdminSchema = z.object({
     email: z.string().email().max(255),
     phone: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
 });
+export const createPlatformUserSchema = z.object({
+    fullName: z.string().min(2).max(150),
+    email: z.string().email().max(255),
+    phone: z.preprocess(emptyToUndefined, z.string().max(30).optional()),
+});
+export const updatePlatformUserStatusSchema = z.object({
+    status: z.nativeEnum(UserStatus),
+});
+export const deletePlatformUserSchema = z.object({
+    reason: z.preprocess(emptyToUndefined, z.string().min(5).max(500).optional()),
+});
 //# sourceMappingURL=operations.schemas.js.map

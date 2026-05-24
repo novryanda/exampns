@@ -1,12 +1,19 @@
-import { Ban, Search, ShieldCheck, UserRound, Users2 } from "lucide-react";
+import Link from "next/link";
+import { Suspense } from "react";
+
+import { Ban, Eye, ShieldCheck, UserRound, Users2 } from "lucide-react";
 
 import { DistributionDonutChart } from "@/components/examcpns-admin/charts";
-import { MetricCard, PageHeader, SectionCard, StatusBadge } from "@/components/examcpns-admin/ui";
+import { MetricCard, SectionCard, StatusBadge } from "@/components/examcpns-admin/ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { requirePrivilegedProfile } from "@/lib/auth/server-auth";
 import { getAdminUsers } from "@/server/admin-data";
+
+import { UserRowActions } from "./_components/user-row-actions";
+import { UsersFilters } from "./_components/users-filters";
+import { UsersManagementHeader } from "./_components/users-management-header";
+import { UsersPagination } from "./_components/users-pagination";
 
 const statIcons = [Users2, ShieldCheck, UserRound, Ban] as const;
 const statTints = ["blue", "green", "violet", "red"] as const;
@@ -36,9 +43,38 @@ function toLabel(value: string) {
     .join(" ");
 }
 
-export default async function UsersPage() {
+type UsersPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function readParam(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
+  }
+  return value ?? "";
+}
+
+export default async function UsersPage({ searchParams }: UsersPageProps) {
+  const profile = await requirePrivilegedProfile();
+  const isSuperAdmin = profile.role === "SUPER_ADMIN";
+
+  const params = await searchParams;
+  const search = readParam(params.search).trim();
+  const status = readParam(params.status);
+  const subscriptionStatus = readParam(params.subscriptionStatus);
+  const page = Math.max(1, Number(readParam(params.page)) || 1);
+
+  const listParams = {
+    search: search || undefined,
+    status: status && status !== "all" ? status : undefined,
+    subscriptionStatus:
+      subscriptionStatus && subscriptionStatus !== "all" ? subscriptionStatus : undefined,
+    page,
+    limit: 20,
+  };
+
   const [allUsers, activeUsers, trialUsers, suspendedUsers] = await Promise.all([
-    getAdminUsers({ limit: 10 }),
+    getAdminUsers(listParams),
     getAdminUsers({ status: "active", limit: 1 }),
     getAdminUsers({ subscriptionStatus: "trial", limit: 1 }),
     getAdminUsers({ status: "suspended", limit: 1 }),
@@ -92,46 +128,19 @@ export default async function UsersPage() {
     { name: "Suspended", value: suspendedUsers.meta.totalItems, fill: "#ef4444" },
   ];
 
+  const filterState = { search, status, subscriptionStatus };
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Users"
-        description="Kelola pengguna platform berdasarkan data monitoring backend terbaru."
-        actions={
-          <Button variant="outline" className="rounded-xl border-slate-200 bg-white">
-            Export
-          </Button>
-        }
-      />
+      <UsersManagementHeader isSuperAdmin={isSuperAdmin} />
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-80 flex-1">
-          <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-slate-400" />
-          <Input className="rounded-xl border-slate-200 pl-9" placeholder="Cari nama atau email pengguna..." />
-        </div>
-        <Select defaultValue="all-status">
-          <SelectTrigger className="w-44 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Semua Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all-status">Semua Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="suspended">Suspended</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select defaultValue="all-subscription">
-          <SelectTrigger className="w-52 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Semua Subscription" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all-subscription">Semua Subscription</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="trial">Trial</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <Suspense fallback={null}>
+        <UsersFilters
+          search={search}
+          status={status || "all"}
+          subscriptionStatus={subscriptionStatus || "all"}
+        />
+      </Suspense>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {metrics.map((item, index) => {
@@ -154,7 +163,7 @@ export default async function UsersPage() {
       <div className="grid gap-4 2xl:grid-cols-[1.55fr_0.75fr]">
         <SectionCard
           title="Daftar Users"
-          description={`Showing ${allUsers.data.length} dari ${allUsers.meta.totalItems.toLocaleString("id-ID")} users`}
+          description={`Menampilkan ${allUsers.data.length} dari ${allUsers.meta.totalItems.toLocaleString("id-ID")} user`}
         >
           <Table>
             <TableHeader>
@@ -165,13 +174,14 @@ export default async function UsersPage() {
                 <TableHead>Subscription</TableHead>
                 <TableHead>Total Exam</TableHead>
                 <TableHead>Last Active</TableHead>
+                <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {allUsers.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-slate-400">
-                    Belum ada data user.
+                  <TableCell colSpan={7} className="py-10 text-center text-slate-400">
+                    Tidak ada user yang cocok dengan filter.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -189,11 +199,28 @@ export default async function UsersPage() {
                     </TableCell>
                     <TableCell>{user.totalExams}</TableCell>
                     <TableCell>{formatDateTime(user.lastActiveAt)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end gap-2">
+                        <Button variant="ghost" size="sm" className="rounded-lg" asChild>
+                          <Link href={`/dashboard/users/${user.id}`}>
+                            <Eye className="mr-1 size-4" />
+                            Detail
+                          </Link>
+                        </Button>
+                        {isSuperAdmin ? <UserRowActions user={user} /> : null}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
             </TableBody>
           </Table>
+
+          <UsersPagination
+            page={allUsers.meta.page}
+            totalPages={allUsers.meta.totalPages}
+            filters={filterState}
+          />
         </SectionCard>
 
         <div className="flex flex-col gap-4">
@@ -201,26 +228,15 @@ export default async function UsersPage() {
             <DistributionDonutChart data={subscriptionDistribution} />
           </SectionCard>
 
-          <SectionCard title="Monitoring Notes" description="Interpretasi singkat dari data pengguna saat ini.">
-            <div className="space-y-3">
-              <div className="rounded-2xl border border-slate-100 px-4 py-4">
-                <p className="font-medium text-slate-950 text-sm">User aktif mendominasi</p>
-                <p className="mt-1 text-slate-500 text-sm">
-                  {activeUsers.meta.totalItems} dari {allUsers.meta.totalItems} user berada dalam status aktif.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 px-4 py-4">
-                <p className="font-medium text-slate-950 text-sm">Trial masih signifikan</p>
-                <p className="mt-1 text-slate-500 text-sm">
-                  {trialUsers.meta.totalItems} user masih menggunakan akses trial dan berpotensi dikonversi.
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 px-4 py-4">
-                <p className="font-medium text-slate-950 text-sm">Akun suspended</p>
-                <p className="mt-1 text-slate-500 text-sm">
-                  {suspendedUsers.meta.totalItems} user sedang berada pada status suspended dan perlu perhatian admin.
-                </p>
-              </div>
+          <SectionCard title="Panduan" description="Users vs Admin Accounts">
+            <div className="space-y-3 text-slate-500 text-sm">
+              <p>
+                <strong>Users:</strong> pengguna tryout (role USER). Super admin bisa tambah, suspend,
+                aktifkan, hapus.
+              </p>
+              <p>
+                <strong>Admin Accounts:</strong> kelola akun ADMIN (buat / nonaktifkan) di menu terpisah.
+              </p>
             </div>
           </SectionCard>
         </div>

@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { signIn } from "@/lib/auth/auth-client";
+import { signIn, signOut } from "@/lib/auth/auth-client";
 import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -38,7 +38,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
     startTransition(() => {
       void (async () => {
         const { data, error } = await signIn.email({
-          email: values.email,
+          email: values.email.trim().toLowerCase(),
           password: values.password,
           rememberMe: values.remember ?? true,
         });
@@ -53,6 +53,15 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
             toast.error(message);
           }
 
+          return;
+        }
+
+        const accountStatus = data?.user?.status;
+        if (accountStatus && accountStatus !== "active") {
+          await signOut();
+          toast.error(
+            "Akun belum aktif. Untuk undangan admin: atur password dari link di email. Untuk daftar mandiri: verifikasi email terlebih dahulu.",
+          );
           return;
         }
 

@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { CircleUser, CreditCard, EllipsisVertical, Loader2, LogOut, MessageSquareDot } from "lucide-react";
 import { toast } from "sonner";
 
-import { signOut } from "@/lib/auth/auth-client";
+import { performLogout } from "@/lib/auth/logout";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -117,7 +117,13 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} disabled={isPending}>
+            <DropdownMenuItem
+              onSelect={(event) => {
+                event.preventDefault();
+                handleSignOut();
+              }}
+              disabled={isPending}
+            >
               {isPending ? <Loader2 className="size-4 animate-spin" /> : <LogOut />}
               Log out
             </DropdownMenuItem>

@@ -1,9 +1,20 @@
 import { createAuthClient } from "better-auth/react";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { FRONTEND_APP_URL } from "@/lib/auth/config";
+
+function resolveAuthBaseUrl() {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return FRONTEND_APP_URL;
+}
 
 export const authClient = createAuthClient({
-  baseURL: BACKEND_API_URL,
+  baseURL: resolveAuthBaseUrl(),
+  fetchOptions: {
+    credentials: "include",
+  },
 });
 
 export const { signIn, signOut, signUp, useSession, getSession } = authClient;

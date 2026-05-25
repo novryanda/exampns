@@ -49,10 +49,10 @@ export function NavUser({
   const handleSignOut = () => {
     startTransition(() => {
       void (async () => {
-        const { error } = await signOut();
+        const result = await performLogout();
 
-        if (error) {
-          toast.error(error.message ?? "Logout gagal. Silakan coba lagi.");
+        if (!result.success) {
+          toast.error(result.message);
           return;
         }
 

@@ -54,17 +54,21 @@ async function getRequestCookieHeader() {
 async function fetchJson<T>(path: string) {
   const cookie = await getRequestCookieHeader();
 
-  const response = await fetch(`${BACKEND_API_URL}${path}`, {
-    method: "GET",
-    headers: cookie ? { cookie } : undefined,
-    cache: "no-store",
-  });
+  try {
+    const response = await fetch(`${BACKEND_API_URL}${path}`, {
+      method: "GET",
+      headers: cookie ? { cookie } : undefined,
+      cache: "no-store",
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return null;
+    }
+
+    return (await response.json()) as T;
+  } catch {
     return null;
   }
-
-  return (await response.json()) as T;
 }
 
 export async function getServerAuthSession() {

@@ -10,6 +10,7 @@
     "build": "nest build",
     "db:push": "prisma db push",
     "db:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "db:seed:dummy-users": "node --loader ts-node/esm prisma/seed-dummy-users.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

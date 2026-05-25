@@ -172,11 +172,21 @@ export async function getAdminUserDetail(userId: string) {
   return response.data;
 }
 
-export async function getSuperAdminAccounts() {
-  const response = await serverApiFetch<ApiSuccessResponse<SuperAdminAccountItem[]>>(
-    "/api/v1/super-admin/admins",
+export async function getSuperAdminAccounts(params?: {
+  search?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}) {
+  const response = await serverApiFetch<ApiPaginatedResponse<SuperAdminAccountItem[]>>(
+    `/api/v1/super-admin/admins${toQueryString({
+      search: params?.search,
+      status: params?.status,
+      page: params?.page ?? 1,
+      limit: params?.limit ?? 20,
+    })}`,
   );
-  return response.data;
+  return response;
 }
 
 export async function getAdminTransactions(params?: {

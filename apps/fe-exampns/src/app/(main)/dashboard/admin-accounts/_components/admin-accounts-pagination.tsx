@@ -1,6 +1,6 @@
 import { NumberedPagination } from "@/components/examcpns-admin/numbered-pagination";
 
-export function UsersPagination({
+export function AdminAccountsPagination({
   page,
   totalPages,
   totalItems,
@@ -9,11 +9,11 @@ export function UsersPagination({
   readonly page: number;
   readonly totalPages: number;
   readonly totalItems: number;
-  readonly filters: { search?: string; status?: string; subscriptionStatus?: string };
+  readonly filters: { search?: string; status?: string };
 }) {
   return (
     <NumberedPagination
-      basePath="/dashboard/users"
+      basePath="/dashboard/admin-accounts"
       page={page}
       totalPages={totalPages}
       totalItems={totalItems}

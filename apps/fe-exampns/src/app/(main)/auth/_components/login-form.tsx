@@ -56,7 +56,10 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           return;
         }
 
-        const accountStatus = data?.user?.status;
+        const signedInUser = data?.user as
+          | { role?: string; status?: "active" | "inactive" | "suspended" }
+          | undefined;
+        const accountStatus = signedInUser?.status;
         if (accountStatus && accountStatus !== "active") {
           await signOut();
           toast.error(
@@ -65,7 +68,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           return;
         }
 
-        const redirectPath = getPostAuthRedirectPath(data?.user?.role);
+        const redirectPath = getPostAuthRedirectPath(signedInUser?.role);
         toast.success(
           redirectPath === "/dashboard"
             ? "Login berhasil. Mengarahkan ke dashboard..."
@@ -90,7 +93,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
                 {...field}
                 id="login-email"
                 type="email"
-                placeholder="admin@examcpns.id"
+                placeholder="superadmin@examcpns.local"
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
                 disabled={isPending}

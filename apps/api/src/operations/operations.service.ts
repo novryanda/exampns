@@ -294,6 +294,7 @@ export class OperationsService {
         id: user.id,
         fullName: user.name,
         email: user.email,
+        image: user.image,
         status: user.status,
         subscriptionStatus: this.deriveSubscriptionStatus(user.userSubscriptions[0] ?? null),
         totalExams: user._count.examResults,
@@ -346,6 +347,7 @@ export class OperationsService {
       id: user.id,
       fullName: user.name,
       email: user.email,
+      image: user.image,
       phone: user.phone,
       status: user.status,
       subscription: latestSubscription
@@ -615,6 +617,7 @@ export class OperationsService {
         id: admin.id,
         fullName: admin.name,
         email: admin.email,
+        image: admin.image,
         status: admin.status,
         lastLoginAt: admin.lastLoginAt,
       })),

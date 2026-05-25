@@ -36,6 +36,7 @@ export interface AdminUserItem {
   id: string;
   fullName: string;
   email: string;
+  image: string | null;
   status: "active" | "inactive" | "suspended";
   subscriptionStatus: "active" | "expired" | "trial";
   totalExams: number;
@@ -46,6 +47,7 @@ export interface AdminUserDetail {
   id: string;
   fullName: string;
   email: string;
+  image: string | null;
   phone: string | null;
   status: "active" | "inactive" | "suspended";
   subscription: {
@@ -65,6 +67,7 @@ export interface SuperAdminAccountItem {
   id: string;
   fullName: string;
   email: string;
+  image: string | null;
   status: "active" | "inactive" | "suspended";
   lastLoginAt: string | null;
 }

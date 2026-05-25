@@ -191,7 +191,6 @@ export const sidebarItems: NavGroup[] = [
         title: "Profile",
         url: "/dashboard/profile",
         icon: UserRound,
-        comingSoon: true,
       },
       {
         title: "Logout",

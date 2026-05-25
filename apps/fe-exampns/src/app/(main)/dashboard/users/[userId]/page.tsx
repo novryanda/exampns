@@ -9,6 +9,7 @@ import { requirePrivilegedProfile } from "@/lib/auth/server-auth";
 import { getAdminUserDetail } from "@/server/admin-data";
 
 import { UserDetailActions } from "../_components/user-detail-actions";
+import { UserDetailPhoto } from "../_components/user-detail-photo";
 
 function formatDateTime(value: string | null) {
   if (!value) {
@@ -101,6 +102,10 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard title="Profil" description="Data akun pengguna">
+          <div className="mb-6">
+            <p className="mb-3 font-medium text-slate-700 text-sm">Foto profil</p>
+            <UserDetailPhoto name={user.fullName} imageUrl={user.image} />
+          </div>
           <dl className="space-y-4 text-sm">
             <div className="flex items-start gap-3">
               <UserRound className="mt-0.5 size-4 text-slate-400" />

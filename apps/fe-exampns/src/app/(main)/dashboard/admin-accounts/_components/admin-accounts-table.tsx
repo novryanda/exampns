@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
-import { ShieldUser, UserX } from "lucide-react";
+import { UserX } from "lucide-react";
 
+import { UserListAvatar } from "@/components/examcpns-admin/user-list-avatar";
 import { SectionCard, StatusBadge } from "@/components/examcpns-admin/ui";
 import { Button } from "@/components/ui/button";
 import {
@@ -81,8 +82,8 @@ export function AdminAccountsTable({
             admins.map((admin) => (
               <TableRow key={admin.id}>
                 <TableCell className="font-medium text-slate-950">
-                  <span className="inline-flex items-center gap-2">
-                    <ShieldUser className="size-4 text-slate-400" />
+                  <span className="inline-flex items-center gap-3">
+                    <UserListAvatar name={admin.fullName} imageUrl={admin.image} />
                     {admin.fullName}
                   </span>
                 </TableCell>

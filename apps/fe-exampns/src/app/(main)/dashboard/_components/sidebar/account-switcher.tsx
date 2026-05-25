@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Bell, Check, CreditCard, Loader2, LogOut } from "lucide-react";
@@ -33,6 +33,17 @@ export function AccountSwitcher({
   const [activeUser, setActiveUser] = useState(users[0]);
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    if (!users.length) {
+      return;
+    }
+
+    setActiveUser((current) => {
+      const updated = users.find((user) => user.id === current?.id) ?? users[0];
+      return updated ?? current;
+    });
+  }, [users]);
+
   const handleSignOut = () => {
     startTransition(() => {
       void (async () => {
@@ -63,7 +74,11 @@ export function AccountSwitcher({
           aria-label={`Open account menu for ${activeUser.name}`}
         >
           <Avatar className="size-8 rounded-lg">
-            <AvatarImage src={activeUser.avatar || undefined} alt={activeUser.name} />
+            <AvatarImage
+              key={activeUser.avatar || activeUser.id}
+              src={activeUser.avatar || undefined}
+              alt={activeUser.name}
+            />
             <AvatarFallback>{getInitials(activeUser.name)}</AvatarFallback>
           </Avatar>
         </button>

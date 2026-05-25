@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Eye } from "lucide-react";
 
+import { UserListAvatar } from "@/components/examcpns-admin/user-list-avatar";
 import { SectionCard, StatusBadge } from "@/components/examcpns-admin/ui";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -83,7 +84,12 @@ export async function UsersTableSection({
                 <TableCell className="text-slate-500 tabular-nums">
                   {(allUsers.meta.page - 1) * listParams.limit + index + 1}
                 </TableCell>
-                <TableCell className="font-medium text-slate-950">{user.fullName}</TableCell>
+                <TableCell className="font-medium text-slate-950">
+                  <span className="inline-flex items-center gap-3">
+                    <UserListAvatar name={user.fullName} imageUrl={user.image} />
+                    {user.fullName}
+                  </span>
+                </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <StatusBadge tone={toStatusBadgeTone(user.status)}>{toLabel(user.status)}</StatusBadge>

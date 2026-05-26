@@ -48,18 +48,14 @@ export default async function LoginV2({ searchParams }: LoginPageProps) {
         </div>
       </div>
 
-      <div className="absolute top-5 flex w-full justify-end px-10">
+      <div className="absolute bottom-5 flex w-full justify-between px-10">
+        <div className="text-sm">{APP_CONFIG.copyright}</div>
         <div className="text-muted-foreground text-sm">
           Belum punya akun?{" "}
           <Link prefetch={false} className="text-foreground" href="/auth/register">
             Daftar
           </Link>
         </div>
-      </div>
-
-      <div className="absolute bottom-5 flex w-full justify-between px-10">
-        <div className="text-sm">{APP_CONFIG.copyright}</div>
-        <div className="text-muted-foreground text-xs">FR-AUTH-004/005 — Login & verifikasi email.</div>
       </div>
     </>
   );

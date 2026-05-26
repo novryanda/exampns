@@ -27,18 +27,14 @@ export default async function RegisterV2() {
         </div>
       </div>
 
-      <div className="absolute top-5 flex w-full justify-end px-10">
+      <div className="absolute bottom-5 flex w-full justify-between px-10">
+        <div className="text-sm">{APP_CONFIG.copyright}</div>
         <div className="text-muted-foreground text-sm">
           Sudah punya akun?{" "}
           <Link prefetch={false} className="text-foreground" href="/auth/login">
             Masuk
           </Link>
         </div>
-      </div>
-
-      <div className="absolute bottom-5 flex w-full justify-between px-10">
-        <div className="text-sm">{APP_CONFIG.copyright}</div>
-        <div className="text-muted-foreground text-xs">FR-AUTH-001/002 — Registrasi & verifikasi email.</div>
       </div>
     </>
   );

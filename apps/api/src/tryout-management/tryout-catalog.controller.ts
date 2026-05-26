@@ -58,8 +58,9 @@ export class TryoutCatalogController {
   async updateCatalog(
     @Param('tryoutCatalogId') tryoutCatalogId: string,
     @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ApiMessageResponse> {
-    await this.tryoutManagementService.updateTryoutCatalog(tryoutCatalogId, body);
+    await this.tryoutManagementService.updateTryoutCatalog(tryoutCatalogId, body, actor);
     return apiMessage('Tryout catalog berhasil diperbarui');
   }
 
@@ -87,8 +88,9 @@ export class TryoutCatalogController {
   @Post(':tryoutCatalogId/archive')
   async archiveCatalog(
     @Param('tryoutCatalogId') tryoutCatalogId: string,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ApiMessageResponse> {
-    await this.tryoutManagementService.archiveTryoutCatalog(tryoutCatalogId);
+    await this.tryoutManagementService.archiveTryoutCatalog(tryoutCatalogId, actor);
     return apiMessage('Tryout catalog berhasil diarsipkan');
   }
 

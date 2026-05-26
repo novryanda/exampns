@@ -42,6 +42,33 @@ export interface AdminUserItem {
   lastActiveAt: string | null;
 }
 
+export interface AdminUserDetail {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  status: "active" | "inactive" | "suspended";
+  subscription: {
+    status: "active" | "expired" | "trial";
+    endDate: string;
+    tryoutUsed: number;
+    tryoutLimit: number;
+  } | null;
+  examSummary: {
+    totalExams: number;
+    averageScore: number;
+    lastExamAt: string | null;
+  };
+}
+
+export interface SuperAdminAccountItem {
+  id: string;
+  fullName: string;
+  email: string;
+  status: "active" | "inactive" | "suspended";
+  lastLoginAt: string | null;
+}
+
 export interface AdminTransactionItem {
   id: string;
   invoiceNumber: string;
@@ -136,6 +163,20 @@ export async function getAdminUsers(params?: {
   );
 
   return response;
+}
+
+export async function getAdminUserDetail(userId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<AdminUserDetail>>(
+    `/api/v1/admin/users/${userId}`,
+  );
+  return response.data;
+}
+
+export async function getSuperAdminAccounts() {
+  const response = await serverApiFetch<ApiSuccessResponse<SuperAdminAccountItem[]>>(
+    "/api/v1/super-admin/admins",
+  );
+  return response.data;
 }
 
 export async function getAdminTransactions(params?: {

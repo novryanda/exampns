@@ -1,32 +1,69 @@
-import { getSessionCookie } from "better-auth/cookies";
 import { type NextRequest, NextResponse } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
+import { BACKEND_API_URL } from "@/lib/auth/config";
 import { AUTH_COOKIE_PREFIX } from "@/lib/auth/config";
 
-const authRoutes = new Set(["/auth/login", "/auth/register", "/auth/verify-email"]);
+const guestOnlyAuthRoutes = new Set(["/auth/login", "/auth/register"]);
 
-export function proxy(request: NextRequest) {
+interface ProxySessionPayload {
+  user?: {
+    role?: "SUPER_ADMIN" | "ADMIN" | "USER";
+  } | null;
+}
+
+async function getSessionPayload(request: NextRequest) {
+  const cookieHeader = request.headers.get("cookie");
+
+  const response = await fetch(`${BACKEND_API_URL}/api/auth/get-session`, {
+    method: "GET",
+    headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as ProxySessionPayload | null;
+}
+
+export async function proxy(request: NextRequest) {
   const sessionCookie = getSessionCookie(request, {
     cookiePrefix: AUTH_COOKIE_PREFIX,
   });
 
   const { pathname } = request.nextUrl;
 
-  if (!sessionCookie && pathname.startsWith("/dashboard")) {
+  if (
+    !sessionCookie &&
+    (pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/super-admin"))
+  ) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  if (sessionCookie && authRoutes.has(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (sessionCookie && guestOnlyAuthRoutes.has(pathname)) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname === "/") {
-    return NextResponse.redirect(new URL(sessionCookie ? "/dashboard" : "/auth/login", request.url));
+  if (sessionCookie && (pathname.startsWith("/admin") || pathname.startsWith("/super-admin"))) {
+    const session = await getSessionPayload(request);
+    const role = session?.user?.role;
+
+    if (pathname.startsWith("/admin") && role !== "ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
+
+    if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/auth/:path*", "/dashboard/:path*"],
+  matcher: ["/", "/auth/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*"],
 };

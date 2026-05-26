@@ -103,3 +103,18 @@ export declare const createAdminSchema: z.ZodObject<{
     email: z.ZodString;
     phone: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
 }, z.core.$strip>;
+export declare const createPlatformUserSchema: z.ZodObject<{
+    fullName: z.ZodString;
+    email: z.ZodString;
+    phone: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
+}, z.core.$strip>;
+export declare const updatePlatformUserStatusSchema: z.ZodObject<{
+    status: z.ZodEnum<{
+        readonly active: "active";
+        readonly inactive: "inactive";
+        readonly suspended: "suspended";
+    }>;
+}, z.core.$strip>;
+export declare const deletePlatformUserSchema: z.ZodObject<{
+    reason: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
+}, z.core.$strip>;

@@ -11,6 +11,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Controller, Get, Param, Query } from '@nestjs/common';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { apiData, apiPaginated, } from '../common/api-response.js';
 import { OperationsService } from './operations.service.js';
@@ -19,8 +20,8 @@ let AdminMonitoringController = class AdminMonitoringController {
     constructor(operationsService) {
         this.operationsService = operationsService;
     }
-    async getDashboardSummary() {
-        return apiData(await this.operationsService.getAdminDashboardSummary());
+    async getDashboardSummary(actor) {
+        return apiData(await this.operationsService.getAdminDashboardSummary(actor));
     }
     async listUsers(query) {
         const result = await this.operationsService.listUsersForMonitoring(query);
@@ -33,14 +34,20 @@ let AdminMonitoringController = class AdminMonitoringController {
         const result = await this.operationsService.listTransactionsForMonitoring(query);
         return apiPaginated(result.data, result.meta);
     }
+    async getMyAuditLogs(actor, query) {
+        const result = await this.operationsService.getAdminSelfAuditLogs(actor, query);
+        return apiPaginated(result.data, result.meta);
+    }
 };
 __decorate([
     Get('dashboard/summary'),
+    __param(0, CurrentUser()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminMonitoringController.prototype, "getDashboardSummary", null);
 __decorate([
+    Roles('SUPER_ADMIN'),
     Get('users'),
     __param(0, Query()),
     __metadata("design:type", Function),
@@ -48,6 +55,7 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminMonitoringController.prototype, "listUsers", null);
 __decorate([
+    Roles('SUPER_ADMIN'),
     Get('users/:userId'),
     __param(0, Param('userId')),
     __metadata("design:type", Function),
@@ -55,12 +63,21 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminMonitoringController.prototype, "getUserDetail", null);
 __decorate([
+    Roles('SUPER_ADMIN'),
     Get('transactions'),
     __param(0, Query()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminMonitoringController.prototype, "listTransactions", null);
+__decorate([
+    Get('audit-logs/me'),
+    __param(0, CurrentUser()),
+    __param(1, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, Object]),
+    __metadata("design:returntype", Promise)
+], AdminMonitoringController.prototype, "getMyAuditLogs", null);
 AdminMonitoringController = __decorate([
     Roles('ADMIN', 'SUPER_ADMIN'),
     Controller('admin'),

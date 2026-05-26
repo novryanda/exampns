@@ -25,7 +25,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
             <div className="flex-1 space-y-1 text-primary-foreground">
               <h2 className="font-medium">Butuh bantuan?</h2>
               <p className="text-sm">
-                Jika email provider belum aktif, link verifikasi akan muncul di console backend melalui mode email `console`.
+                Setelah daftar, link aktivasi dikirim ke email Anda. Buka link tersebut sebelum login pertama kali.
               </p>
             </div>
           </div>

@@ -11,6 +11,17 @@ export declare class SuperAdminController {
         status: string;
     }>>;
     listAdmins(): Promise<ApiSuccessResponse<unknown[]>>;
+    createPlatformUser(body: unknown, actor: AuthenticatedUser): Promise<ApiSuccessResponse<{
+        id: string;
+        email: string;
+        role: string;
+        status: string;
+    }>>;
+    updatePlatformUserStatus(userId: string, body: unknown, actor: AuthenticatedUser): Promise<ApiSuccessResponse<{
+        id: string;
+        status: string;
+    }>>;
+    deletePlatformUser(userId: string, body: unknown, actor: AuthenticatedUser): Promise<ApiMessageResponse>;
     deactivateAdmin(adminId: string, body: unknown, actor: AuthenticatedUser): Promise<ApiMessageResponse>;
     createSubscriptionPlan(body: unknown, actor: AuthenticatedUser): Promise<ApiSuccessResponse<{
         id: string;

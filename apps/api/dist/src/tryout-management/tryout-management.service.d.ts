@@ -1,11 +1,13 @@
 import { ManualQuestionSetStatus, QuestionStatus, RandomizationMode, TryoutStatus, TryoutType } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 export declare class TryoutManagementService {
     private readonly prisma;
+    private readonly auditLogService;
     private readonly validationService;
-    constructor(prisma: PrismaService, validationService: ValidationService);
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, validationService: ValidationService);
     listTryoutCatalogs(rawQuery: unknown): Promise<{
         data: {
             id: string;
@@ -74,7 +76,7 @@ export declare class TryoutManagementService {
             }[];
         } | null;
     }>;
-    updateTryoutCatalog(tryoutCatalogId: string, rawBody: unknown): Promise<void>;
+    updateTryoutCatalog(tryoutCatalogId: string, rawBody: unknown, actor?: AuthenticatedUser): Promise<void>;
     duplicateTryoutCatalog(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<{
         id: string;
         status: TryoutStatus;
@@ -98,7 +100,99 @@ export declare class TryoutManagementService {
         archivedAt: Date | null;
     }>;
     publishTryoutCatalog(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<void>;
-    archiveTryoutCatalog(tryoutCatalogId: string): Promise<void>;
+    archiveTryoutCatalog(tryoutCatalogId: string, actor?: AuthenticatedUser): Promise<void>;
+    listAdminTryoutDrafts(rawQuery: unknown): Promise<{
+        data: {
+            id: string;
+            status: TryoutStatus;
+            updatedAt: Date;
+            name: string;
+            isPublic: boolean;
+            totalQuestions: number;
+            tryoutType: TryoutType;
+            accessType: import("../../generated/prisma/enums.js").AccessType;
+            isFeatured: boolean;
+            durationMinutes: number;
+        }[];
+        meta: {
+            page: number;
+            limit: number;
+            totalItems: number;
+            totalPages: number;
+        };
+    }>;
+    createAdminTryoutDraft(rawBody: unknown, actor: AuthenticatedUser): Promise<{
+        id: string;
+        status: TryoutStatus;
+    }>;
+    getAdminTryoutDraftDetail(tryoutCatalogId: string): Promise<{
+        manualQuestionSets: {
+            id: string;
+            name: string;
+            status: ManualQuestionSetStatus;
+            itemCount: number;
+            updatedAt: Date;
+        }[];
+        id: string;
+        status: TryoutStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        description: string | null;
+        isPublic: boolean;
+        totalQuestions: number;
+        passingGradeConfigId: string | null;
+        tryoutType: TryoutType;
+        accessType: import("../../generated/prisma/enums.js").AccessType;
+        isFeatured: boolean;
+        sortOrder: number;
+        durationMinutes: number;
+        showResultImmediately: boolean;
+        showAnswerReview: boolean;
+        approvedBy: string | null;
+        publishedAt: Date | null;
+        archivedAt: Date | null;
+        generationRule: {
+            id: string;
+            randomizationMode: RandomizationMode;
+            questionOrderMode: import("../../generated/prisma/enums.js").QuestionOrderMode;
+            avoidRecentQuestions: boolean;
+            avoidRecentExamCount: number;
+            rulesJson: import("@prisma/client/runtime/client").JsonValue;
+            sections: {
+                id: string;
+                category: import("../../generated/prisma/enums.js").QuestionCategory;
+                sortOrder: number;
+                questionCount: number;
+                difficultyDistributionJson: import("@prisma/client/runtime/client").JsonValue;
+                topicDistributionJson: import("@prisma/client/runtime/client").JsonValue;
+            }[];
+        } | null;
+    }>;
+    updateAdminTryoutDraft(tryoutCatalogId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
+    duplicateAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<{
+        id: string;
+        status: TryoutStatus;
+        createdAt: Date;
+        updatedAt: Date;
+        name: string;
+        description: string | null;
+        isPublic: boolean;
+        totalQuestions: number;
+        passingGradeConfigId: string | null;
+        tryoutType: TryoutType;
+        accessType: import("../../generated/prisma/enums.js").AccessType;
+        isFeatured: boolean;
+        sortOrder: number;
+        durationMinutes: number;
+        showResultImmediately: boolean;
+        showAnswerReview: boolean;
+        createdBy: string;
+        approvedBy: string | null;
+        publishedAt: Date | null;
+        archivedAt: Date | null;
+    }>;
+    submitAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<void>;
     getGenerationRule(tryoutCatalogId: string): Promise<{
         sections: {
             id: string;
@@ -188,6 +282,8 @@ export declare class TryoutManagementService {
         checks: Record<string, unknown>;
     }>;
     private ensureTryoutCatalogExists;
+    private ensureAdminEditableDraft;
+    private assertAdminDraftStatus;
     private ensurePassingGradeExists;
     private assertQuestionsReadyForManualSet;
     private toNullableJsonValue;

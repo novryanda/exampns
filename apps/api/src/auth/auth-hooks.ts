@@ -1,4 +1,4 @@
-import { SubscriptionStatus } from '../../generated/prisma/client.js';
+import { SubscriptionStatus, UserRole, UserStatus } from '../../generated/prisma/client.js';
 import { prisma } from '../common/prisma.service.js';
 
 const addDays = (date: Date, days: number) => {
@@ -61,6 +61,60 @@ export const provisionTrialSubscriptionForUser = async (userId: string) => {
       activationSource: 'trial',
     },
   });
+};
+
+export const markPasswordSetAndActivateIfReady = async (userId: string) => {
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordSetAt: new Date() },
+    });
+    await activateUserAccountIfReady(userId);
+  } catch (error) {
+    console.warn('[auth] failed to mark password set for user', userId, error);
+  }
+};
+
+/** Activates invited (inactive) users after email + password onboarding; provisions trial for active USER accounts. */
+export const activateUserAccountIfReady = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      role: true,
+      status: true,
+      emailVerified: true,
+      passwordSetAt: true,
+      deletedAt: true,
+    },
+  });
+
+  if (!user || user.deletedAt || user.role === UserRole.SUPER_ADMIN) {
+    return;
+  }
+
+  if (user.status === UserStatus.suspended) {
+    return;
+  }
+
+  if (user.status === UserStatus.active) {
+    if (user.emailVerified && user.role === UserRole.USER) {
+      await provisionTrialSubscriptionForUser(userId);
+    }
+    return;
+  }
+
+  // Akun undangan admin: email sudah dianggap valid, cukup atur password.
+  if (user.status === UserStatus.inactive && user.passwordSetAt) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: UserStatus.active },
+    });
+
+    if (user.role === UserRole.USER) {
+      await provisionTrialSubscriptionForUser(userId);
+    }
+  }
 };
 
 export const syncLastLoginForUser = async (userId: string) => {

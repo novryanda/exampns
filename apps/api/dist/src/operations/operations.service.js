@@ -7,14 +7,13 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
+import { ConflictException, Injectable, InternalServerErrorException, NotFoundException, } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { ActivationSource, PaymentStatus, QuestionStatus, SubscriptionStatus, UserRole, UserStatus, } from '../../generated/prisma/client.js';
+import { ActivationSource, QuestionStatus, SubscriptionStatus, UserRole, UserStatus, } from '../../generated/prisma/client.js';
 import { auth } from '../auth/auth.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
-import { sendEmail } from '../notification/email.service.js';
-import { adminTransactionsQuerySchema, adminUsersQuerySchema, auditLogsQuerySchema, createAdminSchema, createSubscriptionPlanSchema, deactivateAdminSchema, manualSubscriptionActivationSchema, updateAiRecommendationSettingsSchema, updatePassingGradeSchema, updateSubscriptionPlanSchema, updateTrialConfigSchema, } from './operations.schemas.js';
+import { adminTransactionsQuerySchema, adminUsersQuerySchema, auditLogsQuerySchema, createAdminSchema, createPlatformUserSchema, createSubscriptionPlanSchema, deactivateAdminSchema, deletePlatformUserSchema, updatePlatformUserStatusSchema, manualSubscriptionActivationSchema, updateAiRecommendationSettingsSchema, updatePassingGradeSchema, updateSubscriptionPlanSchema, updateTrialConfigSchema, } from './operations.schemas.js';
 let OperationsService = class OperationsService {
     prisma;
     validationService;
@@ -120,25 +119,8 @@ let OperationsService = class OperationsService {
             })),
         };
     }
-    async getAdminDashboardSummary() {
-        const monthStart = new Date();
-        monthStart.setUTCDate(1);
-        monthStart.setUTCHours(0, 0, 0, 0);
-        const [totalUsers, activeSubscribers, totalQuestions, pendingReviewQuestions, paymentPending, monthlyRevenueAggregate, recentImportBatches, recentTransactions,] = await Promise.all([
-            this.prisma.user.count({
-                where: {
-                    role: UserRole.USER,
-                    deletedAt: null,
-                },
-            }),
-            this.prisma.userSubscription.count({
-                where: {
-                    status: SubscriptionStatus.active,
-                    endDate: {
-                        gt: new Date(),
-                    },
-                },
-            }),
+    async getAdminDashboardSummary(actor) {
+        const [totalQuestions, activeQuestions, pendingParsedQuestions, draftTryouts, submittedReviewTryouts, failedPdfBatches, recentImportBatches, questionDistributionRows, recentActivity,] = await Promise.all([
             this.prisma.question.count({
                 where: {
                     deletedAt: null,
@@ -146,23 +128,29 @@ let OperationsService = class OperationsService {
             }),
             this.prisma.question.count({
                 where: {
-                    status: QuestionStatus.pending_review,
+                    status: QuestionStatus.active,
                     deletedAt: null,
                 },
             }),
-            this.prisma.paymentTransaction.count({
+            this.prisma.parsedQuestionReview.count({
                 where: {
-                    status: PaymentStatus.pending,
+                    status: 'pending_review',
                 },
             }),
-            this.prisma.paymentTransaction.aggregate({
-                _sum: {
-                    amount: true,
-                },
+            this.prisma.tryoutCatalog.count({
                 where: {
-                    status: PaymentStatus.success,
-                    paidAt: {
-                        gte: monthStart,
+                    status: 'draft',
+                },
+            }),
+            this.prisma.tryoutCatalog.count({
+                where: {
+                    status: 'review',
+                },
+            }),
+            this.prisma.questionImportBatch.count({
+                where: {
+                    status: {
+                        in: ['failed', 'partial_failed'],
                     },
                 },
             }),
@@ -170,22 +158,45 @@ let OperationsService = class OperationsService {
                 orderBy: { createdAt: 'desc' },
                 take: 5,
             }),
-            this.prisma.paymentTransaction.findMany({
+            this.prisma.question.groupBy({
+                by: ['category'],
+                _count: {
+                    _all: true,
+                },
+                where: {
+                    status: QuestionStatus.active,
+                    deletedAt: null,
+                },
+            }),
+            this.prisma.auditLog.findMany({
+                where: {
+                    actorUserId: actor.id,
+                    module: {
+                        in: ['question_bank', 'pdf_import', 'tryout_draft'],
+                    },
+                },
                 include: {
-                    user: true,
-                    subscriptionPlan: true,
+                    actorUser: {
+                        select: {
+                            name: true,
+                        },
+                    },
                 },
                 orderBy: { createdAt: 'desc' },
-                take: 5,
+                take: 10,
             }),
         ]);
         return {
-            totalUsers,
-            activeSubscribers,
             totalQuestions,
-            pendingReviewQuestions,
-            paymentPending,
-            monthlyRevenue: Number(monthlyRevenueAggregate._sum.amount ?? 0),
+            activeQuestions,
+            pendingParsedQuestions,
+            draftTryouts,
+            submittedReviewTryouts,
+            failedPdfBatches,
+            questionDistribution: ['TWK', 'TIU', 'TKP'].map((category) => ({
+                category,
+                activeCount: questionDistributionRows.find((row) => row.category === category)?._count._all ?? 0,
+            })),
             recentImportBatches: recentImportBatches.map((batch) => ({
                 batchId: batch.id,
                 fileName: batch.fileName,
@@ -195,17 +206,14 @@ let OperationsService = class OperationsService {
                 invalidCount: batch.invalidCount,
                 createdAt: batch.createdAt,
             })),
-            recentTransactions: recentTransactions.map((transaction) => ({
-                id: transaction.id,
-                invoiceNumber: transaction.invoiceNumber,
-                userName: transaction.user.name,
-                userEmail: transaction.user.email,
-                planName: transaction.subscriptionPlan.name,
-                amount: Number(transaction.amount),
-                paymentMethod: transaction.paymentMethod,
-                status: transaction.status,
-                createdAt: transaction.createdAt,
-                paidAt: transaction.paidAt,
+            recentActivity: recentActivity.map((log) => ({
+                id: log.id,
+                actorName: log.actorUser?.name ?? actor.name,
+                action: log.action,
+                module: log.module,
+                targetType: log.targetType,
+                targetId: log.targetId,
+                createdAt: log.createdAt,
             })),
         };
     }
@@ -311,6 +319,140 @@ let OperationsService = class OperationsService {
                 lastExamAt: user.examResults[0]?.examSession.startedAt ?? null,
             },
         };
+    }
+    async createPlatformUser(rawBody, actor) {
+        const payload = this.validationService.validate(createPlatformUserSchema, rawBody);
+        const normalizedEmail = payload.email.trim().toLowerCase();
+        const existingUser = await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: { id: true, deletedAt: true },
+        });
+        if (existingUser && existingUser.deletedAt === null) {
+            throw new ConflictException('Email sudah terdaftar');
+        }
+        const temporaryPassword = this.generateTemporaryPassword();
+        const authResponse = await auth.api.signUpEmail({
+            asResponse: true,
+            headers: this.toInternalAuthHeaders(),
+            body: {
+                name: payload.fullName,
+                email: normalizedEmail,
+                password: temporaryPassword,
+                phone: payload.phone,
+            },
+        });
+        if (!authResponse.ok) {
+            let message = 'Gagal membuat akun user';
+            try {
+                const responsePayload = (await authResponse.json());
+                if (responsePayload.message) {
+                    message = responsePayload.message;
+                }
+            }
+            catch {
+            }
+            throw new ConflictException(message);
+        }
+        const createdUser = await this.prisma.user.findUnique({
+            where: { email: normalizedEmail },
+            select: { id: true, email: true, emailVerifiedAt: true },
+        });
+        if (!createdUser) {
+            throw new NotFoundException('User tidak ditemukan setelah dibuat');
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: createdUser.id },
+                data: {
+                    name: payload.fullName,
+                    phone: payload.phone ?? null,
+                    role: UserRole.USER,
+                    status: UserStatus.inactive,
+                    emailVerified: true,
+                    emailVerifiedAt: new Date(),
+                    passwordSetAt: null,
+                    deletedAt: null,
+                },
+            });
+            await tx.session.deleteMany({ where: { userId: createdUser.id } });
+        });
+        await this.sendSetPasswordLink(normalizedEmail);
+        await this.createAuditLog({
+            actor,
+            action: 'CREATE_PLATFORM_USER',
+            module: 'user_management',
+            targetType: 'user',
+            targetId: createdUser.id,
+            metadata: {
+                email: normalizedEmail,
+                fullName: payload.fullName,
+            },
+        });
+        return {
+            id: createdUser.id,
+            email: createdUser.email,
+            role: UserRole.USER,
+            status: UserStatus.inactive,
+        };
+    }
+    async updatePlatformUserStatus(userId, rawBody, actor) {
+        const payload = this.validationService.validate(updatePlatformUserStatusSchema, rawBody);
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+            throw new NotFoundException('User tidak ditemukan');
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: { status: payload.status },
+            });
+            if (payload.status !== UserStatus.active) {
+                await tx.session.deleteMany({ where: { userId } });
+            }
+        });
+        await this.createAuditLog({
+            actor,
+            action: 'UPDATE_USER_STATUS',
+            module: 'user_management',
+            targetType: 'user',
+            targetId: userId,
+            metadata: {
+                previousStatus: user.status,
+                nextStatus: payload.status,
+            },
+        });
+        return {
+            id: userId,
+            status: payload.status,
+        };
+    }
+    async deletePlatformUser(userId, rawBody, actor) {
+        const payload = this.validationService.validate(deletePlatformUserSchema, rawBody);
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+            throw new NotFoundException('User tidak ditemukan');
+        }
+        await this.prisma.$transaction(async (tx) => {
+            await tx.user.update({
+                where: { id: userId },
+                data: {
+                    deletedAt: new Date(),
+                    status: UserStatus.inactive,
+                },
+            });
+            await tx.session.deleteMany({ where: { userId } });
+        });
+        await this.createAuditLog({
+            actor,
+            action: 'DELETE_PLATFORM_USER',
+            module: 'user_management',
+            targetType: 'user',
+            targetId: userId,
+            metadata: {
+                email: user.email,
+                reason: payload.reason,
+            },
+        });
     }
     async listTransactionsForMonitoring(rawQuery) {
         const query = this.validationService.validate(adminTransactionsQuerySchema, rawQuery);
@@ -437,9 +579,10 @@ let OperationsService = class OperationsService {
                     name: payload.fullName,
                     phone: payload.phone ?? null,
                     role: UserRole.ADMIN,
-                    status: UserStatus.active,
+                    status: UserStatus.inactive,
                     emailVerified: true,
-                    emailVerifiedAt: createdAdmin.emailVerifiedAt ?? new Date(),
+                    emailVerifiedAt: new Date(),
+                    passwordSetAt: null,
                 },
             });
             await tx.userSubscription.deleteMany({
@@ -456,23 +599,7 @@ let OperationsService = class OperationsService {
                 },
             });
         });
-        await sendEmail({
-            to: normalizedEmail,
-            subject: 'Akun admin ExamCPNS telah dibuat',
-            text: [
-                `Halo ${payload.fullName},`,
-                '',
-                'Akun admin Anda telah dibuat oleh super admin.',
-                `Email: ${normalizedEmail}`,
-                `Temporary password: ${temporaryPassword}`,
-                '',
-                'Silakan login dan segera ubah password Anda.',
-            ].join('\n'),
-            meta: {
-                type: 'admin-account-created',
-                createdBy: actor.email,
-            },
-        });
+        await this.sendSetPasswordLink(normalizedEmail);
         await this.createAuditLog({
             actor,
             action: 'CREATE_ADMIN',
@@ -488,7 +615,7 @@ let OperationsService = class OperationsService {
             id: createdAdmin.id,
             email: createdAdmin.email,
             role: UserRole.ADMIN,
-            status: UserStatus.active,
+            status: UserStatus.inactive,
         };
     }
     async deactivateAdmin(adminId, rawBody, actor) {
@@ -864,6 +991,55 @@ let OperationsService = class OperationsService {
             },
         };
     }
+    async getAdminSelfAuditLogs(actor, rawQuery) {
+        const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+        const where = {
+            actorUserId: actor.id,
+            ...(query.module ? { module: query.module } : {}),
+            ...(query.action ? { action: query.action } : {}),
+            ...(query.dateFrom || query.dateTo
+                ? {
+                    createdAt: {
+                        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+                        ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+                    },
+                }
+                : {}),
+        };
+        const skip = (query.page - 1) * query.limit;
+        const [logs, totalItems] = await Promise.all([
+            this.prisma.auditLog.findMany({
+                where,
+                include: {
+                    actorUser: true,
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: query.limit,
+            }),
+            this.prisma.auditLog.count({ where }),
+        ]);
+        return {
+            data: logs.map((log) => ({
+                id: log.id,
+                actorUserId: log.actorUserId,
+                actorName: log.actorUser?.name ?? null,
+                actorRole: log.actorRole,
+                action: log.action,
+                module: log.module,
+                targetType: log.targetType,
+                targetId: log.targetId,
+                metadata: log.metadata,
+                createdAt: log.createdAt,
+            })),
+            meta: {
+                page: query.page,
+                limit: query.limit,
+                totalItems,
+                totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+            },
+        };
+    }
     deriveSubscriptionStatus(subscription) {
         if (!subscription) {
             return 'expired';
@@ -888,6 +1064,31 @@ let OperationsService = class OperationsService {
                 metadata: params.metadata,
             },
         });
+    }
+    getFrontendUrl() {
+        return process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    }
+    async sendSetPasswordLink(email) {
+        const authResponse = await auth.api.requestPasswordReset({
+            asResponse: true,
+            headers: this.toInternalAuthHeaders(),
+            body: {
+                email,
+                redirectTo: `${this.getFrontendUrl()}/auth/reset-password`,
+            },
+        });
+        if (!authResponse.ok) {
+            let message = 'Gagal mengirim email atur password';
+            try {
+                const responsePayload = (await authResponse.json());
+                if (responsePayload.message) {
+                    message = responsePayload.message;
+                }
+            }
+            catch {
+            }
+            throw new InternalServerErrorException(message);
+        }
     }
     toInternalAuthHeaders() {
         const appUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3001';

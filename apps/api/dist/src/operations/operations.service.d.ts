@@ -47,13 +47,17 @@ export declare class OperationsService {
             overallPassed: boolean;
         }[];
     }>;
-    getAdminDashboardSummary(): Promise<{
-        totalUsers: number;
-        activeSubscribers: number;
+    getAdminDashboardSummary(actor: AuthenticatedUser): Promise<{
         totalQuestions: number;
-        pendingReviewQuestions: number;
-        paymentPending: number;
-        monthlyRevenue: number;
+        activeQuestions: number;
+        pendingParsedQuestions: number;
+        draftTryouts: number;
+        submittedReviewTryouts: number;
+        failedPdfBatches: number;
+        questionDistribution: {
+            category: string;
+            activeCount: number;
+        }[];
         recentImportBatches: {
             batchId: string;
             fileName: string;
@@ -63,17 +67,14 @@ export declare class OperationsService {
             invalidCount: number;
             createdAt: Date;
         }[];
-        recentTransactions: {
+        recentActivity: {
             id: string;
-            invoiceNumber: string;
-            userName: string;
-            userEmail: string;
-            planName: string;
-            amount: number;
-            paymentMethod: string | null;
-            status: PaymentStatus;
+            actorName: string;
+            action: string;
+            module: string;
+            targetType: string | null;
+            targetId: string | null;
             createdAt: Date;
-            paidAt: Date | null;
         }[];
     }>;
     listUsersForMonitoring(rawQuery: unknown): Promise<{
@@ -111,6 +112,17 @@ export declare class OperationsService {
             lastExamAt: Date;
         };
     }>;
+    createPlatformUser(rawBody: unknown, actor: AuthenticatedUser): Promise<{
+        id: string;
+        email: string;
+        role: "USER";
+        status: "inactive";
+    }>;
+    updatePlatformUserStatus(userId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<{
+        id: string;
+        status: "active" | "inactive" | "suspended";
+    }>;
+    deletePlatformUser(userId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     listTransactionsForMonitoring(rawQuery: unknown): Promise<{
         data: {
             id: string;
@@ -142,7 +154,7 @@ export declare class OperationsService {
         id: string;
         email: string;
         role: "ADMIN";
-        status: "active";
+        status: "inactive";
     }>;
     deactivateAdmin(adminId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     createSubscriptionPlan(rawBody: unknown, actor: AuthenticatedUser): Promise<{
@@ -221,8 +233,30 @@ export declare class OperationsService {
             totalPages: number;
         };
     }>;
+    getAdminSelfAuditLogs(actor: AuthenticatedUser, rawQuery: unknown): Promise<{
+        data: {
+            id: string;
+            actorUserId: string | null;
+            actorName: string | null;
+            actorRole: string;
+            action: string;
+            module: string;
+            targetType: string | null;
+            targetId: string | null;
+            metadata: import("@prisma/client/runtime/client").JsonValue;
+            createdAt: Date;
+        }[];
+        meta: {
+            page: number;
+            limit: number;
+            totalItems: number;
+            totalPages: number;
+        };
+    }>;
     private deriveSubscriptionStatus;
     private createAuditLog;
+    private getFrontendUrl;
+    private sendSetPasswordLink;
     private toInternalAuthHeaders;
     private generateTemporaryPassword;
 }

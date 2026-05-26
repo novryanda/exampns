@@ -107,6 +107,16 @@ export async function requirePrivilegedProfile() {
   return profile;
 }
 
+export async function requireAdminProfile() {
+  const profile = await requirePrivilegedProfile();
+
+  if (profile.role !== "ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  return profile;
+}
+
 export async function requireSuperAdminProfile() {
   const profile = await requirePrivilegedProfile();
 

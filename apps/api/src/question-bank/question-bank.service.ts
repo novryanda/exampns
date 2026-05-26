@@ -6,6 +6,7 @@ import {
   QuestionCategory,
   SourceType,
 } from '../../generated/prisma/client.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
@@ -79,6 +80,7 @@ const buildQuestionPreview = (text: string) => {
 export class QuestionBankService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
     private readonly validationService: ValidationService,
   ) {}
 
@@ -161,6 +163,19 @@ export class QuestionBankService {
       select: {
         id: true,
         status: true,
+      },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'CREATE_QUESTION',
+      module: 'question_bank',
+      targetType: 'question',
+      targetId: created.id,
+      metadata: {
+        category: payload.category,
+        difficulty: payload.difficulty,
+        status: payload.status,
       },
     });
 
@@ -272,6 +287,18 @@ export class QuestionBankService {
         }
       }
     });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'UPDATE_QUESTION',
+      module: 'question_bank',
+      targetType: 'question',
+      targetId: questionId,
+      metadata: {
+        category: nextCategory,
+        status: payload.status,
+      },
+    });
   }
 
   async archiveQuestion(questionId: string, actor: AuthenticatedUser) {
@@ -293,6 +320,14 @@ export class QuestionBankService {
         deletedAt: new Date(),
         updatedBy: actor.id,
       },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'ARCHIVE_QUESTION',
+      module: 'question_bank',
+      targetType: 'question',
+      targetId: questionId,
     });
   }
 

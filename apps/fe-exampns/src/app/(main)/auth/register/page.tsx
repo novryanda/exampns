@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { APP_CONFIG } from "@/config/app-config";
+import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { getServerAuthSession } from "@/lib/auth/server-auth";
 
 import { RegisterForm } from "../_components/register-form";
@@ -9,7 +10,7 @@ import { RegisterForm } from "../_components/register-form";
 export default async function RegisterV2() {
   const session = await getServerAuthSession();
   if (session?.user) {
-    redirect("/dashboard");
+    redirect(getPostAuthRedirectPath(session.user.role));
   }
 
   return (
@@ -26,18 +27,14 @@ export default async function RegisterV2() {
         </div>
       </div>
 
-      <div className="absolute top-5 flex w-full justify-end px-10">
+      <div className="absolute bottom-5 flex w-full justify-between px-10">
+        <div className="text-sm">{APP_CONFIG.copyright}</div>
         <div className="text-muted-foreground text-sm">
           Sudah punya akun?{" "}
           <Link prefetch={false} className="text-foreground" href="/auth/login">
             Masuk
           </Link>
         </div>
-      </div>
-
-      <div className="absolute bottom-5 flex w-full justify-between px-10">
-        <div className="text-sm">{APP_CONFIG.copyright}</div>
-        <div className="text-muted-foreground text-xs">FR-AUTH-001/002 — Registrasi & verifikasi email.</div>
       </div>
     </>
   );

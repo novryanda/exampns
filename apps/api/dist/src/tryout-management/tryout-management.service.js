@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { BadRequestException, ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
 import { ManualQuestionSetStatus, Prisma, QuestionStatus, TryoutStatus, TryoutType, } from '../../generated/prisma/client.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { assertGenerationRuleRules, assertManualQuestionSetRules, assertTryoutCatalogRules, } from './tryout-management.rules.js';
@@ -115,9 +116,11 @@ const manualSetSelect = {
 };
 let TryoutManagementService = class TryoutManagementService {
     prisma;
+    auditLogService;
     validationService;
-    constructor(prisma, validationService) {
+    constructor(prisma, auditLogService, validationService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
         this.validationService = validationService;
     }
     async listTryoutCatalogs(rawQuery) {
@@ -161,7 +164,7 @@ let TryoutManagementService = class TryoutManagementService {
         const payload = this.validationService.validate(createTryoutCatalogSchema, rawBody);
         assertTryoutCatalogRules(payload);
         await this.ensurePassingGradeExists(payload.passingGradeConfigId);
-        return await this.prisma.tryoutCatalog.create({
+        const created = await this.prisma.tryoutCatalog.create({
             data: {
                 ...payload,
                 description: payload.description ?? null,
@@ -173,6 +176,18 @@ let TryoutManagementService = class TryoutManagementService {
                 status: true,
             },
         });
+        await this.auditLogService.create({
+            actor,
+            action: 'CREATE_TRYOUT_CATALOG',
+            module: 'tryout_draft',
+            targetType: 'tryout_catalog',
+            targetId: created.id,
+            metadata: {
+                status: created.status,
+                tryoutType: payload.tryoutType,
+            },
+        });
+        return created;
     }
     async getTryoutCatalogDetail(tryoutCatalogId) {
         const catalog = await this.prisma.tryoutCatalog.findUnique({
@@ -193,7 +208,7 @@ let TryoutManagementService = class TryoutManagementService {
             })),
         };
     }
-    async updateTryoutCatalog(tryoutCatalogId, rawBody) {
+    async updateTryoutCatalog(tryoutCatalogId, rawBody, actor) {
         const payload = this.validationService.validate(updateTryoutCatalogSchema, rawBody);
         await this.ensureTryoutCatalogExists(tryoutCatalogId);
         await this.ensurePassingGradeExists(payload.passingGradeConfigId);
@@ -223,6 +238,16 @@ let TryoutManagementService = class TryoutManagementService {
                     : {}),
             },
         });
+        if (actor) {
+            await this.auditLogService.create({
+                actor,
+                action: 'UPDATE_TRYOUT_CATALOG',
+                module: 'tryout_draft',
+                targetType: 'tryout_catalog',
+                targetId: tryoutCatalogId,
+                metadata: payload,
+            });
+        }
     }
     async duplicateTryoutCatalog(tryoutCatalogId, actor) {
         const catalog = await this.prisma.tryoutCatalog.findUnique({
@@ -247,7 +272,7 @@ let TryoutManagementService = class TryoutManagementService {
         if (!catalog) {
             throw new NotFoundException('Tryout catalog not found');
         }
-        return await this.prisma.$transaction(async (tx) => {
+        const duplicatedCatalog = await this.prisma.$transaction(async (tx) => {
             const duplicatedCatalog = await tx.tryoutCatalog.create({
                 data: {
                     name: `${catalog.name} Copy`,
@@ -306,6 +331,17 @@ let TryoutManagementService = class TryoutManagementService {
             }
             return duplicatedCatalog;
         });
+        await this.auditLogService.create({
+            actor,
+            action: 'DUPLICATE_TRYOUT_CATALOG',
+            module: 'tryout_draft',
+            targetType: 'tryout_catalog',
+            targetId: duplicatedCatalog.id,
+            metadata: {
+                sourceTryoutCatalogId: tryoutCatalogId,
+            },
+        });
+        return duplicatedCatalog;
     }
     async publishTryoutCatalog(tryoutCatalogId, actor) {
         const availability = await this.runAvailabilityCheck(tryoutCatalogId);
@@ -323,8 +359,18 @@ let TryoutManagementService = class TryoutManagementService {
                 publishedAt: new Date(),
             },
         });
+        await this.auditLogService.create({
+            actor,
+            action: 'PUBLISH_TRYOUT_CATALOG',
+            module: 'tryout_catalog',
+            targetType: 'tryout_catalog',
+            targetId: tryoutCatalogId,
+            metadata: {
+                issuesChecked: availability.issues.length,
+            },
+        });
     }
-    async archiveTryoutCatalog(tryoutCatalogId) {
+    async archiveTryoutCatalog(tryoutCatalogId, actor) {
         await this.ensureTryoutCatalogExists(tryoutCatalogId);
         await this.prisma.tryoutCatalog.update({
             where: { id: tryoutCatalogId },
@@ -333,6 +379,103 @@ let TryoutManagementService = class TryoutManagementService {
                 isPublic: false,
                 archivedAt: new Date(),
             },
+        });
+        if (actor) {
+            await this.auditLogService.create({
+                actor,
+                action: 'ARCHIVE_TRYOUT_CATALOG',
+                module: 'tryout_catalog',
+                targetType: 'tryout_catalog',
+                targetId: tryoutCatalogId,
+            });
+        }
+    }
+    async listAdminTryoutDrafts(rawQuery) {
+        const query = this.validationService.validate(listTryoutCatalogsQuerySchema, rawQuery);
+        if (query.status &&
+            query.status !== TryoutStatus.draft &&
+            query.status !== TryoutStatus.review) {
+            throw new BadRequestException('Admin drafts only support draft or review status');
+        }
+        const where = {
+            status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.review] },
+            ...(query.search
+                ? {
+                    OR: [
+                        { name: { contains: query.search, mode: 'insensitive' } },
+                        { description: { contains: query.search, mode: 'insensitive' } },
+                    ],
+                }
+                : {}),
+            ...(query.tryoutType ? { tryoutType: query.tryoutType } : {}),
+            ...(query.accessType ? { accessType: query.accessType } : {}),
+        };
+        const skip = (query.page - 1) * query.limit;
+        const [items, totalItems] = await Promise.all([
+            this.prisma.tryoutCatalog.findMany({
+                where,
+                select: catalogListSelect,
+                orderBy: [{ updatedAt: 'desc' }],
+                skip,
+                take: query.limit,
+            }),
+            this.prisma.tryoutCatalog.count({ where }),
+        ]);
+        return {
+            data: items,
+            meta: {
+                page: query.page,
+                limit: query.limit,
+                totalItems,
+                totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+            },
+        };
+    }
+    async createAdminTryoutDraft(rawBody, actor) {
+        const payload = this.validationService.validate(createTryoutCatalogSchema, rawBody);
+        this.assertAdminDraftStatus(payload.status);
+        return await this.createTryoutCatalog({
+            ...payload,
+            isPublic: false,
+        }, actor);
+    }
+    async getAdminTryoutDraftDetail(tryoutCatalogId) {
+        const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
+        return await this.getTryoutCatalogDetail(catalog.id);
+    }
+    async updateAdminTryoutDraft(tryoutCatalogId, rawBody, actor) {
+        const payload = this.validationService.validate(updateTryoutCatalogSchema, rawBody);
+        await this.ensureAdminEditableDraft(tryoutCatalogId);
+        if (payload.status) {
+            this.assertAdminDraftStatus(payload.status);
+        }
+        await this.updateTryoutCatalog(tryoutCatalogId, {
+            ...payload,
+            ...(payload.isPublic !== undefined ? { isPublic: false } : {}),
+        }, actor);
+    }
+    async duplicateAdminTryoutDraft(tryoutCatalogId, actor) {
+        await this.ensureAdminEditableDraft(tryoutCatalogId);
+        return await this.duplicateTryoutCatalog(tryoutCatalogId, actor);
+    }
+    async submitAdminTryoutDraft(tryoutCatalogId, actor) {
+        const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
+        if (catalog.status === TryoutStatus.review) {
+            return;
+        }
+        await this.prisma.tryoutCatalog.update({
+            where: { id: tryoutCatalogId },
+            data: {
+                status: TryoutStatus.review,
+                isPublic: false,
+            },
+        });
+        await this.auditLogService.create({
+            actor,
+            action: 'SUBMIT_TRYOUT_DRAFT',
+            module: 'tryout_draft',
+            targetType: 'tryout_catalog',
+            targetId: tryoutCatalogId,
         });
     }
     async getGenerationRule(tryoutCatalogId) {
@@ -700,6 +843,27 @@ let TryoutManagementService = class TryoutManagementService {
         }
         return catalog;
     }
+    async ensureAdminEditableDraft(tryoutCatalogId) {
+        const catalog = await this.prisma.tryoutCatalog.findUnique({
+            where: { id: tryoutCatalogId },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+        if (!catalog) {
+            throw new NotFoundException('Tryout catalog not found');
+        }
+        if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
+            throw new BadRequestException('Admin can only access draft or review tryouts');
+        }
+        return catalog;
+    }
+    assertAdminDraftStatus(status) {
+        if (status !== TryoutStatus.draft && status !== TryoutStatus.review) {
+            throw new BadRequestException('Admin drafts can only be saved as draft or review');
+        }
+    }
     async ensurePassingGradeExists(passingGradeConfigId) {
         if (!passingGradeConfigId) {
             return;
@@ -744,6 +908,7 @@ let TryoutManagementService = class TryoutManagementService {
 TryoutManagementService = __decorate([
     Injectable(),
     __metadata("design:paramtypes", [PrismaService,
+        AuditLogService,
         ValidationService])
 ], TryoutManagementService);
 export { TryoutManagementService };

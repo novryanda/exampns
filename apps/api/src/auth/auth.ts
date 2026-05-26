@@ -1,11 +1,16 @@
 import 'dotenv/config';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
-import { provisionTrialSubscriptionForUser, syncLastLoginForUser } from './auth-hooks.js';
+import {
+  activateUserAccountIfReady,
+  markPasswordSetAndActivateIfReady,
+  syncLastLoginForUser,
+} from './auth-hooks.js';
 import { prisma } from '../common/prisma.service.js';
 import { sendAuthEmail } from '../notification/email.service.js';
 
-const appUrl = process.env.BETTER_AUTH_URL ?? 'http://localhost:3001';
+const apiOrigin = (process.env.BETTER_AUTH_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+const appUrl = apiOrigin.endsWith('/api/auth') ? apiOrigin : `${apiOrigin}/api/auth`;
 const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -25,7 +30,7 @@ export const auth = betterAuth({
       update: {
         async after(user) {
           if (user.emailVerified) {
-            await provisionTrialSubscriptionForUser(user.id);
+            await activateUserAccountIfReady(user.id);
           }
         },
       },
@@ -64,20 +69,34 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
     revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      await markPasswordSetAndActivateIfReady(user.id);
+    },
     sendResetPassword: async ({ user, url }) => {
-      void sendAuthEmail('reset-password', user.email, url, {
-        appName: 'ExamCPNS API',
-      });
+      try {
+        await sendAuthEmail('reset-password', user.email, url, {
+          appName: 'ExamCPNS',
+        });
+      } catch (error: unknown) {
+        console.error('[email] failed to send reset-password email', error);
+        throw error;
+      }
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
-      void sendAuthEmail('verify-email', user.email, url, {
-        appName: 'ExamCPNS API',
-      });
+      try {
+        await sendAuthEmail('verify-email', user.email, url, {
+          appName: 'ExamCPNS',
+        });
+      } catch (error: unknown) {
+        console.error('[email] failed to send verify-email to', user.email, error);
+        throw error;
+      }
     },
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
+    // Hanya registrasi mandiri yang memicu email verifikasi (lihat AuthRegistrationService).
+    sendOnSignUp: false,
+    autoSignInAfterVerification: false,
     expiresIn: 60 * 60 * 24,
   },
   session: {

@@ -5,6 +5,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 import { Module } from '@nestjs/common';
+import { AuditLogService } from './audit-log.service.js';
 import { PrismaService, prisma } from './prisma.service.js';
 import { ValidationService } from './validation.service.js';
 let CommonModule = class CommonModule {
@@ -16,9 +17,10 @@ CommonModule = __decorate([
                 provide: PrismaService,
                 useValue: prisma,
             },
+            AuditLogService,
             ValidationService,
         ],
-        exports: [PrismaService, ValidationService],
+        exports: [PrismaService, AuditLogService, ValidationService],
     })
 ], CommonModule);
 export { CommonModule };

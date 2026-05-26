@@ -13,6 +13,7 @@ import {
   TryoutType,
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -136,6 +137,7 @@ const manualSetSelect = {
 export class TryoutManagementService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly auditLogService: AuditLogService,
     private readonly validationService: ValidationService,
   ) {}
 
@@ -185,7 +187,7 @@ export class TryoutManagementService {
 
     await this.ensurePassingGradeExists(payload.passingGradeConfigId);
 
-    return await this.prisma.tryoutCatalog.create({
+    const created = await this.prisma.tryoutCatalog.create({
       data: {
         ...payload,
         description: payload.description ?? null,
@@ -197,6 +199,20 @@ export class TryoutManagementService {
         status: true,
       },
     });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'CREATE_TRYOUT_CATALOG',
+      module: 'tryout_draft',
+      targetType: 'tryout_catalog',
+      targetId: created.id,
+      metadata: {
+        status: created.status,
+        tryoutType: payload.tryoutType,
+      },
+    });
+
+    return created;
   }
 
   async getTryoutCatalogDetail(tryoutCatalogId: string) {
@@ -221,7 +237,11 @@ export class TryoutManagementService {
     };
   }
 
-  async updateTryoutCatalog(tryoutCatalogId: string, rawBody: unknown) {
+  async updateTryoutCatalog(
+    tryoutCatalogId: string,
+    rawBody: unknown,
+    actor?: AuthenticatedUser,
+  ) {
     const payload = this.validationService.validate(updateTryoutCatalogSchema, rawBody);
     await this.ensureTryoutCatalogExists(tryoutCatalogId);
     await this.ensurePassingGradeExists(payload.passingGradeConfigId);
@@ -252,6 +272,17 @@ export class TryoutManagementService {
           : {}),
       },
     });
+
+    if (actor) {
+      await this.auditLogService.create({
+        actor,
+        action: 'UPDATE_TRYOUT_CATALOG',
+        module: 'tryout_draft',
+        targetType: 'tryout_catalog',
+        targetId: tryoutCatalogId,
+        metadata: payload,
+      });
+    }
   }
 
   async duplicateTryoutCatalog(tryoutCatalogId: string, actor: AuthenticatedUser) {
@@ -279,7 +310,7 @@ export class TryoutManagementService {
       throw new NotFoundException('Tryout catalog not found');
     }
 
-    return await this.prisma.$transaction(async (tx) => {
+    const duplicatedCatalog = await this.prisma.$transaction(async (tx) => {
       const duplicatedCatalog = await tx.tryoutCatalog.create({
         data: {
           name: `${catalog.name} Copy`,
@@ -341,6 +372,19 @@ export class TryoutManagementService {
 
       return duplicatedCatalog;
     });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'DUPLICATE_TRYOUT_CATALOG',
+      module: 'tryout_draft',
+      targetType: 'tryout_catalog',
+      targetId: duplicatedCatalog.id,
+      metadata: {
+        sourceTryoutCatalogId: tryoutCatalogId,
+      },
+    });
+
+    return duplicatedCatalog;
   }
 
   async publishTryoutCatalog(tryoutCatalogId: string, actor: AuthenticatedUser) {
@@ -360,9 +404,20 @@ export class TryoutManagementService {
         publishedAt: new Date(),
       },
     });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'PUBLISH_TRYOUT_CATALOG',
+      module: 'tryout_catalog',
+      targetType: 'tryout_catalog',
+      targetId: tryoutCatalogId,
+      metadata: {
+        issuesChecked: availability.issues.length,
+      },
+    });
   }
 
-  async archiveTryoutCatalog(tryoutCatalogId: string) {
+  async archiveTryoutCatalog(tryoutCatalogId: string, actor?: AuthenticatedUser) {
     await this.ensureTryoutCatalogExists(tryoutCatalogId);
     await this.prisma.tryoutCatalog.update({
       where: { id: tryoutCatalogId },
@@ -371,6 +426,130 @@ export class TryoutManagementService {
         isPublic: false,
         archivedAt: new Date(),
       },
+    });
+
+    if (actor) {
+      await this.auditLogService.create({
+        actor,
+        action: 'ARCHIVE_TRYOUT_CATALOG',
+        module: 'tryout_catalog',
+        targetType: 'tryout_catalog',
+        targetId: tryoutCatalogId,
+      });
+    }
+  }
+
+  async listAdminTryoutDrafts(rawQuery: unknown) {
+    const query = this.validationService.validate(listTryoutCatalogsQuerySchema, rawQuery);
+    if (
+      query.status &&
+      query.status !== TryoutStatus.draft &&
+      query.status !== TryoutStatus.review
+    ) {
+      throw new BadRequestException('Admin drafts only support draft or review status');
+    }
+
+    const where: Prisma.TryoutCatalogWhereInput = {
+      status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.review] },
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' } },
+              { description: { contains: query.search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+      ...(query.tryoutType ? { tryoutType: query.tryoutType } : {}),
+      ...(query.accessType ? { accessType: query.accessType } : {}),
+    };
+
+    const skip = (query.page - 1) * query.limit;
+    const [items, totalItems] = await Promise.all([
+      this.prisma.tryoutCatalog.findMany({
+        where,
+        select: catalogListSelect,
+        orderBy: [{ updatedAt: 'desc' }],
+        skip,
+        take: query.limit,
+      }),
+      this.prisma.tryoutCatalog.count({ where }),
+    ]);
+
+    return {
+      data: items,
+      meta: {
+        page: query.page,
+        limit: query.limit,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+      },
+    };
+  }
+
+  async createAdminTryoutDraft(rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(createTryoutCatalogSchema, rawBody);
+    this.assertAdminDraftStatus(payload.status);
+    return await this.createTryoutCatalog(
+      {
+        ...payload,
+        isPublic: false,
+      },
+      actor,
+    );
+  }
+
+  async getAdminTryoutDraftDetail(tryoutCatalogId: string) {
+    const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.getTryoutCatalogDetail(catalog.id);
+  }
+
+  async updateAdminTryoutDraft(
+    tryoutCatalogId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    const payload = this.validationService.validate(updateTryoutCatalogSchema, rawBody);
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+
+    if (payload.status) {
+      this.assertAdminDraftStatus(payload.status);
+    }
+
+    await this.updateTryoutCatalog(
+      tryoutCatalogId,
+      {
+        ...payload,
+        ...(payload.isPublic !== undefined ? { isPublic: false } : {}),
+      },
+      actor,
+    );
+  }
+
+  async duplicateAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.duplicateTryoutCatalog(tryoutCatalogId, actor);
+  }
+
+  async submitAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser) {
+    const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
+    if (catalog.status === TryoutStatus.review) {
+      return;
+    }
+
+    await this.prisma.tryoutCatalog.update({
+      where: { id: tryoutCatalogId },
+      data: {
+        status: TryoutStatus.review,
+        isPublic: false,
+      },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'SUBMIT_TRYOUT_DRAFT',
+      module: 'tryout_draft',
+      targetType: 'tryout_catalog',
+      targetId: tryoutCatalogId,
     });
   }
 
@@ -813,6 +992,32 @@ export class TryoutManagementService {
     }
 
     return catalog;
+  }
+
+  private async ensureAdminEditableDraft(tryoutCatalogId: string) {
+    const catalog = await this.prisma.tryoutCatalog.findUnique({
+      where: { id: tryoutCatalogId },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!catalog) {
+      throw new NotFoundException('Tryout catalog not found');
+    }
+
+    if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
+      throw new BadRequestException('Admin can only access draft or review tryouts');
+    }
+
+    return catalog;
+  }
+
+  private assertAdminDraftStatus(status: TryoutStatus) {
+    if (status !== TryoutStatus.draft && status !== TryoutStatus.review) {
+      throw new BadRequestException('Admin drafts can only be saved as draft or review');
+    }
   }
 
   private async ensurePassingGradeExists(passingGradeConfigId?: string) {

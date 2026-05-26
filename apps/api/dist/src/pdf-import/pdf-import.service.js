@@ -9,16 +9,19 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
 import { ImportBatchStatus, ParsedQuestionStatus, QuestionCategory, QuestionStatus, SourceType, } from '../../generated/prisma/client.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { assertQuestionOptionRules } from '../question-bank/question-bank.rules.js';
-import { approveParsedQuestionSchema, listPdfImportBatchesQuerySchema, rejectParsedQuestionSchema, updateParsedQuestionSchema, uploadPdfMetadataSchema, } from './pdf-import.schemas.js';
+import { approveParsedQuestionSchema, listParsedQuestionsQuerySchema, listPdfImportBatchesQuerySchema, rejectParsedQuestionSchema, updateParsedQuestionSchema, uploadPdfMetadataSchema, } from './pdf-import.schemas.js';
 import { assertPdfFile, buildQuestionPreview, deriveParsedQuestionStatusCounters, toInputJson, toQuestionOptionCreateMany, } from './pdf-import.helpers.js';
 let PdfImportService = class PdfImportService {
     prisma;
+    auditLogService;
     validationService;
-    constructor(prisma, validationService) {
+    constructor(prisma, auditLogService, validationService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
         this.validationService = validationService;
     }
     async uploadPdfForParsing(file, rawBody, actor) {
@@ -44,10 +47,76 @@ let PdfImportService = class PdfImportService {
             },
         });
         void this.processPdfImportBatch(batch.id, uploadedFile, payload.categoryHint).catch(() => undefined);
+        await this.auditLogService.create({
+            actor,
+            action: 'UPLOAD_PDF_IMPORT',
+            module: 'pdf_import',
+            targetType: 'question_import_batch',
+            targetId: batch.id,
+            metadata: {
+                fileName: uploadedFile.originalname,
+                categoryHint: payload.categoryHint ?? 'auto',
+            },
+        });
         return {
             batchId: batch.id,
             status: batch.status,
             fileName: batch.fileName,
+        };
+    }
+    async listParsedQuestions(rawQuery) {
+        const query = this.validationService.validate(listParsedQuestionsQuerySchema, rawQuery);
+        const skip = (query.page - 1) * query.limit;
+        const where = {
+            ...(query.batchId ? { batchId: query.batchId } : {}),
+            ...(query.status ? { status: query.status } : {}),
+            ...(query.category ? { category: query.category } : {}),
+            ...(query.search
+                ? {
+                    OR: [
+                        {
+                            questionText: {
+                                contains: query.search,
+                                mode: 'insensitive',
+                            },
+                        },
+                        {
+                            topicTag: {
+                                contains: query.search,
+                                mode: 'insensitive',
+                            },
+                        },
+                    ],
+                }
+                : {}),
+        };
+        const [items, totalItems] = await Promise.all([
+            this.prisma.parsedQuestionReview.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: query.limit,
+            }),
+            this.prisma.parsedQuestionReview.count({ where }),
+        ]);
+        return {
+            data: items.map((item) => ({
+                id: item.id,
+                batchId: item.batchId,
+                questionPreview: buildQuestionPreview(item.questionText),
+                category: item.category,
+                topicTag: item.topicTag,
+                difficulty: item.difficulty,
+                confidenceScore: item.confidenceScore === null ? null : Number(item.confidenceScore),
+                status: item.status,
+                createdAt: item.createdAt,
+            })),
+            meta: {
+                page: query.page,
+                limit: query.limit,
+                totalItems,
+                totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+            },
         };
     }
     async listPdfImportBatches(rawQuery) {
@@ -141,6 +210,8 @@ let PdfImportService = class PdfImportService {
             confidenceScore: parsedQuestion.confidenceScore === null ? null : Number(parsedQuestion.confidenceScore),
             status: parsedQuestion.status,
             rawAiOutput: parsedQuestion.rawAiOutput,
+            reviewNotes: parsedQuestion.reviewNotes,
+            reviewedAt: parsedQuestion.reviewedAt,
         };
     }
     async updateParsedQuestion(parsedQuestionId, rawBody, actor) {
@@ -173,6 +244,17 @@ let PdfImportService = class PdfImportService {
                 reviewNotes: null,
                 reviewedBy: actor.id,
                 reviewedAt: new Date(),
+            },
+        });
+        await this.auditLogService.create({
+            actor,
+            action: 'UPDATE_PARSED_QUESTION',
+            module: 'pdf_import',
+            targetType: 'parsed_question_review',
+            targetId: parsedQuestionId,
+            metadata: {
+                category: payload.category,
+                topicTag: payload.topicTag,
             },
         });
     }
@@ -236,6 +318,17 @@ let PdfImportService = class PdfImportService {
             return question;
         });
         await this.refreshBatchCounters(parsedQuestion.batchId);
+        await this.auditLogService.create({
+            actor,
+            action: 'APPROVE_PARSED_QUESTION',
+            module: 'pdf_import',
+            targetType: 'parsed_question_review',
+            targetId: parsedQuestionId,
+            metadata: {
+                questionId: result.id,
+                status: payload.status ?? QuestionStatus.active,
+            },
+        });
         return {
             questionId: result.id,
             parsedQuestionStatus: ParsedQuestionStatus.approved,
@@ -267,6 +360,16 @@ let PdfImportService = class PdfImportService {
             },
         });
         await this.refreshBatchCounters(parsedQuestion.batchId);
+        await this.auditLogService.create({
+            actor,
+            action: 'REJECT_PARSED_QUESTION',
+            module: 'pdf_import',
+            targetType: 'parsed_question_review',
+            targetId: parsedQuestionId,
+            metadata: {
+                reviewNotes: payload.reviewNotes,
+            },
+        });
     }
     async processPdfImportBatch(batchId, file, categoryHint) {
         const webhookUrl = process.env.PDF_IMPORT_WEBHOOK_URL?.trim();
@@ -382,6 +485,7 @@ let PdfImportService = class PdfImportService {
 PdfImportService = __decorate([
     Injectable(),
     __metadata("design:paramtypes", [PrismaService,
+        AuditLogService,
         ValidationService])
 ], PdfImportService);
 export { PdfImportService };

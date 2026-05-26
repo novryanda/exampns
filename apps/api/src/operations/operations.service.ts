@@ -148,35 +148,18 @@ export class OperationsService {
     };
   }
 
-  async getAdminDashboardSummary() {
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0, 0, 0, 0);
-
+  async getAdminDashboardSummary(actor: AuthenticatedUser) {
     const [
-      totalUsers,
-      activeSubscribers,
       totalQuestions,
-      pendingReviewQuestions,
-      paymentPending,
-      monthlyRevenueAggregate,
+      activeQuestions,
+      pendingParsedQuestions,
+      draftTryouts,
+      submittedReviewTryouts,
+      failedPdfBatches,
       recentImportBatches,
-      recentTransactions,
+      questionDistributionRows,
+      recentActivity,
     ] = await Promise.all([
-      this.prisma.user.count({
-        where: {
-          role: UserRole.USER,
-          deletedAt: null,
-        },
-      }),
-      this.prisma.userSubscription.count({
-        where: {
-          status: SubscriptionStatus.active,
-          endDate: {
-            gt: new Date(),
-          },
-        },
-      }),
       this.prisma.question.count({
         where: {
           deletedAt: null,
@@ -184,23 +167,29 @@ export class OperationsService {
       }),
       this.prisma.question.count({
         where: {
-          status: QuestionStatus.pending_review,
+          status: QuestionStatus.active,
           deletedAt: null,
         },
       }),
-      this.prisma.paymentTransaction.count({
+      this.prisma.parsedQuestionReview.count({
         where: {
-          status: PaymentStatus.pending,
+          status: 'pending_review',
         },
       }),
-      this.prisma.paymentTransaction.aggregate({
-        _sum: {
-          amount: true,
-        },
+      this.prisma.tryoutCatalog.count({
         where: {
-          status: PaymentStatus.success,
-          paidAt: {
-            gte: monthStart,
+          status: 'draft',
+        },
+      }),
+      this.prisma.tryoutCatalog.count({
+        where: {
+          status: 'review',
+        },
+      }),
+      this.prisma.questionImportBatch.count({
+        where: {
+          status: {
+            in: ['failed', 'partial_failed'],
           },
         },
       }),
@@ -208,23 +197,47 @@ export class OperationsService {
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-      this.prisma.paymentTransaction.findMany({
+      this.prisma.question.groupBy({
+        by: ['category'],
+        _count: {
+          _all: true,
+        },
+        where: {
+          status: QuestionStatus.active,
+          deletedAt: null,
+        },
+      }),
+      this.prisma.auditLog.findMany({
+        where: {
+          actorUserId: actor.id,
+          module: {
+            in: ['question_bank', 'pdf_import', 'tryout_draft'],
+          },
+        },
         include: {
-          user: true,
-          subscriptionPlan: true,
+          actorUser: {
+            select: {
+              name: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
-        take: 5,
+        take: 10,
       }),
     ]);
 
     return {
-      totalUsers,
-      activeSubscribers,
       totalQuestions,
-      pendingReviewQuestions,
-      paymentPending,
-      monthlyRevenue: Number(monthlyRevenueAggregate._sum.amount ?? 0),
+      activeQuestions,
+      pendingParsedQuestions,
+      draftTryouts,
+      submittedReviewTryouts,
+      failedPdfBatches,
+      questionDistribution: ['TWK', 'TIU', 'TKP'].map((category) => ({
+        category,
+        activeCount:
+          questionDistributionRows.find((row) => row.category === category)?._count._all ?? 0,
+      })),
       recentImportBatches: recentImportBatches.map((batch) => ({
         batchId: batch.id,
         fileName: batch.fileName,
@@ -234,17 +247,14 @@ export class OperationsService {
         invalidCount: batch.invalidCount,
         createdAt: batch.createdAt,
       })),
-      recentTransactions: recentTransactions.map((transaction) => ({
-        id: transaction.id,
-        invoiceNumber: transaction.invoiceNumber,
-        userName: transaction.user.name,
-        userEmail: transaction.user.email,
-        planName: transaction.subscriptionPlan.name,
-        amount: Number(transaction.amount),
-        paymentMethod: transaction.paymentMethod,
-        status: transaction.status,
-        createdAt: transaction.createdAt,
-        paidAt: transaction.paidAt,
+      recentActivity: recentActivity.map((log) => ({
+        id: log.id,
+        actorName: log.actorUser?.name ?? actor.name,
+        action: log.action,
+        module: log.module,
+        targetType: log.targetType,
+        targetId: log.targetId,
+        createdAt: log.createdAt,
       })),
     };
   }
@@ -1134,6 +1144,58 @@ export class OperationsService {
     const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
     const where: Prisma.AuditLogWhereInput = {
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
+      ...(query.module ? { module: query.module } : {}),
+      ...(query.action ? { action: query.action } : {}),
+      ...(query.dateFrom || query.dateTo
+        ? {
+            createdAt: {
+              ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const skip = (query.page - 1) * query.limit;
+    const [logs, totalItems] = await Promise.all([
+      this.prisma.auditLog.findMany({
+        where,
+        include: {
+          actorUser: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: query.limit,
+      }),
+      this.prisma.auditLog.count({ where }),
+    ]);
+
+    return {
+      data: logs.map((log) => ({
+        id: log.id,
+        actorUserId: log.actorUserId,
+        actorName: log.actorUser?.name ?? null,
+        actorRole: log.actorRole,
+        action: log.action,
+        module: log.module,
+        targetType: log.targetType,
+        targetId: log.targetId,
+        metadata: log.metadata,
+        createdAt: log.createdAt,
+      })),
+      meta: {
+        page: query.page,
+        limit: query.limit,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+      },
+    };
+  }
+
+  async getAdminSelfAuditLogs(actor: AuthenticatedUser, rawQuery: unknown) {
+    const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+    const where: Prisma.AuditLogWhereInput = {
+      actorUserId: actor.id,
       ...(query.module ? { module: query.module } : {}),
       ...(query.action ? { action: query.action } : {}),
       ...(query.dateFrom || query.dateTo

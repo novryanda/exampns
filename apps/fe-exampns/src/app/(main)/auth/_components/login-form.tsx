@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { signIn, signOut } from "@/lib/auth/auth-client";
+import { signIn } from "@/lib/auth/auth-client";
 import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,6 +21,28 @@ const formSchema = z.object({
   password: z.string().min(8, { message: "Password minimal 8 karakter." }),
   remember: z.boolean().optional(),
 });
+
+interface CurrentUserProfileResponse {
+  success: true;
+  data: {
+    role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  };
+}
+
+async function getCurrentUserRole() {
+  const response = await fetch("/api/me", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload = (await response.json()) as CurrentUserProfileResponse;
+  return payload.data.role;
+}
 
 export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: string }) {
   const router = useRouter();
@@ -56,18 +78,10 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           return;
         }
 
-        const accountStatus = data?.user?.status;
-        if (accountStatus && accountStatus !== "active") {
-          await signOut();
-          toast.error(
-            "Akun belum aktif. Untuk undangan admin: atur password dari link di email. Untuk daftar mandiri: verifikasi email terlebih dahulu.",
-          );
-          return;
-        }
-
-        const redirectPath = getPostAuthRedirectPath(data?.user?.role);
+        const role = await getCurrentUserRole();
+        const redirectPath = getPostAuthRedirectPath(role);
         toast.success(
-          redirectPath === "/dashboard"
+          redirectPath === "/admin/dashboard" || redirectPath === "/super-admin/dashboard"
             ? "Login berhasil. Mengarahkan ke dashboard..."
             : "Login berhasil. Selamat datang di ExamCPNS.",
         );

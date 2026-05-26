@@ -16,3 +16,12 @@ export const initialCreateTryoutActionState: CreateTryoutActionState = {
   status: "idle",
   message: "",
 };
+
+export interface ResourceActionState extends AdminActionState {
+  resourceId?: string;
+}
+
+export const initialResourceActionState: ResourceActionState = {
+  status: "idle",
+  message: "",
+};

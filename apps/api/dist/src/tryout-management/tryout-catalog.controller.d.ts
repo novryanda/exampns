@@ -10,12 +10,12 @@ export declare class TryoutCatalogController {
         status: string;
     }>>;
     getCatalogDetail(tryoutCatalogId: string): Promise<ApiSuccessResponse<unknown>>;
-    updateCatalog(tryoutCatalogId: string, body: unknown): Promise<ApiMessageResponse>;
+    updateCatalog(tryoutCatalogId: string, body: unknown, actor: AuthenticatedUser): Promise<ApiMessageResponse>;
     duplicateCatalog(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<ApiSuccessResponse<{
         id: string;
     }>>;
     publishCatalog(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<ApiMessageResponse>;
-    archiveCatalog(tryoutCatalogId: string): Promise<ApiMessageResponse>;
+    archiveCatalog(tryoutCatalogId: string, actor: AuthenticatedUser): Promise<ApiMessageResponse>;
     getGenerationRule(tryoutCatalogId: string): Promise<ApiSuccessResponse<unknown>>;
     upsertGenerationRule(tryoutCatalogId: string, body: unknown): Promise<ApiMessageResponse>;
     runAvailabilityCheck(tryoutCatalogId: string): Promise<ApiSuccessResponse<unknown>>;

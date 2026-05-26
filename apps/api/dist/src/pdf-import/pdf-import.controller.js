@@ -28,6 +28,10 @@ let PdfImportController = class PdfImportController {
         const result = await this.pdfImportService.listPdfImportBatches(query);
         return apiPaginated(result.data, result.meta);
     }
+    async listParsedQuestions(query) {
+        const result = await this.pdfImportService.listParsedQuestions(query);
+        return apiPaginated(result.data, result.meta);
+    }
     async getPdfImportBatchDetail(batchId) {
         return apiData(await this.pdfImportService.getPdfImportBatchDetail(batchId));
     }
@@ -64,6 +68,13 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], PdfImportController.prototype, "listPdfImportBatches", null);
+__decorate([
+    Get('parsed-questions'),
+    __param(0, Query()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PdfImportController.prototype, "listParsedQuestions", null);
 __decorate([
     Get('pdf-imports/:batchId'),
     __param(0, Param('batchId')),

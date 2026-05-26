@@ -8,14 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useListFiltersUrl } from "@/hooks/use-list-filters-url";
 
-function UsersFiltersInner() {
-  const {
-    searchInput,
-    setSearchInput,
-    statusFromUrl,
-    subscriptionStatusFromUrl,
-    applyFilters,
-  } = useListFiltersUrl("/super-admin/users");
+function AdminAccountsFiltersInner() {
+  const { searchInput, setSearchInput, statusFromUrl, applyFilters } =
+    useListFiltersUrl("/super-admin/admin-accounts");
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -23,10 +18,10 @@ function UsersFiltersInner() {
         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-slate-400" />
         <Input
           className="rounded-xl border-slate-200 pl-9"
-          placeholder="Cari nama atau email pengguna..."
+          placeholder="Cari nama atau email admin..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          aria-label="Cari pengguna"
+          aria-label="Cari admin"
         />
       </div>
       <Select value={statusFromUrl} onValueChange={(value) => applyFilters({ status: value })}>
@@ -40,28 +35,14 @@ function UsersFiltersInner() {
           <SelectItem value="suspended">Suspended</SelectItem>
         </SelectContent>
       </Select>
-      <Select
-        value={subscriptionStatusFromUrl}
-        onValueChange={(value) => applyFilters({ subscriptionStatus: value })}
-      >
-        <SelectTrigger className="w-52 rounded-xl border-slate-200 bg-white">
-          <SelectValue placeholder="Semua Subscription" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">Semua Subscription</SelectItem>
-          <SelectItem value="active">Active</SelectItem>
-          <SelectItem value="trial">Trial</SelectItem>
-          <SelectItem value="expired">Expired</SelectItem>
-        </SelectContent>
-      </Select>
     </div>
   );
 }
 
-export function UsersFilters() {
+export function AdminAccountsFilters() {
   return (
     <Suspense fallback={<div className="h-10 min-w-80 animate-pulse rounded-xl bg-slate-100" />}>
-      <UsersFiltersInner />
+      <AdminAccountsFiltersInner />
     </Suspense>
   );
 }

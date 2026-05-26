@@ -1,11 +1,18 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Patch,
+  Post,
   Req,
   Res,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { RequestWithAuth } from '../auth/auth-request.type.js';
@@ -29,6 +36,42 @@ export class MeController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<ApiSuccessResponse<MeProfile>> {
     return apiData(await this.meService.getProfile(user.id));
+  }
+
+  @Post('avatar')
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile()
+    file:
+      | {
+          originalname: string;
+          mimetype: string;
+          size: number;
+          buffer: Buffer;
+        }
+      | undefined,
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiSuccessResponse<MeProfile>> {
+    return apiData(
+      await this.meService.uploadAvatar(user.id, request, response, file),
+      'Foto profil berhasil diunggah',
+    );
+  }
+
+  @Delete('avatar')
+  @HttpCode(HttpStatus.OK)
+  async removeAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() request: RequestWithAuth,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<ApiSuccessResponse<MeProfile>> {
+    return apiData(
+      await this.meService.removeAvatar(user.id, request, response),
+      'Foto profil dihapus',
+    );
   }
 
   @Patch()

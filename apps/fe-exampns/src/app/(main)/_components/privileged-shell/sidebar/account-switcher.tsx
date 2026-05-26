@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { BadgeCheck, Bell, Check, CreditCard, Loader2, LogOut } from "lucide-react";
+import { Check, CircleUser, Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,6 +34,8 @@ export function AccountSwitcher({
   const router = useRouter();
   const [activeUser, setActiveUser] = useState(users[0]);
   const [isPending, startTransition] = useTransition();
+  const profileHref =
+    activeUser?.role === "ADMIN" || activeUser?.role === "SUPER_ADMIN" ? "/profil" : "/";
 
   const handleSignOut = () => {
     startTransition(() => {
@@ -99,17 +102,11 @@ export function AccountSwitcher({
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem>
-            <BadgeCheck />
-            Account
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <CreditCard />
-            Billing
-          </DropdownMenuItem>
-          <DropdownMenuItem>
-            <Bell />
-            Notifications
+          <DropdownMenuItem asChild>
+            <Link href={profileHref}>
+              <CircleUser />
+              Profil
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />

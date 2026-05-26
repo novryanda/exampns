@@ -17,7 +17,7 @@ const metricTints = ["blue", "green", "violet", "amber"] as const;
 export default async function SuperAdminDashboardPage() {
   const [users, admins, tryouts, aiSettings] = await Promise.all([
     getAdminUsers({ limit: 1 }),
-    getSuperAdminAccounts(),
+    getSuperAdminAccounts({ limit: 1 }),
     getTryoutCatalogs({ limit: 1 }),
     getAiRecommendationSettings(),
   ]);
@@ -32,7 +32,7 @@ export default async function SuperAdminDashboardPage() {
     },
     {
       title: "Admin Accounts",
-      value: admins.length.toLocaleString("id-ID"),
+      value: admins.meta.totalItems.toLocaleString("id-ID"),
       delta: "",
       deltaLabel: "akun admin aktif dan nonaktif",
       direction: "neutral" as const,

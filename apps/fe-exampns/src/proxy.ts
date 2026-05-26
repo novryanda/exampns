@@ -39,7 +39,8 @@ export async function proxy(request: NextRequest) {
     !sessionCookie &&
     (pathname.startsWith("/dashboard") ||
       pathname.startsWith("/admin") ||
-      pathname.startsWith("/super-admin"))
+      pathname.startsWith("/super-admin") ||
+      pathname === "/profil")
   ) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
@@ -48,7 +49,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (sessionCookie && (pathname.startsWith("/admin") || pathname.startsWith("/super-admin"))) {
+  if (
+    sessionCookie &&
+    (pathname.startsWith("/admin") || pathname.startsWith("/super-admin") || pathname === "/profil")
+  ) {
     const session = await getSessionPayload(request);
     const role = session?.user?.role;
 
@@ -59,11 +63,15 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith("/super-admin") && role !== "SUPER_ADMIN") {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
+
+    if (pathname === "/profil" && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/", "/auth/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*"],
+  matcher: ["/", "/auth/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*", "/profil"],
 };

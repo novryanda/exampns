@@ -11,6 +11,7 @@ export declare class PdfImportController {
         buffer: Buffer;
     } | undefined, body: unknown, actor: AuthenticatedUser): Promise<ApiSuccessResponse<unknown>>;
     listPdfImportBatches(query: Record<string, unknown>): Promise<ApiPaginatedResponse<unknown[]>>;
+    listParsedQuestions(query: Record<string, unknown>): Promise<ApiPaginatedResponse<unknown[]>>;
     getPdfImportBatchDetail(batchId: string): Promise<ApiSuccessResponse<unknown>>;
     getParsedQuestionDetail(parsedQuestionId: string): Promise<ApiSuccessResponse<unknown>>;
     updateParsedQuestion(parsedQuestionId: string, body: unknown, actor: AuthenticatedUser): Promise<ApiMessageResponse>;

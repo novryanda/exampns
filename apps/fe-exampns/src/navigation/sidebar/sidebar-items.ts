@@ -45,13 +45,57 @@ export interface NavGroup {
   items: NavMainItem[];
 }
 
-export const sidebarItems: NavGroup[] = [
+export const adminSidebarItems: NavGroup[] = [
   {
     id: 1,
     items: [
       {
         title: "Dashboard",
-        url: "/dashboard",
+        url: "/admin/dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    id: 2,
+    label: "Content",
+    items: [
+      {
+        title: "Bank Soal",
+        url: "/admin/bank-soal",
+        icon: Files,
+      },
+      {
+        title: "Upload PDF",
+        url: "/admin/upload-pdf",
+        icon: ScrollText,
+      },
+      {
+        title: "Review Parsing",
+        url: "/admin/review-parsing",
+        icon: FileSearch,
+      },
+      {
+        title: "Tryout Drafts",
+        url: "/admin/tryout-drafts",
+        icon: BookCopy,
+      },
+      {
+        title: "Audit Aktivitas",
+        url: "/admin/audit-aktivitas",
+        icon: ScrollText,
+      },
+    ],
+  },
+];
+
+export const superAdminSidebarItems: NavGroup[] = [
+  {
+    id: 1,
+    items: [
+      {
+        title: "Dashboard",
+        url: "/super-admin/dashboard",
         icon: LayoutDashboard,
       },
     ],
@@ -62,142 +106,37 @@ export const sidebarItems: NavGroup[] = [
     items: [
       {
         title: "Tryout Catalog",
-        url: "/dashboard/tryout-catalog",
+        url: "/super-admin/tryout-catalog",
         icon: BookCopy,
       },
       {
-        title: "Bank Soal",
-        url: "/dashboard/bank-soal",
-        icon: Files,
-        comingSoon: true,
+        title: "Users",
+        url: "/super-admin/users",
+        icon: Users,
       },
       {
-        title: "PDF Uploads",
-        url: "/dashboard/pdf-uploads",
-        icon: ScrollText,
-        comingSoon: true,
+        title: "Admin Accounts",
+        url: "/super-admin/admin-accounts",
+        icon: ShieldUser,
       },
       {
-        title: "Review Parsing",
-        url: "/dashboard/review-parsing",
-        icon: FileSearch,
-        comingSoon: true,
+        title: "Transactions",
+        url: "/super-admin/transactions",
+        icon: ReceiptText,
       },
     ],
   },
   {
     id: 3,
-    label: "Users & Access",
-    items: [
-      {
-        title: "Users",
-        url: "/dashboard/users",
-        icon: Users,
-      },
-      {
-        title: "Admin Accounts",
-        url: "/dashboard/admin-accounts",
-        icon: ShieldUser,
-        superAdminOnly: true,
-      },
-      {
-        title: "Manual Activation",
-        url: "/dashboard/manual-activation",
-        icon: WalletCards,
-        comingSoon: true,
-      },
-    ],
-  },
-  {
-    id: 4,
-    label: "Business",
-    items: [
-      {
-        title: "Subscription Plans",
-        url: "/dashboard/subscription-plans",
-        icon: ChartNoAxesCombined,
-        comingSoon: true,
-      },
-      {
-        title: "Transactions",
-        url: "/dashboard/transactions",
-        icon: ReceiptText,
-      },
-      {
-        title: "Payment Webhooks",
-        url: "/dashboard/payment-webhooks",
-        icon: Webhook,
-        comingSoon: true,
-      },
-    ],
-  },
-  {
-    id: 5,
     label: "Configuration",
     items: [
       {
-        title: "Passing Grade",
-        url: "/dashboard/passing-grade",
-        icon: ChartNoAxesCombined,
-        comingSoon: true,
-      },
-      {
-        title: "Trial Rules",
-        url: "/dashboard/trial-rules",
-        icon: Settings2,
-        comingSoon: true,
-      },
-      {
         title: "AI Recommendation Settings",
-        url: "/dashboard/ai-recommendation-settings",
+        url: "/super-admin/ai-recommendation-settings",
         icon: Bot,
-      },
-      {
-        title: "System Settings",
-        url: "/dashboard/system-settings",
-        icon: Settings2,
-        comingSoon: true,
-      },
-    ],
-  },
-  {
-    id: 6,
-    label: "Monitoring",
-    items: [
-      {
-        title: "Audit Logs",
-        url: "/dashboard/audit-logs",
-        icon: ScrollText,
-        comingSoon: true,
-      },
-      {
-        title: "Error Logs",
-        url: "/dashboard/error-logs",
-        icon: TriangleAlert,
-        comingSoon: true,
-      },
-      {
-        title: "AI Job Logs",
-        url: "/dashboard/ai-job-logs",
-        icon: Bot,
-        comingSoon: true,
-      },
-    ],
-  },
-  {
-    id: 7,
-    items: [
-      {
-        title: "Profile",
-        url: "/dashboard/profile",
-        icon: UserRound,
-        comingSoon: true,
-      },
-      {
-        title: "Logout",
-        url: "/dashboard/logout",
-        icon: LogOut,
       },
     ],
   },
 ];
+
+export const sidebarItems = superAdminSidebarItems;

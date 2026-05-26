@@ -9,6 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { Injectable, NotFoundException, } from '@nestjs/common';
 import { QuestionCategory, SourceType, } from '../../generated/prisma/client.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { createQuestionSchema, listQuestionsQuerySchema, updateQuestionSchema, } from './question-bank.schemas.js';
@@ -65,9 +66,11 @@ const buildQuestionPreview = (text) => {
 };
 let QuestionBankService = class QuestionBankService {
     prisma;
+    auditLogService;
     validationService;
-    constructor(prisma, validationService) {
+    constructor(prisma, auditLogService, validationService) {
         this.prisma = prisma;
+        this.auditLogService = auditLogService;
         this.validationService = validationService;
     }
     async listQuestions(rawQuery) {
@@ -144,6 +147,18 @@ let QuestionBankService = class QuestionBankService {
             select: {
                 id: true,
                 status: true,
+            },
+        });
+        await this.auditLogService.create({
+            actor,
+            action: 'CREATE_QUESTION',
+            module: 'question_bank',
+            targetType: 'question',
+            targetId: created.id,
+            metadata: {
+                category: payload.category,
+                difficulty: payload.difficulty,
+                status: payload.status,
             },
         });
         return created;
@@ -242,6 +257,17 @@ let QuestionBankService = class QuestionBankService {
                 }
             }
         });
+        await this.auditLogService.create({
+            actor,
+            action: 'UPDATE_QUESTION',
+            module: 'question_bank',
+            targetType: 'question',
+            targetId: questionId,
+            metadata: {
+                category: nextCategory,
+                status: payload.status,
+            },
+        });
     }
     async archiveQuestion(questionId, actor) {
         const existing = await this.prisma.question.findUnique({
@@ -260,6 +286,13 @@ let QuestionBankService = class QuestionBankService {
                 deletedAt: new Date(),
                 updatedBy: actor.id,
             },
+        });
+        await this.auditLogService.create({
+            actor,
+            action: 'ARCHIVE_QUESTION',
+            module: 'question_bank',
+            targetType: 'question',
+            targetId: questionId,
         });
     }
     buildListWhere(query) {
@@ -308,6 +341,7 @@ let QuestionBankService = class QuestionBankService {
 QuestionBankService = __decorate([
     Injectable(),
     __metadata("design:paramtypes", [PrismaService,
+        AuditLogService,
         ValidationService])
 ], QuestionBankService);
 export { QuestionBankService };

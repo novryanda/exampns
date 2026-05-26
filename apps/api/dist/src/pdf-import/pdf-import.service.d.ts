@@ -1,16 +1,37 @@
 import { ImportBatchStatus, ParsedQuestionStatus, QuestionCategory } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { type UploadedPdfFile } from './pdf-import.helpers.js';
 export declare class PdfImportService {
     private readonly prisma;
+    private readonly auditLogService;
     private readonly validationService;
-    constructor(prisma: PrismaService, validationService: ValidationService);
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, validationService: ValidationService);
     uploadPdfForParsing(file: UploadedPdfFile | undefined, rawBody: unknown, actor: AuthenticatedUser): Promise<{
         batchId: string;
         status: ImportBatchStatus;
         fileName: string;
+    }>;
+    listParsedQuestions(rawQuery: unknown): Promise<{
+        data: {
+            id: string;
+            batchId: string;
+            questionPreview: string;
+            category: QuestionCategory | null;
+            topicTag: string | null;
+            difficulty: import("../../generated/prisma/enums.js").QuestionDifficulty | null;
+            confidenceScore: number | null;
+            status: ParsedQuestionStatus;
+            createdAt: Date;
+        }[];
+        meta: {
+            page: number;
+            limit: number;
+            totalItems: number;
+            totalPages: number;
+        };
     }>;
     listPdfImportBatches(rawQuery: unknown): Promise<{
         data: {
@@ -62,6 +83,8 @@ export declare class PdfImportService {
         confidenceScore: number | null;
         status: ParsedQuestionStatus;
         rawAiOutput: import("@prisma/client/runtime/client").JsonValue;
+        reviewNotes: string | null;
+        reviewedAt: Date | null;
     }>;
     updateParsedQuestion(parsedQuestionId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     approveParsedQuestion(parsedQuestionId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<{

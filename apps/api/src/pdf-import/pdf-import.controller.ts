@@ -60,6 +60,14 @@ export class PdfImportController {
     return apiPaginated(result.data, result.meta);
   }
 
+  @Get('parsed-questions')
+  async listParsedQuestions(
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiPaginatedResponse<unknown[]>> {
+    const result = await this.pdfImportService.listParsedQuestions(query);
+    return apiPaginated(result.data, result.meta);
+  }
+
   @Get('pdf-imports/:batchId')
   async getPdfImportBatchDetail(
     @Param('batchId') batchId: string,

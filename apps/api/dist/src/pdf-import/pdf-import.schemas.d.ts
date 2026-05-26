@@ -17,6 +17,23 @@ export declare const listPdfImportBatchesQuerySchema: z.ZodObject<{
     page: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
     limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
 }, z.core.$strip>;
+export declare const listParsedQuestionsQuerySchema: z.ZodObject<{
+    batchId: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
+    status: z.ZodPreprocess<z.ZodOptional<z.ZodEnum<{
+        readonly pending_review: "pending_review";
+        readonly approved: "approved";
+        readonly rejected: "rejected";
+        readonly draft: "draft";
+    }>>>;
+    category: z.ZodPreprocess<z.ZodOptional<z.ZodEnum<{
+        readonly TWK: "TWK";
+        readonly TIU: "TIU";
+        readonly TKP: "TKP";
+    }>>>;
+    search: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
+    page: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+    limit: z.ZodDefault<z.ZodCoercedNumber<unknown>>;
+}, z.core.$strip>;
 export declare const updateParsedQuestionSchema: z.ZodObject<{
     questionText: z.ZodString;
     options: z.ZodArray<z.ZodObject<{
@@ -63,3 +80,4 @@ export declare const rejectParsedQuestionSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type UploadPdfMetadataInput = z.infer<typeof uploadPdfMetadataSchema>;
 export type UpdateParsedQuestionInput = z.infer<typeof updateParsedQuestionSchema>;
+export type ListParsedQuestionsQuery = z.infer<typeof listParsedQuestionsQuerySchema>;

@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SignOutButton } from "@/app/_components/sign-out-button";
+import { Button } from "@/components/ui/button";
+import { APP_CONFIG } from "@/config/app-config";
 import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { getServerAuthSession } from "@/lib/auth/server-auth";
-import { APP_CONFIG } from "@/config/app-config";
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { Button } from "@/components/ui/button";
 
 export default async function HomePage() {
   const session = await getServerAuthSession();
 
   if (session?.user) {
-    const adminPath = getPostAuthRedirectPath(session.user.role);
-    if (adminPath === "/dashboard") {
-      redirect("/dashboard");
+    const landingPath = getPostAuthRedirectPath(session.user.role);
+    if (landingPath !== "/") {
+      redirect(landingPath);
     }
   }
 

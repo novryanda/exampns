@@ -30,8 +30,8 @@ let TryoutCatalogController = class TryoutCatalogController {
     async getCatalogDetail(tryoutCatalogId) {
         return apiData(await this.tryoutManagementService.getTryoutCatalogDetail(tryoutCatalogId));
     }
-    async updateCatalog(tryoutCatalogId, body) {
-        await this.tryoutManagementService.updateTryoutCatalog(tryoutCatalogId, body);
+    async updateCatalog(tryoutCatalogId, body, actor) {
+        await this.tryoutManagementService.updateTryoutCatalog(tryoutCatalogId, body, actor);
         return apiMessage('Tryout catalog berhasil diperbarui');
     }
     async duplicateCatalog(tryoutCatalogId, actor) {
@@ -42,8 +42,8 @@ let TryoutCatalogController = class TryoutCatalogController {
         await this.tryoutManagementService.publishTryoutCatalog(tryoutCatalogId, actor);
         return apiMessage('Tryout catalog berhasil dipublish');
     }
-    async archiveCatalog(tryoutCatalogId) {
-        await this.tryoutManagementService.archiveTryoutCatalog(tryoutCatalogId);
+    async archiveCatalog(tryoutCatalogId, actor) {
+        await this.tryoutManagementService.archiveTryoutCatalog(tryoutCatalogId, actor);
         return apiMessage('Tryout catalog berhasil diarsipkan');
     }
     async getGenerationRule(tryoutCatalogId) {
@@ -84,8 +84,9 @@ __decorate([
     Patch(':tryoutCatalogId'),
     __param(0, Param('tryoutCatalogId')),
     __param(1, Body()),
+    __param(2, CurrentUser()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, Object, Object]),
     __metadata("design:returntype", Promise)
 ], TryoutCatalogController.prototype, "updateCatalog", null);
 __decorate([
@@ -107,8 +108,9 @@ __decorate([
 __decorate([
     Post(':tryoutCatalogId/archive'),
     __param(0, Param('tryoutCatalogId')),
+    __param(1, CurrentUser()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], TryoutCatalogController.prototype, "archiveCatalog", null);
 __decorate([

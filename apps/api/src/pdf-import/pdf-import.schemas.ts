@@ -34,6 +34,15 @@ export const listPdfImportBatchesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const listParsedQuestionsQuerySchema = z.object({
+  batchId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  status: z.preprocess(emptyToUndefined, z.nativeEnum(ParsedQuestionStatus).optional()),
+  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  search: z.preprocess(emptyToUndefined, z.string().trim().max(255).optional()),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export const updateParsedQuestionSchema = z.object({
   questionText: z.string().trim().min(1),
   options: z.array(optionSchema).length(5),
@@ -55,3 +64,4 @@ export const rejectParsedQuestionSchema = z.object({
 
 export type UploadPdfMetadataInput = z.infer<typeof uploadPdfMetadataSchema>;
 export type UpdateParsedQuestionInput = z.infer<typeof updateParsedQuestionSchema>;
+export type ListParsedQuestionsQuery = z.infer<typeof listParsedQuestionsQuerySchema>;

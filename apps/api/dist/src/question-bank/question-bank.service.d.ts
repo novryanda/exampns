@@ -1,11 +1,13 @@
 import { QuestionCategory, SourceType } from '../../generated/prisma/client.js';
+import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 export declare class QuestionBankService {
     private readonly prisma;
+    private readonly auditLogService;
     private readonly validationService;
-    constructor(prisma: PrismaService, validationService: ValidationService);
+    constructor(prisma: PrismaService, auditLogService: AuditLogService, validationService: ValidationService);
     listQuestions(rawQuery: unknown): Promise<{
         data: {
             id: string;

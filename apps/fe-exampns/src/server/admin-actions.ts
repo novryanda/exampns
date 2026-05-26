@@ -135,6 +135,8 @@ export async function updateAiRecommendationSettingsAction(
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/ai-recommendation-settings");
+    revalidatePath("/super-admin/dashboard");
+    revalidatePath("/super-admin/ai-recommendation-settings");
 
     return {
       status: "success",
@@ -172,6 +174,8 @@ export async function createAdminAccountAction(
 
     revalidatePath("/dashboard/admin-accounts");
     revalidatePath("/dashboard/users");
+    revalidatePath("/super-admin/admin-accounts");
+    revalidatePath("/super-admin/users");
 
     return {
       status: "success",
@@ -205,6 +209,7 @@ export async function deactivateAdminAccountAction(
     );
 
     revalidatePath("/dashboard/admin-accounts");
+    revalidatePath("/super-admin/admin-accounts");
 
     return {
       status: "success",
@@ -236,6 +241,7 @@ export async function createPlatformUserAction(
     });
 
     revalidatePath("/dashboard/users");
+    revalidatePath("/super-admin/users");
 
     return {
       status: "success",
@@ -268,6 +274,8 @@ export async function updatePlatformUserStatusAction(
 
     revalidatePath("/dashboard/users");
     revalidatePath(`/dashboard/users/${userId}`);
+    revalidatePath("/super-admin/users");
+    revalidatePath(`/super-admin/users/${userId}`);
 
     const label =
       status === "active" ? "diaktifkan" : status === "suspended" ? "ditangguhkan" : "dinonaktifkan";
@@ -302,6 +310,7 @@ export async function deletePlatformUserAction(
     );
 
     revalidatePath("/dashboard/users");
+    revalidatePath("/super-admin/users");
 
     return {
       status: "success",
@@ -377,6 +386,8 @@ export async function createTryoutCatalogAction(
 
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/tryout-catalog");
+    revalidatePath("/super-admin/dashboard");
+    revalidatePath("/super-admin/tryout-catalog");
 
     return {
       status: "success",

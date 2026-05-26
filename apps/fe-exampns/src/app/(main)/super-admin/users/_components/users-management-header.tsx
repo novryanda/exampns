@@ -18,7 +18,7 @@ export function UsersManagementHeader({ isSuperAdmin }: { readonly isSuperAdmin:
       title="Users"
       description={
         isSuperAdmin
-          ? "Kelola pengguna platform: tambah, suspend, aktifkan, atau hapus user."
+          ? "Kelola pengguna platform"
           : "Monitoring pengguna platform (baca saja). Kelola admin di menu Admin Accounts."
       }
       actions={

@@ -92,21 +92,6 @@ export const adminSidebarItems: NavGroup[] = [
       },
     ],
   },
-  {
-    id: 10,
-    items: [
-      {
-        title: "Profil",
-        url: "/profil",
-        icon: UserRound,
-      },
-      {
-        title: "Logout",
-        url: "/admin/logout",
-        icon: LogOut,
-      },
-    ],
-  },
 ];
 
 export const superAdminSidebarItems: NavGroup[] = [

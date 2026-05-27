@@ -92,6 +92,21 @@ export const adminSidebarItems: NavGroup[] = [
       },
     ],
   },
+  {
+    id: 10,
+    items: [
+      {
+        title: "Profil",
+        url: "/profil",
+        icon: UserRound,
+      },
+      {
+        title: "Logout",
+        url: "/admin/logout",
+        icon: LogOut,
+      },
+    ],
+  },
 ];
 
 export const superAdminSidebarItems: NavGroup[] = [
@@ -107,13 +122,8 @@ export const superAdminSidebarItems: NavGroup[] = [
   },
   {
     id: 2,
-    label: "Content",
+    label: "Users & Access",
     items: [
-      {
-        title: "Tryout Catalog",
-        url: "/super-admin/tryout-catalog",
-        icon: BookCopy,
-      },
       {
         title: "Users",
         url: "/super-admin/users",
@@ -133,12 +143,38 @@ export const superAdminSidebarItems: NavGroup[] = [
   },
   {
     id: 3,
+    label: "Content",
+    items: [
+      {
+        title: "Tryout Catalog",
+        url: "/super-admin/tryout-catalog",
+        icon: BookCopy,
+      },
+    ],
+  },
+  {
+    id: 4,
     label: "Configuration",
     items: [
       {
         title: "AI Recommendation Settings",
         url: "/super-admin/ai-recommendation-settings",
         icon: Bot,
+      },
+    ],
+  },
+  {
+    id: 10,
+    items: [
+      {
+        title: "Profil",
+        url: "/profil",
+        icon: UserRound,
+      },
+      {
+        title: "Logout",
+        url: "/super-admin/logout",
+        icon: LogOut,
       },
     ],
   },

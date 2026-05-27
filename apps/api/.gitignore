@@ -8,6 +8,7 @@ node_modules
 
 # Build and generated output
 dist
+uploads/
 coverage
 *.tsbuildinfo
 /generated/prisma

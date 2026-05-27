@@ -98,6 +98,13 @@ export const auditLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 
+export const adminAccountsQuerySchema = z.object({
+  search: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
+  status: z.preprocess(emptyToUndefined, z.nativeEnum(UserStatus).optional()),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export const deactivateAdminSchema = z.object({
   reason: z.string().min(5).max(500),
 });

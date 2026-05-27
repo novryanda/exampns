@@ -172,10 +172,9 @@ export async function createAdminAccountAction(
       }),
     });
 
-    revalidatePath("/dashboard/admin-accounts");
-    revalidatePath("/dashboard/users");
     revalidatePath("/super-admin/admin-accounts");
     revalidatePath("/super-admin/users");
+    revalidatePath("/super-admin/dashboard");
 
     return {
       status: "success",
@@ -208,8 +207,8 @@ export async function deactivateAdminAccountAction(
       },
     );
 
-    revalidatePath("/dashboard/admin-accounts");
     revalidatePath("/super-admin/admin-accounts");
+    revalidatePath("/super-admin/dashboard");
 
     return {
       status: "success",
@@ -240,8 +239,8 @@ export async function createPlatformUserAction(
       }),
     });
 
-    revalidatePath("/dashboard/users");
     revalidatePath("/super-admin/users");
+    revalidatePath("/super-admin/dashboard");
 
     return {
       status: "success",
@@ -272,10 +271,9 @@ export async function updatePlatformUserStatusAction(
       },
     );
 
-    revalidatePath("/dashboard/users");
-    revalidatePath(`/dashboard/users/${userId}`);
     revalidatePath("/super-admin/users");
     revalidatePath(`/super-admin/users/${userId}`);
+    revalidatePath("/super-admin/dashboard");
 
     const label =
       status === "active" ? "diaktifkan" : status === "suspended" ? "ditangguhkan" : "dinonaktifkan";
@@ -309,8 +307,8 @@ export async function deletePlatformUserAction(
       },
     );
 
-    revalidatePath("/dashboard/users");
     revalidatePath("/super-admin/users");
+    revalidatePath("/super-admin/dashboard");
 
     return {
       status: "success",

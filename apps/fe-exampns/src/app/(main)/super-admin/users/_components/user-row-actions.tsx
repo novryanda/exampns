@@ -42,9 +42,16 @@ function StatusActionButton({
     <form action={formAction}>
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="status" value={status} />
-      <Button type="submit" size="sm" variant={variant} className="rounded-lg" disabled={isPending}>
-        <Icon className="mr-1 size-4" />
-        {label}
+      <Button
+        type="submit"
+        size="icon"
+        variant={variant}
+        className="size-8 rounded-lg"
+        disabled={isPending}
+        aria-label={label}
+        title={label}
+      >
+        <Icon className="size-4" />
       </Button>
     </form>
   );
@@ -68,9 +75,14 @@ function DeleteUserDialog({ user }: { readonly user: AdminUserItem }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="destructive" className="rounded-lg">
-          <Trash2 className="mr-1 size-4" />
-          Hapus
+        <Button
+          size="icon"
+          variant="destructive"
+          className="size-8 rounded-lg"
+          aria-label="Hapus user"
+          title="Hapus user"
+        >
+          <Trash2 className="size-4" />
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -102,7 +114,7 @@ function DeleteUserDialog({ user }: { readonly user: AdminUserItem }) {
 
 export function UserRowActions({ user }: { readonly user: AdminUserItem }) {
   return (
-    <div className="flex flex-wrap justify-end gap-1">
+    <div className="flex justify-end gap-1">
       {user.status !== "active" ? (
         <StatusActionButton userId={user.id} status="active" label="Aktifkan" icon={CheckCircle2} />
       ) : null}

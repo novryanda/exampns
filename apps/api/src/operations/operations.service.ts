@@ -21,6 +21,7 @@ import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
+  adminAccountsQuerySchema,
   adminTransactionsQuerySchema,
   adminUsersQuerySchema,
   auditLogsQuerySchema,
@@ -303,6 +304,7 @@ export class OperationsService {
         id: user.id,
         fullName: user.name,
         email: user.email,
+        image: user.image,
         status: user.status,
         subscriptionStatus: this.deriveSubscriptionStatus(user.userSubscriptions[0] ?? null),
         totalExams: user._count.examResults,
@@ -593,22 +595,48 @@ export class OperationsService {
     };
   }
 
-  async listAdmins() {
-    const admins = await this.prisma.user.findMany({
-      where: {
-        role: UserRole.ADMIN,
-        deletedAt: null,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async listAdmins(rawQuery: unknown) {
+    const query = this.validationService.validate(adminAccountsQuerySchema, rawQuery);
+    const where = {
+      role: UserRole.ADMIN,
+      deletedAt: null,
+      ...(query.status ? { status: query.status } : {}),
+      ...(query.search
+        ? {
+            OR: [
+              { name: { contains: query.search, mode: 'insensitive' as const } },
+              { email: { contains: query.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
 
-    return admins.map((admin) => ({
-      id: admin.id,
-      fullName: admin.name,
-      email: admin.email,
-      status: admin.status,
-      lastLoginAt: admin.lastLoginAt,
-    }));
+    const [totalItems, admins] = await Promise.all([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+    ]);
+
+    return {
+      data: admins.map((admin) => ({
+        id: admin.id,
+        fullName: admin.name,
+        email: admin.email,
+        image: admin.image,
+        status: admin.status,
+        lastLoginAt: admin.lastLoginAt,
+      })),
+      meta: {
+        page: query.page,
+        limit: query.limit,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+      },
+    };
   }
 
   async createAdmin(rawBody: unknown, actor: AuthenticatedUser) {

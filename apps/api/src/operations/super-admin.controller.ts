@@ -42,8 +42,11 @@ export class SuperAdminController {
   }
 
   @Get('admins')
-  async listAdmins(): Promise<ApiSuccessResponse<unknown[]>> {
-    return apiData(await this.operationsService.listAdmins());
+  async listAdmins(
+    @Query() query: unknown,
+  ): Promise<ApiPaginatedResponse<unknown[]>> {
+    const result = await this.operationsService.listAdmins(query);
+    return apiPaginated(result.data, result.meta);
   }
 
   @Post('users')

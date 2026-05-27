@@ -5,6 +5,11 @@ import { AuthSessionService } from '../auth/auth-session.service.js';
 import type { RequestWithAuth } from '../auth/auth-request.type.js';
 import type { ChangePasswordDto } from './dto/change-password.dto.js';
 import type { UpdateMeDto } from './dto/update-me.dto.js';
+import {
+  deleteAvatarFileByUrl,
+  saveAvatarFile,
+  type UploadedAvatarFile,
+} from './me-avatar.storage.js';
 
 const meSelect = {
   id: true,
@@ -55,6 +60,50 @@ export class MeService {
       name: input.name?.trim(),
       image: input.image ?? undefined,
       phone: input.phone?.trim(),
+    });
+
+    return await this.getProfile(userId);
+  }
+
+  async uploadAvatar(
+    userId: string,
+    request: RequestWithAuth,
+    response: Response,
+    file: UploadedAvatarFile | undefined,
+  ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { image: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { publicUrl } = await saveAvatarFile(userId, file!);
+    await deleteAvatarFileByUrl(user.image);
+
+    await this.authSessionService.updateCurrentUser(request, response, {
+      image: publicUrl,
+    });
+
+    return await this.getProfile(userId);
+  }
+
+  async removeAvatar(userId: string, request: RequestWithAuth, response: Response) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { image: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await deleteAvatarFileByUrl(user.image);
+
+    await this.authSessionService.updateCurrentUser(request, response, {
+      image: null,
     });
 
     return await this.getProfile(userId);

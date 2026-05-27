@@ -1,6 +1,7 @@
 import 'dotenv/config';
+import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import { json, urlencoded } from 'express';
+import express, { json, urlencoded } from 'express';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './auth/auth.js';
 import { AppModule } from './app.module.js';
@@ -17,6 +18,14 @@ async function bootstrap() {
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');
+
+  app.use(
+    '/api/v1/uploads',
+    express.static(join(process.cwd(), 'uploads'), {
+      maxAge: '7d',
+      fallthrough: true,
+    }),
+  );
 
   app.use('/api/auth', toNodeHandler(auth));
   app.use(json());

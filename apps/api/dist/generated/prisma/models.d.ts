@@ -3,6 +3,8 @@ export type * from './models/Session.js';
 export type * from './models/Account.js';
 export type * from './models/Verification.js';
 export type * from './models/Question.js';
+export type * from './models/QuestionSubCategory.js';
+export type * from './models/QuestionTopicTag.js';
 export type * from './models/QuestionOption.js';
 export type * from './models/QuestionTag.js';
 export type * from './models/QuestionImportBatch.js';

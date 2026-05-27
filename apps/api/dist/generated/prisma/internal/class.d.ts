@@ -45,6 +45,12 @@ export interface PrismaClient<in LogOpts extends Prisma.LogLevel = never, in out
     get question(): Prisma.QuestionDelegate<ExtArgs, {
         omit: OmitOpts;
     }>;
+    get questionSubCategory(): Prisma.QuestionSubCategoryDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
+    get questionTopicTag(): Prisma.QuestionTopicTagDelegate<ExtArgs, {
+        omit: OmitOpts;
+    }>;
     get questionOption(): Prisma.QuestionOptionDelegate<ExtArgs, {
         omit: OmitOpts;
     }>;

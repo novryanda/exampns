@@ -17,8 +17,8 @@ const optionSchema = z.object({
 export const createQuestionSchema = z.object({
     questionText: z.string().trim().min(1),
     category: z.nativeEnum(QuestionCategory),
-    subCategory: z.string().trim().min(1).max(100),
-    topicTag: z.string().trim().min(1).max(150),
+    subCategoryId: z.string().trim().min(1),
+    topicTagId: z.string().trim().min(1),
     competencyArea: z.preprocess(emptyToUndefined, z.string().trim().max(150).optional()),
     difficulty: z.nativeEnum(QuestionDifficulty),
     status: z.nativeEnum(QuestionStatus),

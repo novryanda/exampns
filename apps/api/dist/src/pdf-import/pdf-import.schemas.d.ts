@@ -58,8 +58,8 @@ export declare const updateParsedQuestionSchema: z.ZodObject<{
         readonly TIU: "TIU";
         readonly TKP: "TKP";
     }>;
-    subCategory: z.ZodString;
-    topicTag: z.ZodString;
+    resolvedSubCategoryId: z.ZodString;
+    resolvedTopicTagId: z.ZodString;
     difficulty: z.ZodEnum<{
         readonly easy: "easy";
         readonly medium: "medium";

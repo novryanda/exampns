@@ -12,7 +12,7 @@ export default async function EditTryoutDraftPage({ params }: { readonly params:
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Edit Tryout Draft" description="Perubahan status admin dibatasi ke draft atau review." />
+      <PageHeader title="Ubah Draft Tryout" description="Perubahan status admin dibatasi ke draft atau review." />
       <SectionCard title="Form Draft" description={`ID draft: ${draft.id}`}>
         <TryoutDraftForm draft={draft} redirectPath="/admin/tryout-drafts" />
       </SectionCard>

@@ -65,6 +65,8 @@ export declare class PdfImportService {
             category: QuestionCategory | null;
             subCategory: string | null;
             topicTag: string | null;
+            resolvedSubCategoryId: string | null;
+            resolvedTopicTagId: string | null;
             difficulty: import("../../generated/prisma/enums.js").QuestionDifficulty | null;
             confidenceScore: number | null;
             status: ParsedQuestionStatus;
@@ -79,6 +81,10 @@ export declare class PdfImportService {
         category: QuestionCategory | null;
         subCategory: string | null;
         topicTag: string | null;
+        resolvedSubCategoryId: string | null;
+        resolvedTopicTagId: string | null;
+        resolvedSubCategory: string | null;
+        resolvedTopicTag: string | null;
         difficulty: import("../../generated/prisma/enums.js").QuestionDifficulty | null;
         confidenceScore: number | null;
         status: ParsedQuestionStatus;
@@ -95,4 +101,5 @@ export declare class PdfImportService {
     private processPdfImportBatch;
     private refreshBatchCounters;
     private getMaxUploadSizeMb;
+    private assertResolvedMetadata;
 }

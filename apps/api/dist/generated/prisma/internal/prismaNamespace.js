@@ -29,6 +29,8 @@ export const ModelName = {
     Account: 'Account',
     Verification: 'Verification',
     Question: 'Question',
+    QuestionSubCategory: 'QuestionSubCategory',
+    QuestionTopicTag: 'QuestionTopicTag',
     QuestionOption: 'QuestionOption',
     QuestionTag: 'QuestionTag',
     QuestionImportBatch: 'QuestionImportBatch',
@@ -113,8 +115,8 @@ export const QuestionScalarFieldEnum = {
     id: 'id',
     questionText: 'questionText',
     category: 'category',
-    subCategory: 'subCategory',
-    topicTag: 'topicTag',
+    subCategoryId: 'subCategoryId',
+    topicTagId: 'topicTagId',
     competencyArea: 'competencyArea',
     difficulty: 'difficulty',
     questionType: 'questionType',
@@ -126,6 +128,26 @@ export const QuestionScalarFieldEnum = {
     createdAt: 'createdAt',
     updatedAt: 'updatedAt',
     deletedAt: 'deletedAt'
+};
+export const QuestionSubCategoryScalarFieldEnum = {
+    id: 'id',
+    category: 'category',
+    name: 'name',
+    slug: 'slug',
+    isActive: 'isActive',
+    sortOrder: 'sortOrder',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
+};
+export const QuestionTopicTagScalarFieldEnum = {
+    id: 'id',
+    subCategoryId: 'subCategoryId',
+    name: 'name',
+    slug: 'slug',
+    isActive: 'isActive',
+    sortOrder: 'sortOrder',
+    createdAt: 'createdAt',
+    updatedAt: 'updatedAt'
 };
 export const QuestionOptionScalarFieldEnum = {
     id: 'id',
@@ -169,6 +191,8 @@ export const ParsedQuestionReviewScalarFieldEnum = {
     category: 'category',
     subCategory: 'subCategory',
     topicTag: 'topicTag',
+    resolvedSubCategoryId: 'resolvedSubCategoryId',
+    resolvedTopicTagId: 'resolvedTopicTagId',
     difficulty: 'difficulty',
     confidenceScore: 'confidenceScore',
     status: 'status',

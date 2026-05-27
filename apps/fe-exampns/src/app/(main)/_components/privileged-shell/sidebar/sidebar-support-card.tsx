@@ -9,14 +9,14 @@ export function SidebarSupportCard() {
   return (
     <Card size="sm" className="shadow-none group-data-[collapsible=icon]:hidden">
       <CardHeader className="px-4">
-        <CardTitle className="text-sm">Looking for something more?</CardTitle>
+        <CardTitle className="text-sm">Butuh bantuan lain?</CardTitle>
         <CardDescription>
-          Open an issue or do reach out to me on&nbsp;
+          Buat issue atau hubungi saya lewat&nbsp;
           <Link
             href="https://x.com/arhamkhnz"
             target="_blank"
             rel="noreferrer"
-            aria-label="Reach out on X"
+            aria-label="Hubungi lewat X"
             className="inline-flex items-center text-foreground"
           >
             <SimpleIcon icon={siX} aria-hidden className="size-3 fill-current" />

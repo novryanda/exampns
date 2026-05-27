@@ -43,13 +43,13 @@ export function UploadPdfForm() {
         />
       </div>
       <div className="grid gap-2">
-        <Label htmlFor="categoryHint">Category Hint</Label>
+        <Label htmlFor="categoryHint">Petunjuk Kategori</Label>
         <Select name="categoryHint" defaultValue="auto">
           <SelectTrigger id="categoryHint" className="rounded-xl border-slate-200 bg-white md:w-56">
-            <SelectValue placeholder="Category hint" />
+            <SelectValue placeholder="Pilih petunjuk kategori" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="auto">Auto</SelectItem>
+            <SelectItem value="auto">Otomatis</SelectItem>
             <SelectItem value="TWK">TWK</SelectItem>
             <SelectItem value="TIU">TIU</SelectItem>
             <SelectItem value="TKP">TKP</SelectItem>
@@ -57,7 +57,7 @@ export function UploadPdfForm() {
         </Select>
       </div>
       <Button type="submit" className="w-fit rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-        {isPending ? "Mengunggah..." : "Upload dan Proses"}
+        {isPending ? "Mengunggah..." : "Unggah dan Proses"}
       </Button>
     </form>
   );

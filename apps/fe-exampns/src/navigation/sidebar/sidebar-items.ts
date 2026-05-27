@@ -66,17 +66,22 @@ export const adminSidebarItems: NavGroup[] = [
         icon: Files,
       },
       {
-        title: "Upload PDF",
+        title: "Unggah PDF",
         url: "/admin/upload-pdf",
         icon: ScrollText,
       },
       {
-        title: "Review Parsing",
+        title: "Tinjau Parsing",
         url: "/admin/review-parsing",
         icon: FileSearch,
       },
       {
-        title: "Tryout Drafts",
+        title: "Metadata Soal",
+        url: "/admin/metadata-soal",
+        icon: Settings2,
+      },
+      {
+        title: "Draft Tryout",
         url: "/admin/tryout-drafts",
         icon: BookCopy,
       },

@@ -71,6 +71,7 @@ export const auditLogsQuerySchema = z.object({
     actorUserId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
     module: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
     action: z.preprocess(emptyToUndefined, z.string().max(100).optional()),
+    period: z.preprocess(emptyToUndefined, z.enum(['today', '7d', '30d', 'this_month']).optional()),
     dateFrom: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
     dateTo: z.preprocess(emptyToUndefined, z.string().datetime().optional()),
     page: z.coerce.number().int().min(1).default(1),

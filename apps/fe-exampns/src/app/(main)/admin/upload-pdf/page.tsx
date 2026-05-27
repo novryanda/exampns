@@ -25,26 +25,26 @@ export default async function UploadPdfPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Upload PDF" description="Upload PDF berbasis teks untuk diproses ke queue review parsing." />
+      <PageHeader title="Unggah PDF" description="Unggah PDF berbasis teks untuk diproses ke antrean tinjau parsing." />
 
       <SectionCard
-        title="Upload Card"
+        title="Unggah File"
         description="Maksimum default 20MB. PDF teks lebih direkomendasikan daripada scan gambar."
       >
         <UploadPdfForm />
       </SectionCard>
 
-      <SectionCard title="Recent Upload Batches" description="Pantau status batch upload terakhir.">
+      <SectionCard title="Batch Upload Terbaru" description="Pantau status batch upload terakhir.">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>File</TableHead>
+              <TableHead>Nama File</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Valid</TableHead>
               <TableHead>Invalid</TableHead>
-              <TableHead>Uploaded At</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead>Diunggah</TableHead>
+              <TableHead>Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -76,7 +76,7 @@ export default async function UploadPdfPage() {
                       className="text-blue-600 text-sm hover:underline"
                       href={`/admin/review-parsing?batchId=${batch.batchId}`}
                     >
-                      Review Parsing
+                      Tinjau Parsing
                     </Link>
                   </TableCell>
                 </TableRow>

@@ -402,13 +402,6 @@ export type NullableIntFieldUpdateOperationsInput = {
     multiply?: number;
     divide?: number;
 };
-export type IntFieldUpdateOperationsInput = {
-    set?: number;
-    increment?: number;
-    decrement?: number;
-    multiply?: number;
-    divide?: number;
-};
 export type QuestionOptionCreateNestedOneWithoutSelectedAnswersInput = {
     create?: Prisma.XOR<Prisma.QuestionOptionCreateWithoutSelectedAnswersInput, Prisma.QuestionOptionUncheckedCreateWithoutSelectedAnswersInput>;
     connectOrCreate?: Prisma.QuestionOptionCreateOrConnectWithoutSelectedAnswersInput;

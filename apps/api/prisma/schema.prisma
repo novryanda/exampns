@@ -262,8 +262,8 @@ model Question {
   id                     String                  @id @default(uuid())
   questionText           String                  @map("question_text")
   category               QuestionCategory        @map("category")
-  subCategory            String                  @map("sub_category") @db.VarChar(100)
-  topicTag               String                  @map("topic_tag") @db.VarChar(150)
+  subCategoryId          String                  @map("sub_category_id")
+  topicTagId             String                  @map("topic_tag_id")
   competencyArea         String?                 @map("competency_area") @db.VarChar(150)
   difficulty             QuestionDifficulty
   questionType           QuestionType            @default(multiple_choice) @map("question_type")
@@ -277,6 +277,8 @@ model Question {
   deletedAt              DateTime?               @map("deleted_at")
   createdByUser          User                    @relation("QuestionCreatedBy", fields: [createdBy], references: [id])
   updatedByUser          User?                   @relation("QuestionUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  subCategoryRef         QuestionSubCategory     @relation("QuestionSubCategoryQuestions", fields: [subCategoryId], references: [id], onDelete: Restrict)
+  topicTagRef            QuestionTopicTag        @relation("QuestionTopicTagQuestions", fields: [topicTagId], references: [id], onDelete: Restrict)
   options                QuestionOption[]
   tags                   QuestionTag[]
   parsedReviews          ParsedQuestionReview[]
@@ -284,11 +286,47 @@ model Question {
   examSessionQuestions   ExamSessionQuestion[]
 
   @@index([status, category], map: "idx_questions_active_category")
-  @@index([topicTag], map: "idx_questions_topic")
-  @@index([subCategory], map: "idx_questions_sub_category")
+  @@index([topicTagId], map: "idx_questions_topic")
+  @@index([subCategoryId], map: "idx_questions_sub_category")
   @@index([difficulty], map: "idx_questions_difficulty")
   @@index([deletedAt])
   @@map("questions")
+}
+
+model QuestionSubCategory {
+  id                    String               @id @default(uuid())
+  category              QuestionCategory
+  name                  String               @db.VarChar(100)
+  slug                  String               @db.VarChar(120)
+  isActive              Boolean              @default(true) @map("is_active")
+  sortOrder             Int                  @default(0) @map("sort_order")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  topicTags             QuestionTopicTag[]   @relation("QuestionSubCategoryTopicTags")
+  questions             Question[]           @relation("QuestionSubCategoryQuestions")
+  resolvedParsedReviews ParsedQuestionReview[] @relation("ParsedQuestionResolvedSubCategory")
+
+  @@unique([category, slug], map: "uq_question_sub_categories_category_slug")
+  @@index([category, isActive, sortOrder], map: "idx_question_sub_categories_category_active")
+  @@map("question_sub_categories")
+}
+
+model QuestionTopicTag {
+  id                    String               @id @default(uuid())
+  subCategoryId         String               @map("sub_category_id")
+  name                  String               @db.VarChar(150)
+  slug                  String               @db.VarChar(170)
+  isActive              Boolean              @default(true) @map("is_active")
+  sortOrder             Int                  @default(0) @map("sort_order")
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
+  subCategory           QuestionSubCategory  @relation("QuestionSubCategoryTopicTags", fields: [subCategoryId], references: [id], onDelete: Restrict)
+  questions             Question[]           @relation("QuestionTopicTagQuestions")
+  resolvedParsedReviews ParsedQuestionReview[] @relation("ParsedQuestionResolvedTopicTag")
+
+  @@unique([subCategoryId, slug], map: "uq_question_topic_tags_sub_category_slug")
+  @@index([subCategoryId, isActive, sortOrder], map: "idx_question_topic_tags_sub_category_active")
+  @@map("question_topic_tags")
 }
 
 model QuestionOption {
@@ -351,6 +389,8 @@ model ParsedQuestionReview {
   category        QuestionCategory?
   subCategory     String?              @map("sub_category") @db.VarChar(100)
   topicTag        String?              @map("topic_tag") @db.VarChar(150)
+  resolvedSubCategoryId String?        @map("resolved_sub_category_id")
+  resolvedTopicTagId    String?        @map("resolved_topic_tag_id")
   difficulty      QuestionDifficulty?
   confidenceScore Decimal?             @map("confidence_score") @db.Decimal(5, 2)
   status          ParsedQuestionStatus
@@ -362,9 +402,13 @@ model ParsedQuestionReview {
   batch           QuestionImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
   question        Question?            @relation(fields: [questionId], references: [id], onDelete: SetNull)
   reviewedByUser  User?                @relation("ParsedQuestionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  resolvedSubCategoryRef QuestionSubCategory? @relation("ParsedQuestionResolvedSubCategory", fields: [resolvedSubCategoryId], references: [id], onDelete: SetNull)
+  resolvedTopicTagRef    QuestionTopicTag?    @relation("ParsedQuestionResolvedTopicTag", fields: [resolvedTopicTagId], references: [id], onDelete: SetNull)
 
   @@index([batchId, status])
   @@index([reviewedBy])
+  @@index([resolvedSubCategoryId])
+  @@index([resolvedTopicTagId])
   @@map("parsed_question_reviews")
 }
 

@@ -1091,6 +1091,16 @@ export class ExamEngineService {
           deletedAt: null,
         },
         include: {
+          subCategoryRef: {
+            select: {
+              name: true,
+            },
+          },
+          topicTagRef: {
+            select: {
+              name: true,
+            },
+          },
           options: {
             orderBy: { displayOrder: 'asc' },
           },
@@ -1196,12 +1206,30 @@ export class ExamEngineService {
         deletedAt: null,
         category: input.category,
         ...(input.difficulty ? { difficulty: input.difficulty as never } : {}),
-        ...(input.topicTag ? { topicTag: input.topicTag } : {}),
+        ...(input.topicTag
+          ? {
+              topicTagRef: {
+                is: {
+                  name: input.topicTag,
+                },
+              },
+            }
+          : {}),
         id: {
           notIn: [...selected.keys(), ...input.excludedQuestionIds],
         },
       },
       include: {
+        subCategoryRef: {
+          select: {
+            name: true,
+          },
+        },
+        topicTagRef: {
+          select: {
+            name: true,
+          },
+        },
         options: {
           orderBy: { displayOrder: 'asc' },
         },
@@ -1256,8 +1284,12 @@ export class ExamEngineService {
     id: string;
     questionText: string;
     category: QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryRef: {
+      name: string;
+    };
+    topicTagRef: {
+      name: string;
+    };
     competencyArea: string | null;
     difficulty: QuestionDifficulty;
     explanation: string | null;
@@ -1274,8 +1306,8 @@ export class ExamEngineService {
         id: question.id,
         questionText: question.questionText,
         category: question.category,
-        subCategory: question.subCategory,
-        topicTag: question.topicTag,
+        subCategory: question.subCategoryRef.name,
+        topicTag: question.topicTagRef.name,
         competencyArea: question.competencyArea,
         difficulty: question.difficulty,
         explanation: question.explanation,
@@ -1287,8 +1319,8 @@ export class ExamEngineService {
         tkpWeight: option.tkpWeight,
       })),
       categorySnapshot: question.category,
-      subCategorySnapshot: question.subCategory,
-      topicTagSnapshot: question.topicTag,
+      subCategorySnapshot: question.subCategoryRef.name,
+      topicTagSnapshot: question.topicTagRef.name,
       difficultySnapshot: question.difficulty,
     };
   }

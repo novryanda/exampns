@@ -254,6 +254,7 @@ export declare class OperationsService {
         };
     }>;
     private deriveSubscriptionStatus;
+    private resolveAuditLogCreatedAtFilter;
     private createAuditLog;
     private getFrontendUrl;
     private sendSetPasswordLink;

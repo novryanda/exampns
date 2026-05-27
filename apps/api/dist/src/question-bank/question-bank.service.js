@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { Injectable, NotFoundException, } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, } from '@nestjs/common';
 import { QuestionCategory, SourceType, } from '../../generated/prisma/client.js';
 import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -18,8 +18,18 @@ const listSelect = {
     id: true,
     questionText: true,
     category: true,
-    subCategory: true,
-    topicTag: true,
+    subCategoryId: true,
+    topicTagId: true,
+    subCategoryRef: {
+        select: {
+            name: true,
+        },
+    },
+    topicTagRef: {
+        select: {
+            name: true,
+        },
+    },
     difficulty: true,
     status: true,
     sourceType: true,
@@ -29,8 +39,24 @@ const detailSelect = {
     id: true,
     questionText: true,
     category: true,
-    subCategory: true,
-    topicTag: true,
+    subCategoryId: true,
+    topicTagId: true,
+    subCategoryRef: {
+        select: {
+            id: true,
+            name: true,
+            category: true,
+            isActive: true,
+        },
+    },
+    topicTagRef: {
+        select: {
+            id: true,
+            name: true,
+            subCategoryId: true,
+            isActive: true,
+        },
+    },
     competencyArea: true,
     difficulty: true,
     sourceType: true,
@@ -94,8 +120,10 @@ let QuestionBankService = class QuestionBankService {
                 id: item.id,
                 questionPreview: buildQuestionPreview(item.questionText),
                 category: item.category,
-                subCategory: item.subCategory,
-                topicTag: item.topicTag,
+                subCategoryId: item.subCategoryId,
+                topicTagId: item.topicTagId,
+                subCategory: item.subCategoryRef.name,
+                topicTag: item.topicTagRef.name,
                 difficulty: item.difficulty,
                 status: item.status,
                 sourceType: item.sourceType,
@@ -112,13 +140,14 @@ let QuestionBankService = class QuestionBankService {
     async createQuestion(rawBody, actor) {
         const payload = this.validationService.validate(createQuestionSchema, rawBody);
         assertQuestionOptionRules(payload.category, payload.options);
+        await this.assertQuestionMetadata(payload.category, payload.subCategoryId, payload.topicTagId);
         const tags = normalizeTags(payload.tags);
         const created = await this.prisma.question.create({
             data: {
                 questionText: payload.questionText,
                 category: payload.category,
-                subCategory: payload.subCategory,
-                topicTag: payload.topicTag,
+                subCategoryId: payload.subCategoryId,
+                topicTagId: payload.topicTagId,
                 competencyArea: payload.competencyArea,
                 difficulty: payload.difficulty,
                 questionType: 'multiple_choice',
@@ -175,8 +204,10 @@ let QuestionBankService = class QuestionBankService {
             id: question.id,
             questionText: question.questionText,
             category: question.category,
-            subCategory: question.subCategory,
-            topicTag: question.topicTag,
+            subCategoryId: question.subCategoryId,
+            topicTagId: question.topicTagId,
+            subCategory: question.subCategoryRef.name,
+            topicTag: question.topicTagRef.name,
             competencyArea: question.competencyArea,
             difficulty: question.difficulty,
             sourceType: question.sourceType,
@@ -201,29 +232,42 @@ let QuestionBankService = class QuestionBankService {
             select: {
                 id: true,
                 category: true,
+                subCategoryId: true,
+                topicTagId: true,
             },
         });
         if (!existing) {
             throw new NotFoundException('Question not found');
         }
         const nextCategory = payload.category ?? existing.category;
+        const nextSubCategoryId = payload.subCategoryId ?? existing.subCategoryId;
+        const nextTopicTagId = payload.topicTagId ?? existing.topicTagId;
         const tags = normalizeTags(payload.tags);
         if (payload.options) {
             assertQuestionOptionRules(nextCategory, payload.options);
         }
+        if (payload.category !== undefined ||
+            payload.subCategoryId !== undefined ||
+            payload.topicTagId !== undefined) {
+            await this.assertQuestionMetadata(nextCategory, nextSubCategoryId, nextTopicTagId);
+        }
         await this.prisma.$transaction(async (tx) => {
+            const nextStatus = payload.status;
             await tx.question.update({
                 where: { id: questionId },
                 data: {
                     ...(payload.questionText !== undefined ? { questionText: payload.questionText } : {}),
                     ...(payload.category !== undefined ? { category: payload.category } : {}),
-                    ...(payload.subCategory !== undefined ? { subCategory: payload.subCategory } : {}),
-                    ...(payload.topicTag !== undefined ? { topicTag: payload.topicTag } : {}),
+                    ...(payload.subCategoryId !== undefined ? { subCategoryId: payload.subCategoryId } : {}),
+                    ...(payload.topicTagId !== undefined ? { topicTagId: payload.topicTagId } : {}),
                     ...(payload.competencyArea !== undefined
                         ? { competencyArea: payload.competencyArea ?? null }
                         : {}),
                     ...(payload.difficulty !== undefined ? { difficulty: payload.difficulty } : {}),
                     ...(payload.status !== undefined ? { status: payload.status } : {}),
+                    ...(nextStatus !== undefined
+                        ? { deletedAt: nextStatus === 'archived' ? new Date() : null }
+                        : {}),
                     ...(payload.explanation !== undefined ? { explanation: payload.explanation ?? null } : {}),
                     updatedBy: actor.id,
                 },
@@ -295,6 +339,37 @@ let QuestionBankService = class QuestionBankService {
             targetId: questionId,
         });
     }
+    async toggleQuestionStatus(questionId, nextStatus, actor) {
+        const existing = await this.prisma.question.findUnique({
+            where: { id: questionId },
+            select: {
+                id: true,
+                status: true,
+            },
+        });
+        if (!existing) {
+            throw new NotFoundException('Question not found');
+        }
+        await this.prisma.question.update({
+            where: { id: questionId },
+            data: {
+                status: nextStatus,
+                deletedAt: nextStatus === 'archived' ? new Date() : null,
+                updatedBy: actor.id,
+            },
+        });
+        await this.auditLogService.create({
+            actor,
+            action: nextStatus === 'archived' ? 'ARCHIVE_QUESTION' : 'ACTIVATE_QUESTION',
+            module: 'question_bank',
+            targetType: 'question',
+            targetId: questionId,
+            metadata: {
+                previousStatus: existing.status,
+                nextStatus,
+            },
+        });
+    }
     buildListWhere(query) {
         return {
             ...(query.search
@@ -307,9 +382,39 @@ let QuestionBankService = class QuestionBankService {
                             },
                         },
                         {
-                            topicTag: {
+                            subCategoryRef: {
+                                is: {
+                                    name: {
+                                        contains: query.search,
+                                        mode: 'insensitive',
+                                    },
+                                },
+                            },
+                        },
+                        {
+                            topicTagRef: {
+                                is: {
+                                    name: {
+                                        contains: query.search,
+                                        mode: 'insensitive',
+                                    },
+                                },
+                            },
+                        },
+                        {
+                            competencyArea: {
                                 contains: query.search,
                                 mode: 'insensitive',
+                            },
+                        },
+                        {
+                            tags: {
+                                some: {
+                                    tag: {
+                                        contains: query.search,
+                                        mode: 'insensitive',
+                                    },
+                                },
                             },
                         },
                     ],
@@ -318,17 +423,25 @@ let QuestionBankService = class QuestionBankService {
             ...(query.category ? { category: query.category } : {}),
             ...(query.subCategory
                 ? {
-                    subCategory: {
-                        contains: query.subCategory,
-                        mode: 'insensitive',
+                    subCategoryRef: {
+                        is: {
+                            name: {
+                                contains: query.subCategory,
+                                mode: 'insensitive',
+                            },
+                        },
                     },
                 }
                 : {}),
             ...(query.topicTag
                 ? {
-                    topicTag: {
-                        contains: query.topicTag,
-                        mode: 'insensitive',
+                    topicTagRef: {
+                        is: {
+                            name: {
+                                contains: query.topicTag,
+                                mode: 'insensitive',
+                            },
+                        },
                     },
                 }
                 : {}),
@@ -336,6 +449,38 @@ let QuestionBankService = class QuestionBankService {
             ...(query.status ? { status: query.status } : {}),
             ...(query.sourceType ? { sourceType: query.sourceType } : {}),
         };
+    }
+    async assertQuestionMetadata(category, subCategoryId, topicTagId) {
+        const [subCategory, topicTag] = await Promise.all([
+            this.prisma.questionSubCategory.findUnique({
+                where: { id: subCategoryId },
+                select: {
+                    id: true,
+                    category: true,
+                    isActive: true,
+                },
+            }),
+            this.prisma.questionTopicTag.findUnique({
+                where: { id: topicTagId },
+                select: {
+                    id: true,
+                    subCategoryId: true,
+                    isActive: true,
+                },
+            }),
+        ]);
+        if (!subCategory || subCategory.category !== category) {
+            throw new BadRequestException('Sub-category tidak valid untuk category yang dipilih');
+        }
+        if (!subCategory.isActive) {
+            throw new BadRequestException('Sub-category inactive tidak dapat dipakai untuk soal baru');
+        }
+        if (!topicTag || topicTag.subCategoryId !== subCategoryId) {
+            throw new BadRequestException('Topic tag tidak cocok dengan sub-category yang dipilih');
+        }
+        if (!topicTag.isActive) {
+            throw new BadRequestException('Topic tag inactive tidak dapat dipakai untuk soal baru');
+        }
     }
 };
 QuestionBankService = __decorate([

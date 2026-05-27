@@ -148,21 +148,6 @@ export const superAdminSidebarItems: NavGroup[] = [
       },
     ],
   },
-  {
-    id: 10,
-    items: [
-      {
-        title: "Profil",
-        url: "/profil",
-        icon: UserRound,
-      },
-      {
-        title: "Logout",
-        url: "/super-admin/logout",
-        icon: LogOut,
-      },
-    ],
-  },
 ];
 
 export const sidebarItems = superAdminSidebarItems;

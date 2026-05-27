@@ -102,8 +102,16 @@ const manualSetSelect = {
                     id: true,
                     questionText: true,
                     category: true,
-                    subCategory: true,
-                    topicTag: true,
+                    subCategoryRef: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                    topicTagRef: {
+                        select: {
+                            name: true,
+                        },
+                    },
                     difficulty: true,
                     status: true,
                 },
@@ -626,8 +634,8 @@ let TryoutManagementService = class TryoutManagementService {
                     id: item.question.id,
                     questionPreview: item.question.questionText.slice(0, 120),
                     category: item.question.category,
-                    subCategory: item.question.subCategory,
-                    topicTag: item.question.topicTag,
+                    subCategory: item.question.subCategoryRef.name,
+                    topicTag: item.question.topicTagRef.name,
                     difficulty: item.question.difficulty,
                     status: item.question.status,
                 },
@@ -773,7 +781,11 @@ let TryoutManagementService = class TryoutManagementService {
                                     status: QuestionStatus.active,
                                     deletedAt: null,
                                     category: section.category,
-                                    topicTag: topic.topicTag,
+                                    topicTagRef: {
+                                        is: {
+                                            name: topic.topicTag,
+                                        },
+                                    },
                                 },
                             });
                             topicChecks.push({

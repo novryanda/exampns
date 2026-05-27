@@ -162,6 +162,8 @@ export declare const ModelName: {
     readonly Account: "Account";
     readonly Verification: "Verification";
     readonly Question: "Question";
+    readonly QuestionSubCategory: "QuestionSubCategory";
+    readonly QuestionTopicTag: "QuestionTopicTag";
     readonly QuestionOption: "QuestionOption";
     readonly QuestionTag: "QuestionTag";
     readonly QuestionImportBatch: "QuestionImportBatch";
@@ -198,7 +200,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         omit: GlobalOmitOptions;
     };
     meta: {
-        modelProps: "user" | "session" | "account" | "verification" | "question" | "questionOption" | "questionTag" | "questionImportBatch" | "parsedQuestionReview" | "tryoutCatalog" | "tryoutGenerationRule" | "tryoutRuleSection" | "manualQuestionSet" | "manualQuestionSetItem" | "examSession" | "examSessionQuestion" | "examAnswer" | "examResult" | "examIntegrityLog" | "aIRecommendation" | "aIRecommendationItem" | "subscriptionPlan" | "userSubscription" | "paymentTransaction" | "paymentWebhookEvent" | "passingGradeConfig" | "trialConfig" | "systemSetting" | "auditLog";
+        modelProps: "user" | "session" | "account" | "verification" | "question" | "questionSubCategory" | "questionTopicTag" | "questionOption" | "questionTag" | "questionImportBatch" | "parsedQuestionReview" | "tryoutCatalog" | "tryoutGenerationRule" | "tryoutRuleSection" | "manualQuestionSet" | "manualQuestionSetItem" | "examSession" | "examSessionQuestion" | "examAnswer" | "examResult" | "examIntegrityLog" | "aIRecommendation" | "aIRecommendationItem" | "subscriptionPlan" | "userSubscription" | "paymentTransaction" | "paymentWebhookEvent" | "passingGradeConfig" | "trialConfig" | "systemSetting" | "auditLog";
         txIsolationLevel: TransactionIsolationLevel;
     };
     model: {
@@ -569,6 +571,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
                 count: {
                     args: Prisma.QuestionCountArgs<ExtArgs>;
                     result: runtime.Types.Utils.Optional<Prisma.QuestionCountAggregateOutputType> | number;
+                };
+            };
+        };
+        QuestionSubCategory: {
+            payload: Prisma.$QuestionSubCategoryPayload<ExtArgs>;
+            fields: Prisma.QuestionSubCategoryFieldRefs;
+            operations: {
+                findUnique: {
+                    args: Prisma.QuestionSubCategoryFindUniqueArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload> | null;
+                };
+                findUniqueOrThrow: {
+                    args: Prisma.QuestionSubCategoryFindUniqueOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                findFirst: {
+                    args: Prisma.QuestionSubCategoryFindFirstArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload> | null;
+                };
+                findFirstOrThrow: {
+                    args: Prisma.QuestionSubCategoryFindFirstOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                findMany: {
+                    args: Prisma.QuestionSubCategoryFindManyArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>[];
+                };
+                create: {
+                    args: Prisma.QuestionSubCategoryCreateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                createMany: {
+                    args: Prisma.QuestionSubCategoryCreateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                createManyAndReturn: {
+                    args: Prisma.QuestionSubCategoryCreateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>[];
+                };
+                delete: {
+                    args: Prisma.QuestionSubCategoryDeleteArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                update: {
+                    args: Prisma.QuestionSubCategoryUpdateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                deleteMany: {
+                    args: Prisma.QuestionSubCategoryDeleteManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateMany: {
+                    args: Prisma.QuestionSubCategoryUpdateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateManyAndReturn: {
+                    args: Prisma.QuestionSubCategoryUpdateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>[];
+                };
+                upsert: {
+                    args: Prisma.QuestionSubCategoryUpsertArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionSubCategoryPayload>;
+                };
+                aggregate: {
+                    args: Prisma.QuestionSubCategoryAggregateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.AggregateQuestionSubCategory>;
+                };
+                groupBy: {
+                    args: Prisma.QuestionSubCategoryGroupByArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.QuestionSubCategoryGroupByOutputType>[];
+                };
+                count: {
+                    args: Prisma.QuestionSubCategoryCountArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.QuestionSubCategoryCountAggregateOutputType> | number;
+                };
+            };
+        };
+        QuestionTopicTag: {
+            payload: Prisma.$QuestionTopicTagPayload<ExtArgs>;
+            fields: Prisma.QuestionTopicTagFieldRefs;
+            operations: {
+                findUnique: {
+                    args: Prisma.QuestionTopicTagFindUniqueArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload> | null;
+                };
+                findUniqueOrThrow: {
+                    args: Prisma.QuestionTopicTagFindUniqueOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                findFirst: {
+                    args: Prisma.QuestionTopicTagFindFirstArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload> | null;
+                };
+                findFirstOrThrow: {
+                    args: Prisma.QuestionTopicTagFindFirstOrThrowArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                findMany: {
+                    args: Prisma.QuestionTopicTagFindManyArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>[];
+                };
+                create: {
+                    args: Prisma.QuestionTopicTagCreateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                createMany: {
+                    args: Prisma.QuestionTopicTagCreateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                createManyAndReturn: {
+                    args: Prisma.QuestionTopicTagCreateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>[];
+                };
+                delete: {
+                    args: Prisma.QuestionTopicTagDeleteArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                update: {
+                    args: Prisma.QuestionTopicTagUpdateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                deleteMany: {
+                    args: Prisma.QuestionTopicTagDeleteManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateMany: {
+                    args: Prisma.QuestionTopicTagUpdateManyArgs<ExtArgs>;
+                    result: BatchPayload;
+                };
+                updateManyAndReturn: {
+                    args: Prisma.QuestionTopicTagUpdateManyAndReturnArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>[];
+                };
+                upsert: {
+                    args: Prisma.QuestionTopicTagUpsertArgs<ExtArgs>;
+                    result: runtime.Types.Utils.PayloadToResult<Prisma.$QuestionTopicTagPayload>;
+                };
+                aggregate: {
+                    args: Prisma.QuestionTopicTagAggregateArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.AggregateQuestionTopicTag>;
+                };
+                groupBy: {
+                    args: Prisma.QuestionTopicTagGroupByArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.QuestionTopicTagGroupByOutputType>[];
+                };
+                count: {
+                    args: Prisma.QuestionTopicTagCountArgs<ExtArgs>;
+                    result: runtime.Types.Utils.Optional<Prisma.QuestionTopicTagCountAggregateOutputType> | number;
                 };
             };
         };
@@ -2436,8 +2586,8 @@ export declare const QuestionScalarFieldEnum: {
     readonly id: "id";
     readonly questionText: "questionText";
     readonly category: "category";
-    readonly subCategory: "subCategory";
-    readonly topicTag: "topicTag";
+    readonly subCategoryId: "subCategoryId";
+    readonly topicTagId: "topicTagId";
     readonly competencyArea: "competencyArea";
     readonly difficulty: "difficulty";
     readonly questionType: "questionType";
@@ -2451,6 +2601,28 @@ export declare const QuestionScalarFieldEnum: {
     readonly deletedAt: "deletedAt";
 };
 export type QuestionScalarFieldEnum = (typeof QuestionScalarFieldEnum)[keyof typeof QuestionScalarFieldEnum];
+export declare const QuestionSubCategoryScalarFieldEnum: {
+    readonly id: "id";
+    readonly category: "category";
+    readonly name: "name";
+    readonly slug: "slug";
+    readonly isActive: "isActive";
+    readonly sortOrder: "sortOrder";
+    readonly createdAt: "createdAt";
+    readonly updatedAt: "updatedAt";
+};
+export type QuestionSubCategoryScalarFieldEnum = (typeof QuestionSubCategoryScalarFieldEnum)[keyof typeof QuestionSubCategoryScalarFieldEnum];
+export declare const QuestionTopicTagScalarFieldEnum: {
+    readonly id: "id";
+    readonly subCategoryId: "subCategoryId";
+    readonly name: "name";
+    readonly slug: "slug";
+    readonly isActive: "isActive";
+    readonly sortOrder: "sortOrder";
+    readonly createdAt: "createdAt";
+    readonly updatedAt: "updatedAt";
+};
+export type QuestionTopicTagScalarFieldEnum = (typeof QuestionTopicTagScalarFieldEnum)[keyof typeof QuestionTopicTagScalarFieldEnum];
 export declare const QuestionOptionScalarFieldEnum: {
     readonly id: "id";
     readonly questionId: "questionId";
@@ -2496,6 +2668,8 @@ export declare const ParsedQuestionReviewScalarFieldEnum: {
     readonly category: "category";
     readonly subCategory: "subCategory";
     readonly topicTag: "topicTag";
+    readonly resolvedSubCategoryId: "resolvedSubCategoryId";
+    readonly resolvedTopicTagId: "resolvedTopicTagId";
     readonly difficulty: "difficulty";
     readonly confidenceScore: "confidenceScore";
     readonly status: "status";
@@ -2913,6 +3087,8 @@ export type GlobalOmitConfig = {
     account?: Prisma.AccountOmit;
     verification?: Prisma.VerificationOmit;
     question?: Prisma.QuestionOmit;
+    questionSubCategory?: Prisma.QuestionSubCategoryOmit;
+    questionTopicTag?: Prisma.QuestionTopicTagOmit;
     questionOption?: Prisma.QuestionOptionOmit;
     questionTag?: Prisma.QuestionTagOmit;
     questionImportBatch?: Prisma.QuestionImportBatchOmit;

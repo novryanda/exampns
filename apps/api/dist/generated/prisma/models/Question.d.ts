@@ -11,8 +11,8 @@ export type QuestionMinAggregateOutputType = {
     id: string | null;
     questionText: string | null;
     category: $Enums.QuestionCategory | null;
-    subCategory: string | null;
-    topicTag: string | null;
+    subCategoryId: string | null;
+    topicTagId: string | null;
     competencyArea: string | null;
     difficulty: $Enums.QuestionDifficulty | null;
     questionType: $Enums.QuestionType | null;
@@ -29,8 +29,8 @@ export type QuestionMaxAggregateOutputType = {
     id: string | null;
     questionText: string | null;
     category: $Enums.QuestionCategory | null;
-    subCategory: string | null;
-    topicTag: string | null;
+    subCategoryId: string | null;
+    topicTagId: string | null;
     competencyArea: string | null;
     difficulty: $Enums.QuestionDifficulty | null;
     questionType: $Enums.QuestionType | null;
@@ -47,8 +47,8 @@ export type QuestionCountAggregateOutputType = {
     id: number;
     questionText: number;
     category: number;
-    subCategory: number;
-    topicTag: number;
+    subCategoryId: number;
+    topicTagId: number;
     competencyArea: number;
     difficulty: number;
     questionType: number;
@@ -66,8 +66,8 @@ export type QuestionMinAggregateInputType = {
     id?: true;
     questionText?: true;
     category?: true;
-    subCategory?: true;
-    topicTag?: true;
+    subCategoryId?: true;
+    topicTagId?: true;
     competencyArea?: true;
     difficulty?: true;
     questionType?: true;
@@ -84,8 +84,8 @@ export type QuestionMaxAggregateInputType = {
     id?: true;
     questionText?: true;
     category?: true;
-    subCategory?: true;
-    topicTag?: true;
+    subCategoryId?: true;
+    topicTagId?: true;
     competencyArea?: true;
     difficulty?: true;
     questionType?: true;
@@ -102,8 +102,8 @@ export type QuestionCountAggregateInputType = {
     id?: true;
     questionText?: true;
     category?: true;
-    subCategory?: true;
-    topicTag?: true;
+    subCategoryId?: true;
+    topicTagId?: true;
     competencyArea?: true;
     difficulty?: true;
     questionType?: true;
@@ -145,8 +145,8 @@ export type QuestionGroupByOutputType = {
     id: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType: $Enums.QuestionType;
@@ -172,8 +172,8 @@ export type QuestionWhereInput = {
     id?: Prisma.StringFilter<"Question"> | string;
     questionText?: Prisma.StringFilter<"Question"> | string;
     category?: Prisma.EnumQuestionCategoryFilter<"Question"> | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFilter<"Question"> | string;
-    topicTag?: Prisma.StringFilter<"Question"> | string;
+    subCategoryId?: Prisma.StringFilter<"Question"> | string;
+    topicTagId?: Prisma.StringFilter<"Question"> | string;
     competencyArea?: Prisma.StringNullableFilter<"Question"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFilter<"Question"> | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFilter<"Question"> | $Enums.QuestionType;
@@ -187,6 +187,8 @@ export type QuestionWhereInput = {
     deletedAt?: Prisma.DateTimeNullableFilter<"Question"> | Date | string | null;
     createdByUser?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>;
     updatedByUser?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null;
+    subCategoryRef?: Prisma.XOR<Prisma.QuestionSubCategoryScalarRelationFilter, Prisma.QuestionSubCategoryWhereInput>;
+    topicTagRef?: Prisma.XOR<Prisma.QuestionTopicTagScalarRelationFilter, Prisma.QuestionTopicTagWhereInput>;
     options?: Prisma.QuestionOptionListRelationFilter;
     tags?: Prisma.QuestionTagListRelationFilter;
     parsedReviews?: Prisma.ParsedQuestionReviewListRelationFilter;
@@ -197,8 +199,8 @@ export type QuestionOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
     questionText?: Prisma.SortOrder;
     category?: Prisma.SortOrder;
-    subCategory?: Prisma.SortOrder;
-    topicTag?: Prisma.SortOrder;
+    subCategoryId?: Prisma.SortOrder;
+    topicTagId?: Prisma.SortOrder;
     competencyArea?: Prisma.SortOrderInput | Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     questionType?: Prisma.SortOrder;
@@ -212,6 +214,8 @@ export type QuestionOrderByWithRelationInput = {
     deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder;
     createdByUser?: Prisma.UserOrderByWithRelationInput;
     updatedByUser?: Prisma.UserOrderByWithRelationInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryOrderByWithRelationInput;
+    topicTagRef?: Prisma.QuestionTopicTagOrderByWithRelationInput;
     options?: Prisma.QuestionOptionOrderByRelationAggregateInput;
     tags?: Prisma.QuestionTagOrderByRelationAggregateInput;
     parsedReviews?: Prisma.ParsedQuestionReviewOrderByRelationAggregateInput;
@@ -225,8 +229,8 @@ export type QuestionWhereUniqueInput = Prisma.AtLeast<{
     NOT?: Prisma.QuestionWhereInput | Prisma.QuestionWhereInput[];
     questionText?: Prisma.StringFilter<"Question"> | string;
     category?: Prisma.EnumQuestionCategoryFilter<"Question"> | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFilter<"Question"> | string;
-    topicTag?: Prisma.StringFilter<"Question"> | string;
+    subCategoryId?: Prisma.StringFilter<"Question"> | string;
+    topicTagId?: Prisma.StringFilter<"Question"> | string;
     competencyArea?: Prisma.StringNullableFilter<"Question"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFilter<"Question"> | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFilter<"Question"> | $Enums.QuestionType;
@@ -240,6 +244,8 @@ export type QuestionWhereUniqueInput = Prisma.AtLeast<{
     deletedAt?: Prisma.DateTimeNullableFilter<"Question"> | Date | string | null;
     createdByUser?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>;
     updatedByUser?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null;
+    subCategoryRef?: Prisma.XOR<Prisma.QuestionSubCategoryScalarRelationFilter, Prisma.QuestionSubCategoryWhereInput>;
+    topicTagRef?: Prisma.XOR<Prisma.QuestionTopicTagScalarRelationFilter, Prisma.QuestionTopicTagWhereInput>;
     options?: Prisma.QuestionOptionListRelationFilter;
     tags?: Prisma.QuestionTagListRelationFilter;
     parsedReviews?: Prisma.ParsedQuestionReviewListRelationFilter;
@@ -250,8 +256,8 @@ export type QuestionOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
     questionText?: Prisma.SortOrder;
     category?: Prisma.SortOrder;
-    subCategory?: Prisma.SortOrder;
-    topicTag?: Prisma.SortOrder;
+    subCategoryId?: Prisma.SortOrder;
+    topicTagId?: Prisma.SortOrder;
     competencyArea?: Prisma.SortOrderInput | Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     questionType?: Prisma.SortOrder;
@@ -274,8 +280,8 @@ export type QuestionScalarWhereWithAggregatesInput = {
     id?: Prisma.StringWithAggregatesFilter<"Question"> | string;
     questionText?: Prisma.StringWithAggregatesFilter<"Question"> | string;
     category?: Prisma.EnumQuestionCategoryWithAggregatesFilter<"Question"> | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringWithAggregatesFilter<"Question"> | string;
-    topicTag?: Prisma.StringWithAggregatesFilter<"Question"> | string;
+    subCategoryId?: Prisma.StringWithAggregatesFilter<"Question"> | string;
+    topicTagId?: Prisma.StringWithAggregatesFilter<"Question"> | string;
     competencyArea?: Prisma.StringNullableWithAggregatesFilter<"Question"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyWithAggregatesFilter<"Question"> | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeWithAggregatesFilter<"Question"> | $Enums.QuestionType;
@@ -292,8 +298,6 @@ export type QuestionCreateInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -305,6 +309,8 @@ export type QuestionCreateInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
@@ -315,8 +321,8 @@ export type QuestionUncheckedCreateInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -338,8 +344,6 @@ export type QuestionUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -351,6 +355,8 @@ export type QuestionUpdateInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
@@ -361,8 +367,8 @@ export type QuestionUncheckedUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -384,8 +390,8 @@ export type QuestionCreateManyInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -402,8 +408,6 @@ export type QuestionUpdateManyMutationInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -418,8 +422,8 @@ export type QuestionUncheckedUpdateManyInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -444,8 +448,8 @@ export type QuestionCountOrderByAggregateInput = {
     id?: Prisma.SortOrder;
     questionText?: Prisma.SortOrder;
     category?: Prisma.SortOrder;
-    subCategory?: Prisma.SortOrder;
-    topicTag?: Prisma.SortOrder;
+    subCategoryId?: Prisma.SortOrder;
+    topicTagId?: Prisma.SortOrder;
     competencyArea?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     questionType?: Prisma.SortOrder;
@@ -462,8 +466,8 @@ export type QuestionMaxOrderByAggregateInput = {
     id?: Prisma.SortOrder;
     questionText?: Prisma.SortOrder;
     category?: Prisma.SortOrder;
-    subCategory?: Prisma.SortOrder;
-    topicTag?: Prisma.SortOrder;
+    subCategoryId?: Prisma.SortOrder;
+    topicTagId?: Prisma.SortOrder;
     competencyArea?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     questionType?: Prisma.SortOrder;
@@ -480,8 +484,8 @@ export type QuestionMinOrderByAggregateInput = {
     id?: Prisma.SortOrder;
     questionText?: Prisma.SortOrder;
     category?: Prisma.SortOrder;
-    subCategory?: Prisma.SortOrder;
-    topicTag?: Prisma.SortOrder;
+    subCategoryId?: Prisma.SortOrder;
+    topicTagId?: Prisma.SortOrder;
     competencyArea?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     questionType?: Prisma.SortOrder;
@@ -593,6 +597,82 @@ export type EnumSourceTypeFieldUpdateOperationsInput = {
 export type EnumQuestionStatusFieldUpdateOperationsInput = {
     set?: $Enums.QuestionStatus;
 };
+export type QuestionCreateNestedManyWithoutSubCategoryRefInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput> | Prisma.QuestionCreateWithoutSubCategoryRefInput[] | Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput | Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput[];
+    createMany?: Prisma.QuestionCreateManySubCategoryRefInputEnvelope;
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+};
+export type QuestionUncheckedCreateNestedManyWithoutSubCategoryRefInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput> | Prisma.QuestionCreateWithoutSubCategoryRefInput[] | Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput | Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput[];
+    createMany?: Prisma.QuestionCreateManySubCategoryRefInputEnvelope;
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+};
+export type QuestionUpdateManyWithoutSubCategoryRefNestedInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput> | Prisma.QuestionCreateWithoutSubCategoryRefInput[] | Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput | Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput[];
+    upsert?: Prisma.QuestionUpsertWithWhereUniqueWithoutSubCategoryRefInput | Prisma.QuestionUpsertWithWhereUniqueWithoutSubCategoryRefInput[];
+    createMany?: Prisma.QuestionCreateManySubCategoryRefInputEnvelope;
+    set?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    disconnect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    delete?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    update?: Prisma.QuestionUpdateWithWhereUniqueWithoutSubCategoryRefInput | Prisma.QuestionUpdateWithWhereUniqueWithoutSubCategoryRefInput[];
+    updateMany?: Prisma.QuestionUpdateManyWithWhereWithoutSubCategoryRefInput | Prisma.QuestionUpdateManyWithWhereWithoutSubCategoryRefInput[];
+    deleteMany?: Prisma.QuestionScalarWhereInput | Prisma.QuestionScalarWhereInput[];
+};
+export type QuestionUncheckedUpdateManyWithoutSubCategoryRefNestedInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput> | Prisma.QuestionCreateWithoutSubCategoryRefInput[] | Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput | Prisma.QuestionCreateOrConnectWithoutSubCategoryRefInput[];
+    upsert?: Prisma.QuestionUpsertWithWhereUniqueWithoutSubCategoryRefInput | Prisma.QuestionUpsertWithWhereUniqueWithoutSubCategoryRefInput[];
+    createMany?: Prisma.QuestionCreateManySubCategoryRefInputEnvelope;
+    set?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    disconnect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    delete?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    update?: Prisma.QuestionUpdateWithWhereUniqueWithoutSubCategoryRefInput | Prisma.QuestionUpdateWithWhereUniqueWithoutSubCategoryRefInput[];
+    updateMany?: Prisma.QuestionUpdateManyWithWhereWithoutSubCategoryRefInput | Prisma.QuestionUpdateManyWithWhereWithoutSubCategoryRefInput[];
+    deleteMany?: Prisma.QuestionScalarWhereInput | Prisma.QuestionScalarWhereInput[];
+};
+export type QuestionCreateNestedManyWithoutTopicTagRefInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput> | Prisma.QuestionCreateWithoutTopicTagRefInput[] | Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput | Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput[];
+    createMany?: Prisma.QuestionCreateManyTopicTagRefInputEnvelope;
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+};
+export type QuestionUncheckedCreateNestedManyWithoutTopicTagRefInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput> | Prisma.QuestionCreateWithoutTopicTagRefInput[] | Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput | Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput[];
+    createMany?: Prisma.QuestionCreateManyTopicTagRefInputEnvelope;
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+};
+export type QuestionUpdateManyWithoutTopicTagRefNestedInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput> | Prisma.QuestionCreateWithoutTopicTagRefInput[] | Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput | Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput[];
+    upsert?: Prisma.QuestionUpsertWithWhereUniqueWithoutTopicTagRefInput | Prisma.QuestionUpsertWithWhereUniqueWithoutTopicTagRefInput[];
+    createMany?: Prisma.QuestionCreateManyTopicTagRefInputEnvelope;
+    set?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    disconnect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    delete?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    update?: Prisma.QuestionUpdateWithWhereUniqueWithoutTopicTagRefInput | Prisma.QuestionUpdateWithWhereUniqueWithoutTopicTagRefInput[];
+    updateMany?: Prisma.QuestionUpdateManyWithWhereWithoutTopicTagRefInput | Prisma.QuestionUpdateManyWithWhereWithoutTopicTagRefInput[];
+    deleteMany?: Prisma.QuestionScalarWhereInput | Prisma.QuestionScalarWhereInput[];
+};
+export type QuestionUncheckedUpdateManyWithoutTopicTagRefNestedInput = {
+    create?: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput> | Prisma.QuestionCreateWithoutTopicTagRefInput[] | Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput[];
+    connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput | Prisma.QuestionCreateOrConnectWithoutTopicTagRefInput[];
+    upsert?: Prisma.QuestionUpsertWithWhereUniqueWithoutTopicTagRefInput | Prisma.QuestionUpsertWithWhereUniqueWithoutTopicTagRefInput[];
+    createMany?: Prisma.QuestionCreateManyTopicTagRefInputEnvelope;
+    set?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    disconnect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    delete?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    connect?: Prisma.QuestionWhereUniqueInput | Prisma.QuestionWhereUniqueInput[];
+    update?: Prisma.QuestionUpdateWithWhereUniqueWithoutTopicTagRefInput | Prisma.QuestionUpdateWithWhereUniqueWithoutTopicTagRefInput[];
+    updateMany?: Prisma.QuestionUpdateManyWithWhereWithoutTopicTagRefInput | Prisma.QuestionUpdateManyWithWhereWithoutTopicTagRefInput[];
+    deleteMany?: Prisma.QuestionScalarWhereInput | Prisma.QuestionScalarWhereInput[];
+};
 export type QuestionCreateNestedOneWithoutOptionsInput = {
     create?: Prisma.XOR<Prisma.QuestionCreateWithoutOptionsInput, Prisma.QuestionUncheckedCreateWithoutOptionsInput>;
     connectOrCreate?: Prisma.QuestionCreateOrConnectWithoutOptionsInput;
@@ -659,8 +739,6 @@ export type QuestionCreateWithoutCreatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -671,6 +749,8 @@ export type QuestionCreateWithoutCreatedByUserInput = {
     updatedAt?: Date | string;
     deletedAt?: Date | string | null;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
@@ -681,8 +761,8 @@ export type QuestionUncheckedCreateWithoutCreatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -711,8 +791,6 @@ export type QuestionCreateWithoutUpdatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -723,6 +801,8 @@ export type QuestionCreateWithoutUpdatedByUserInput = {
     updatedAt?: Date | string;
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
@@ -733,8 +813,8 @@ export type QuestionUncheckedCreateWithoutUpdatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -779,8 +859,8 @@ export type QuestionScalarWhereInput = {
     id?: Prisma.StringFilter<"Question"> | string;
     questionText?: Prisma.StringFilter<"Question"> | string;
     category?: Prisma.EnumQuestionCategoryFilter<"Question"> | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFilter<"Question"> | string;
-    topicTag?: Prisma.StringFilter<"Question"> | string;
+    subCategoryId?: Prisma.StringFilter<"Question"> | string;
+    topicTagId?: Prisma.StringFilter<"Question"> | string;
     competencyArea?: Prisma.StringNullableFilter<"Question"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFilter<"Question"> | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFilter<"Question"> | $Enums.QuestionType;
@@ -806,12 +886,10 @@ export type QuestionUpdateManyWithWhereWithoutUpdatedByUserInput = {
     where: Prisma.QuestionScalarWhereInput;
     data: Prisma.XOR<Prisma.QuestionUpdateManyMutationInput, Prisma.QuestionUncheckedUpdateManyWithoutUpdatedByUserInput>;
 };
-export type QuestionCreateWithoutOptionsInput = {
+export type QuestionCreateWithoutSubCategoryRefInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -823,6 +901,138 @@ export type QuestionCreateWithoutOptionsInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
+    options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
+    tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemCreateNestedManyWithoutQuestionInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionCreateNestedManyWithoutQuestionInput;
+};
+export type QuestionUncheckedCreateWithoutSubCategoryRefInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    topicTagId: string;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdBy: string;
+    updatedBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+    options?: Prisma.QuestionOptionUncheckedCreateNestedManyWithoutQuestionInput;
+    tags?: Prisma.QuestionTagUncheckedCreateNestedManyWithoutQuestionInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUncheckedCreateNestedManyWithoutQuestionInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUncheckedCreateNestedManyWithoutQuestionInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUncheckedCreateNestedManyWithoutQuestionInput;
+};
+export type QuestionCreateOrConnectWithoutSubCategoryRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    create: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput>;
+};
+export type QuestionCreateManySubCategoryRefInputEnvelope = {
+    data: Prisma.QuestionCreateManySubCategoryRefInput | Prisma.QuestionCreateManySubCategoryRefInput[];
+    skipDuplicates?: boolean;
+};
+export type QuestionUpsertWithWhereUniqueWithoutSubCategoryRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    update: Prisma.XOR<Prisma.QuestionUpdateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedUpdateWithoutSubCategoryRefInput>;
+    create: Prisma.XOR<Prisma.QuestionCreateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedCreateWithoutSubCategoryRefInput>;
+};
+export type QuestionUpdateWithWhereUniqueWithoutSubCategoryRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    data: Prisma.XOR<Prisma.QuestionUpdateWithoutSubCategoryRefInput, Prisma.QuestionUncheckedUpdateWithoutSubCategoryRefInput>;
+};
+export type QuestionUpdateManyWithWhereWithoutSubCategoryRefInput = {
+    where: Prisma.QuestionScalarWhereInput;
+    data: Prisma.XOR<Prisma.QuestionUpdateManyMutationInput, Prisma.QuestionUncheckedUpdateManyWithoutSubCategoryRefInput>;
+};
+export type QuestionCreateWithoutTopicTagRefInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+    createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
+    updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
+    tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemCreateNestedManyWithoutQuestionInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionCreateNestedManyWithoutQuestionInput;
+};
+export type QuestionUncheckedCreateWithoutTopicTagRefInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    subCategoryId: string;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdBy: string;
+    updatedBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+    options?: Prisma.QuestionOptionUncheckedCreateNestedManyWithoutQuestionInput;
+    tags?: Prisma.QuestionTagUncheckedCreateNestedManyWithoutQuestionInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUncheckedCreateNestedManyWithoutQuestionInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUncheckedCreateNestedManyWithoutQuestionInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUncheckedCreateNestedManyWithoutQuestionInput;
+};
+export type QuestionCreateOrConnectWithoutTopicTagRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    create: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput>;
+};
+export type QuestionCreateManyTopicTagRefInputEnvelope = {
+    data: Prisma.QuestionCreateManyTopicTagRefInput | Prisma.QuestionCreateManyTopicTagRefInput[];
+    skipDuplicates?: boolean;
+};
+export type QuestionUpsertWithWhereUniqueWithoutTopicTagRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    update: Prisma.XOR<Prisma.QuestionUpdateWithoutTopicTagRefInput, Prisma.QuestionUncheckedUpdateWithoutTopicTagRefInput>;
+    create: Prisma.XOR<Prisma.QuestionCreateWithoutTopicTagRefInput, Prisma.QuestionUncheckedCreateWithoutTopicTagRefInput>;
+};
+export type QuestionUpdateWithWhereUniqueWithoutTopicTagRefInput = {
+    where: Prisma.QuestionWhereUniqueInput;
+    data: Prisma.XOR<Prisma.QuestionUpdateWithoutTopicTagRefInput, Prisma.QuestionUncheckedUpdateWithoutTopicTagRefInput>;
+};
+export type QuestionUpdateManyWithWhereWithoutTopicTagRefInput = {
+    where: Prisma.QuestionScalarWhereInput;
+    data: Prisma.XOR<Prisma.QuestionUpdateManyMutationInput, Prisma.QuestionUncheckedUpdateManyWithoutTopicTagRefInput>;
+};
+export type QuestionCreateWithoutOptionsInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+    createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
+    updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemCreateNestedManyWithoutQuestionInput;
@@ -832,8 +1042,8 @@ export type QuestionUncheckedCreateWithoutOptionsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -867,8 +1077,6 @@ export type QuestionUpdateWithoutOptionsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -880,6 +1088,8 @@ export type QuestionUpdateWithoutOptionsInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemUpdateManyWithoutQuestionNestedInput;
@@ -889,8 +1099,8 @@ export type QuestionUncheckedUpdateWithoutOptionsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -911,8 +1121,6 @@ export type QuestionCreateWithoutTagsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -924,6 +1132,8 @@ export type QuestionCreateWithoutTagsInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemCreateNestedManyWithoutQuestionInput;
@@ -933,8 +1143,8 @@ export type QuestionUncheckedCreateWithoutTagsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -968,8 +1178,6 @@ export type QuestionUpdateWithoutTagsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -981,6 +1189,8 @@ export type QuestionUpdateWithoutTagsInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemUpdateManyWithoutQuestionNestedInput;
@@ -990,8 +1200,8 @@ export type QuestionUncheckedUpdateWithoutTagsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1012,8 +1222,6 @@ export type QuestionCreateWithoutParsedReviewsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1025,6 +1233,8 @@ export type QuestionCreateWithoutParsedReviewsInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemCreateNestedManyWithoutQuestionInput;
@@ -1034,8 +1244,8 @@ export type QuestionUncheckedCreateWithoutParsedReviewsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1069,8 +1279,6 @@ export type QuestionUpdateWithoutParsedReviewsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1082,6 +1290,8 @@ export type QuestionUpdateWithoutParsedReviewsInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     manualQuestionSetItems?: Prisma.ManualQuestionSetItemUpdateManyWithoutQuestionNestedInput;
@@ -1091,8 +1301,8 @@ export type QuestionUncheckedUpdateWithoutParsedReviewsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1113,8 +1323,6 @@ export type QuestionCreateWithoutManualQuestionSetItemsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1126,6 +1334,8 @@ export type QuestionCreateWithoutManualQuestionSetItemsInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
@@ -1135,8 +1345,8 @@ export type QuestionUncheckedCreateWithoutManualQuestionSetItemsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1170,8 +1380,6 @@ export type QuestionUpdateWithoutManualQuestionSetItemsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1183,6 +1391,8 @@ export type QuestionUpdateWithoutManualQuestionSetItemsInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
@@ -1192,8 +1402,8 @@ export type QuestionUncheckedUpdateWithoutManualQuestionSetItemsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1214,8 +1424,6 @@ export type QuestionCreateWithoutExamSessionQuestionsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1227,6 +1435,8 @@ export type QuestionCreateWithoutExamSessionQuestionsInput = {
     deletedAt?: Date | string | null;
     createdByUser: Prisma.UserCreateNestedOneWithoutCreatedQuestionsInput;
     updatedByUser?: Prisma.UserCreateNestedOneWithoutUpdatedQuestionsInput;
+    subCategoryRef: Prisma.QuestionSubCategoryCreateNestedOneWithoutQuestionsInput;
+    topicTagRef: Prisma.QuestionTopicTagCreateNestedOneWithoutQuestionsInput;
     options?: Prisma.QuestionOptionCreateNestedManyWithoutQuestionInput;
     tags?: Prisma.QuestionTagCreateNestedManyWithoutQuestionInput;
     parsedReviews?: Prisma.ParsedQuestionReviewCreateNestedManyWithoutQuestionInput;
@@ -1236,8 +1446,8 @@ export type QuestionUncheckedCreateWithoutExamSessionQuestionsInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1271,8 +1481,6 @@ export type QuestionUpdateWithoutExamSessionQuestionsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1284,6 +1492,8 @@ export type QuestionUpdateWithoutExamSessionQuestionsInput = {
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
@@ -1293,8 +1503,8 @@ export type QuestionUncheckedUpdateWithoutExamSessionQuestionsInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1315,8 +1525,8 @@ export type QuestionCreateManyCreatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1332,8 +1542,8 @@ export type QuestionCreateManyUpdatedByUserInput = {
     id?: string;
     questionText: string;
     category: $Enums.QuestionCategory;
-    subCategory: string;
-    topicTag: string;
+    subCategoryId: string;
+    topicTagId: string;
     competencyArea?: string | null;
     difficulty: $Enums.QuestionDifficulty;
     questionType?: $Enums.QuestionType;
@@ -1349,8 +1559,6 @@ export type QuestionUpdateWithoutCreatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1361,6 +1569,8 @@ export type QuestionUpdateWithoutCreatedByUserInput = {
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
@@ -1371,8 +1581,8 @@ export type QuestionUncheckedUpdateWithoutCreatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1393,8 +1603,8 @@ export type QuestionUncheckedUpdateManyWithoutCreatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1410,8 +1620,6 @@ export type QuestionUpdateWithoutUpdatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1422,6 +1630,8 @@ export type QuestionUpdateWithoutUpdatedByUserInput = {
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
     createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
     options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
     tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
     parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
@@ -1432,8 +1642,8 @@ export type QuestionUncheckedUpdateWithoutUpdatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1454,8 +1664,8 @@ export type QuestionUncheckedUpdateManyWithoutUpdatedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
     questionText?: Prisma.StringFieldUpdateOperationsInput | string;
     category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
-    subCategory?: Prisma.StringFieldUpdateOperationsInput | string;
-    topicTag?: Prisma.StringFieldUpdateOperationsInput | string;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
     competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
     questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
@@ -1463,6 +1673,162 @@ export type QuestionUncheckedUpdateManyWithoutUpdatedByUserInput = {
     status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
     explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     createdBy?: Prisma.StringFieldUpdateOperationsInput | string;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+};
+export type QuestionCreateManySubCategoryRefInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    topicTagId: string;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdBy: string;
+    updatedBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+};
+export type QuestionUpdateWithoutSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
+    updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    topicTagRef?: Prisma.QuestionTopicTagUpdateOneRequiredWithoutQuestionsNestedInput;
+    options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
+    tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUpdateManyWithoutQuestionNestedInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUpdateManyWithoutQuestionNestedInput;
+};
+export type QuestionUncheckedUpdateWithoutSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdBy?: Prisma.StringFieldUpdateOperationsInput | string;
+    updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    options?: Prisma.QuestionOptionUncheckedUpdateManyWithoutQuestionNestedInput;
+    tags?: Prisma.QuestionTagUncheckedUpdateManyWithoutQuestionNestedInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUncheckedUpdateManyWithoutQuestionNestedInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUncheckedUpdateManyWithoutQuestionNestedInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUncheckedUpdateManyWithoutQuestionNestedInput;
+};
+export type QuestionUncheckedUpdateManyWithoutSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    topicTagId?: Prisma.StringFieldUpdateOperationsInput | string;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdBy?: Prisma.StringFieldUpdateOperationsInput | string;
+    updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+};
+export type QuestionCreateManyTopicTagRefInput = {
+    id?: string;
+    questionText: string;
+    category: $Enums.QuestionCategory;
+    subCategoryId: string;
+    competencyArea?: string | null;
+    difficulty: $Enums.QuestionDifficulty;
+    questionType?: $Enums.QuestionType;
+    sourceType: $Enums.SourceType;
+    status: $Enums.QuestionStatus;
+    explanation?: string | null;
+    createdBy: string;
+    updatedBy?: string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    deletedAt?: Date | string | null;
+};
+export type QuestionUpdateWithoutTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdByUser?: Prisma.UserUpdateOneRequiredWithoutCreatedQuestionsNestedInput;
+    updatedByUser?: Prisma.UserUpdateOneWithoutUpdatedQuestionsNestedInput;
+    subCategoryRef?: Prisma.QuestionSubCategoryUpdateOneRequiredWithoutQuestionsNestedInput;
+    options?: Prisma.QuestionOptionUpdateManyWithoutQuestionNestedInput;
+    tags?: Prisma.QuestionTagUpdateManyWithoutQuestionNestedInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUpdateManyWithoutQuestionNestedInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUpdateManyWithoutQuestionNestedInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUpdateManyWithoutQuestionNestedInput;
+};
+export type QuestionUncheckedUpdateWithoutTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdBy?: Prisma.StringFieldUpdateOperationsInput | string;
+    updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    options?: Prisma.QuestionOptionUncheckedUpdateManyWithoutQuestionNestedInput;
+    tags?: Prisma.QuestionTagUncheckedUpdateManyWithoutQuestionNestedInput;
+    parsedReviews?: Prisma.ParsedQuestionReviewUncheckedUpdateManyWithoutQuestionNestedInput;
+    manualQuestionSetItems?: Prisma.ManualQuestionSetItemUncheckedUpdateManyWithoutQuestionNestedInput;
+    examSessionQuestions?: Prisma.ExamSessionQuestionUncheckedUpdateManyWithoutQuestionNestedInput;
+};
+export type QuestionUncheckedUpdateManyWithoutTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    category?: Prisma.EnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory;
+    subCategoryId?: Prisma.StringFieldUpdateOperationsInput | string;
+    competencyArea?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.EnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty;
+    questionType?: Prisma.EnumQuestionTypeFieldUpdateOperationsInput | $Enums.QuestionType;
+    sourceType?: Prisma.EnumSourceTypeFieldUpdateOperationsInput | $Enums.SourceType;
+    status?: Prisma.EnumQuestionStatusFieldUpdateOperationsInput | $Enums.QuestionStatus;
+    explanation?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    createdBy?: Prisma.StringFieldUpdateOperationsInput | string;
+    updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
@@ -1503,8 +1869,8 @@ export type QuestionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
     id?: boolean;
     questionText?: boolean;
     category?: boolean;
-    subCategory?: boolean;
-    topicTag?: boolean;
+    subCategoryId?: boolean;
+    topicTagId?: boolean;
     competencyArea?: boolean;
     difficulty?: boolean;
     questionType?: boolean;
@@ -1518,6 +1884,8 @@ export type QuestionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
     deletedAt?: boolean;
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
     options?: boolean | Prisma.Question$optionsArgs<ExtArgs>;
     tags?: boolean | Prisma.Question$tagsArgs<ExtArgs>;
     parsedReviews?: boolean | Prisma.Question$parsedReviewsArgs<ExtArgs>;
@@ -1529,8 +1897,8 @@ export type QuestionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
     id?: boolean;
     questionText?: boolean;
     category?: boolean;
-    subCategory?: boolean;
-    topicTag?: boolean;
+    subCategoryId?: boolean;
+    topicTagId?: boolean;
     competencyArea?: boolean;
     difficulty?: boolean;
     questionType?: boolean;
@@ -1544,13 +1912,15 @@ export type QuestionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exte
     deletedAt?: boolean;
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["question"]>;
 export type QuestionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
     questionText?: boolean;
     category?: boolean;
-    subCategory?: boolean;
-    topicTag?: boolean;
+    subCategoryId?: boolean;
+    topicTagId?: boolean;
     competencyArea?: boolean;
     difficulty?: boolean;
     questionType?: boolean;
@@ -1564,13 +1934,15 @@ export type QuestionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exte
     deletedAt?: boolean;
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
 }, ExtArgs["result"]["question"]>;
 export type QuestionSelectScalar = {
     id?: boolean;
     questionText?: boolean;
     category?: boolean;
-    subCategory?: boolean;
-    topicTag?: boolean;
+    subCategoryId?: boolean;
+    topicTagId?: boolean;
     competencyArea?: boolean;
     difficulty?: boolean;
     questionType?: boolean;
@@ -1583,10 +1955,12 @@ export type QuestionSelectScalar = {
     updatedAt?: boolean;
     deletedAt?: boolean;
 };
-export type QuestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "questionText" | "category" | "subCategory" | "topicTag" | "competencyArea" | "difficulty" | "questionType" | "sourceType" | "status" | "explanation" | "createdBy" | "updatedBy" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["question"]>;
+export type QuestionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "questionText" | "category" | "subCategoryId" | "topicTagId" | "competencyArea" | "difficulty" | "questionType" | "sourceType" | "status" | "explanation" | "createdBy" | "updatedBy" | "createdAt" | "updatedAt" | "deletedAt", ExtArgs["result"]["question"]>;
 export type QuestionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
     options?: boolean | Prisma.Question$optionsArgs<ExtArgs>;
     tags?: boolean | Prisma.Question$tagsArgs<ExtArgs>;
     parsedReviews?: boolean | Prisma.Question$parsedReviewsArgs<ExtArgs>;
@@ -1597,16 +1971,22 @@ export type QuestionInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
 export type QuestionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
 };
 export type QuestionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     createdByUser?: boolean | Prisma.UserDefaultArgs<ExtArgs>;
     updatedByUser?: boolean | Prisma.Question$updatedByUserArgs<ExtArgs>;
+    subCategoryRef?: boolean | Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>;
+    topicTagRef?: boolean | Prisma.QuestionTopicTagDefaultArgs<ExtArgs>;
 };
 export type $QuestionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     name: "Question";
     objects: {
         createdByUser: Prisma.$UserPayload<ExtArgs>;
         updatedByUser: Prisma.$UserPayload<ExtArgs> | null;
+        subCategoryRef: Prisma.$QuestionSubCategoryPayload<ExtArgs>;
+        topicTagRef: Prisma.$QuestionTopicTagPayload<ExtArgs>;
         options: Prisma.$QuestionOptionPayload<ExtArgs>[];
         tags: Prisma.$QuestionTagPayload<ExtArgs>[];
         parsedReviews: Prisma.$ParsedQuestionReviewPayload<ExtArgs>[];
@@ -1617,8 +1997,8 @@ export type $QuestionPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
         id: string;
         questionText: string;
         category: $Enums.QuestionCategory;
-        subCategory: string;
-        topicTag: string;
+        subCategoryId: string;
+        topicTagId: string;
         competencyArea: string | null;
         difficulty: $Enums.QuestionDifficulty;
         questionType: $Enums.QuestionType;
@@ -1684,6 +2064,8 @@ export interface Prisma__QuestionClient<T, Null = never, ExtArgs extends runtime
     readonly [Symbol.toStringTag]: "PrismaPromise";
     createdByUser<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>;
     updatedByUser<T extends Prisma.Question$updatedByUserArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Question$updatedByUserArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
+    subCategoryRef<T extends Prisma.QuestionSubCategoryDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.QuestionSubCategoryDefaultArgs<ExtArgs>>): Prisma.Prisma__QuestionSubCategoryClient<runtime.Types.Result.GetResult<Prisma.$QuestionSubCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>;
+    topicTagRef<T extends Prisma.QuestionTopicTagDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.QuestionTopicTagDefaultArgs<ExtArgs>>): Prisma.Prisma__QuestionTopicTagClient<runtime.Types.Result.GetResult<Prisma.$QuestionTopicTagPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>;
     options<T extends Prisma.Question$optionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Question$optionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$QuestionOptionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     tags<T extends Prisma.Question$tagsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Question$tagsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$QuestionTagPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
     parsedReviews<T extends Prisma.Question$parsedReviewsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Question$parsedReviewsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ParsedQuestionReviewPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>;
@@ -1697,8 +2079,8 @@ export interface QuestionFieldRefs {
     readonly id: Prisma.FieldRef<"Question", 'String'>;
     readonly questionText: Prisma.FieldRef<"Question", 'String'>;
     readonly category: Prisma.FieldRef<"Question", 'QuestionCategory'>;
-    readonly subCategory: Prisma.FieldRef<"Question", 'String'>;
-    readonly topicTag: Prisma.FieldRef<"Question", 'String'>;
+    readonly subCategoryId: Prisma.FieldRef<"Question", 'String'>;
+    readonly topicTagId: Prisma.FieldRef<"Question", 'String'>;
     readonly competencyArea: Prisma.FieldRef<"Question", 'String'>;
     readonly difficulty: Prisma.FieldRef<"Question", 'QuestionDifficulty'>;
     readonly questionType: Prisma.FieldRef<"Question", 'QuestionType'>;

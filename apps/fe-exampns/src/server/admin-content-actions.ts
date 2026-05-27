@@ -35,8 +35,8 @@ function buildQuestionPayload(formData: FormData) {
   return {
     questionText: String(formData.get("questionText") ?? "").trim(),
     category,
-    subCategory: String(formData.get("subCategory") ?? "").trim(),
-    topicTag: String(formData.get("topicTag") ?? "").trim(),
+    subCategoryId: String(formData.get("subCategoryId") ?? "").trim(),
+    topicTagId: String(formData.get("topicTagId") ?? "").trim(),
     competencyArea: optionalString(formData.get("competencyArea")) ?? "",
     difficulty: String(formData.get("difficulty") ?? "medium"),
     status: String(formData.get("status") ?? "draft"),
@@ -76,6 +76,7 @@ function revalidateAdminContentPaths() {
     "/admin/review-parsing",
     "/admin/tryout-drafts",
     "/admin/audit-aktivitas",
+    "/admin/metadata-soal",
   ];
 
   for (const path of paths) {
@@ -147,6 +148,18 @@ export async function archiveQuestionAction(questionId: string) {
   revalidateAdminContentPaths();
 }
 
+export async function toggleQuestionStatusAction(questionId: string, nextStatus: "active" | "archived") {
+  await serverApiFetch<{ success: true; message?: string }>(`/api/v1/admin/questions/${questionId}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      status: nextStatus,
+    }),
+  });
+  revalidateAdminContentPaths();
+  revalidatePath(`/admin/bank-soal/${questionId}/edit`);
+}
+
 export async function uploadPdfAction(
   _previousState: ResourceActionState,
   formData: FormData,
@@ -201,8 +214,8 @@ export async function updateParsedQuestionAction(
           })),
           detectedAnswer: String(formData.get("detectedAnswer") ?? "A"),
           category: String(formData.get("category") ?? "TWK"),
-          subCategory: String(formData.get("subCategory") ?? "").trim(),
-          topicTag: String(formData.get("topicTag") ?? "").trim(),
+          resolvedSubCategoryId: String(formData.get("resolvedSubCategoryId") ?? "").trim(),
+          resolvedTopicTagId: String(formData.get("resolvedTopicTagId") ?? "").trim(),
           difficulty: String(formData.get("difficulty") ?? "medium"),
         }),
       },
@@ -365,4 +378,229 @@ export async function submitTryoutDraftAction(tryoutDraftId: string) {
     },
   );
   revalidateAdminContentPaths();
+}
+
+export async function createQuestionSubCategoryAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      "/api/v1/admin/question-metadata/sub-categories",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          category: String(formData.get("category") ?? "TWK"),
+          name: String(formData.get("name") ?? "").trim(),
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Sub-kategori berhasil dibuat.",
+      resourceId: response.data.id,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal membuat sub-kategori.",
+    };
+  }
+}
+
+export async function updateQuestionSubCategoryAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const subCategoryId = String(formData.get("subCategoryId") ?? "");
+    const isActive = formData.get("isActive");
+    const sortOrder = formData.get("sortOrder");
+    await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      `/api/v1/admin/question-metadata/sub-categories/${subCategoryId}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: String(formData.get("name") ?? "").trim(),
+          ...(sortOrder !== null ? { sortOrder: parseNumber(sortOrder, 0) } : {}),
+          ...(isActive !== null ? { isActive: parseBoolean(isActive) } : {}),
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Sub-kategori berhasil diperbarui.",
+      resourceId: subCategoryId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal memperbarui sub-kategori.",
+    };
+  }
+}
+
+export async function archiveQuestionSubCategoryAction(subCategoryId: string) {
+  await serverApiFetch<{ success: true; message?: string }>(
+    `/api/v1/admin/question-metadata/sub-categories/${subCategoryId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  revalidateAdminContentPaths();
+}
+
+export async function toggleQuestionSubCategoryStatusAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const subCategoryId = String(formData.get("subCategoryId") ?? "");
+    const nextActiveState = parseBoolean(formData.get("isActive"));
+
+    await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      `/api/v1/admin/question-metadata/sub-categories/${subCategoryId}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          isActive: nextActiveState,
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: nextActiveState ? "Sub-kategori berhasil diaktifkan." : "Sub-kategori berhasil dinonaktifkan.",
+      resourceId: subCategoryId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal mengubah status sub-kategori.",
+    };
+  }
+}
+
+export async function createQuestionTopicTagAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      "/api/v1/admin/question-metadata/topic-tags",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subCategoryId: String(formData.get("subCategoryId") ?? "").trim(),
+          name: String(formData.get("name") ?? "").trim(),
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Topic tag berhasil dibuat.",
+      resourceId: response.data.id,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal membuat topik tag.",
+    };
+  }
+}
+
+export async function updateQuestionTopicTagAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const topicTagId = String(formData.get("topicTagId") ?? "");
+    const isActive = formData.get("isActive");
+    const sortOrder = formData.get("sortOrder");
+    await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      `/api/v1/admin/question-metadata/topic-tags/${topicTagId}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          subCategoryId: String(formData.get("subCategoryId") ?? "").trim(),
+          name: String(formData.get("name") ?? "").trim(),
+          ...(sortOrder !== null ? { sortOrder: parseNumber(sortOrder, 0) } : {}),
+          ...(isActive !== null ? { isActive: parseBoolean(isActive) } : {}),
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Topic tag berhasil diperbarui.",
+      resourceId: topicTagId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal memperbarui topik tag.",
+    };
+  }
+}
+
+export async function archiveQuestionTopicTagAction(topicTagId: string) {
+  await serverApiFetch<{ success: true; message?: string }>(
+    `/api/v1/admin/question-metadata/topic-tags/${topicTagId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  revalidateAdminContentPaths();
+}
+
+export async function toggleQuestionTopicTagStatusAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const topicTagId = String(formData.get("topicTagId") ?? "");
+    const nextActiveState = parseBoolean(formData.get("isActive"));
+
+    await serverApiFetch<ApiSuccessResponse<{ id: string }>>(
+      `/api/v1/admin/question-metadata/topic-tags/${topicTagId}`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          isActive: nextActiveState,
+        }),
+      },
+    );
+
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: nextActiveState ? "Topic tag berhasil diaktifkan." : "Topic tag berhasil dinonaktifkan.",
+      resourceId: topicTagId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal mengubah status topik tag.",
+    };
+  }
 }

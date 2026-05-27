@@ -19,6 +19,7 @@ import { ExamEngineModule } from './exam-engine/exam-engine.module.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { PdfImportModule } from './pdf-import/pdf-import.module.js';
 import { QuestionBankModule } from './question-bank/question-bank.module.js';
+import { QuestionMetadataModule } from './question-metadata/question-metadata.module.js';
 import { TryoutManagementModule } from './tryout-management/tryout-management.module.js';
 let AppModule = class AppModule {
 };
@@ -37,6 +38,7 @@ AppModule = __decorate([
             OperationsModule,
             PdfImportModule,
             QuestionBankModule,
+            QuestionMetadataModule,
             TryoutManagementModule,
             BootstrapModule,
         ],

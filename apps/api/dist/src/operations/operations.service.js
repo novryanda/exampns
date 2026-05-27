@@ -944,18 +944,12 @@ let OperationsService = class OperationsService {
     }
     async getAuditLogs(rawQuery) {
         const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+        const createdAtFilter = this.resolveAuditLogCreatedAtFilter(query);
         const where = {
             ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
             ...(query.module ? { module: query.module } : {}),
             ...(query.action ? { action: query.action } : {}),
-            ...(query.dateFrom || query.dateTo
-                ? {
-                    createdAt: {
-                        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-                        ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
-                    },
-                }
-                : {}),
+            ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
         };
         const skip = (query.page - 1) * query.limit;
         const [logs, totalItems] = await Promise.all([
@@ -993,18 +987,12 @@ let OperationsService = class OperationsService {
     }
     async getAdminSelfAuditLogs(actor, rawQuery) {
         const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+        const createdAtFilter = this.resolveAuditLogCreatedAtFilter(query);
         const where = {
             actorUserId: actor.id,
             ...(query.module ? { module: query.module } : {}),
             ...(query.action ? { action: query.action } : {}),
-            ...(query.dateFrom || query.dateTo
-                ? {
-                    createdAt: {
-                        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-                        ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
-                    },
-                }
-                : {}),
+            ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
         };
         const skip = (query.page - 1) * query.limit;
         const [logs, totalItems] = await Promise.all([
@@ -1051,6 +1039,50 @@ let OperationsService = class OperationsService {
             return 'active';
         }
         return 'expired';
+    }
+    resolveAuditLogCreatedAtFilter(query) {
+        if (query.dateFrom || query.dateTo) {
+            return {
+                ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+                ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+            };
+        }
+        if (!query.period) {
+            return undefined;
+        }
+        const now = new Date();
+        const start = new Date(now);
+        switch (query.period) {
+            case 'today':
+                start.setHours(0, 0, 0, 0);
+                return {
+                    gte: start,
+                    lte: now,
+                };
+            case '7d':
+                start.setDate(start.getDate() - 6);
+                start.setHours(0, 0, 0, 0);
+                return {
+                    gte: start,
+                    lte: now,
+                };
+            case '30d':
+                start.setDate(start.getDate() - 29);
+                start.setHours(0, 0, 0, 0);
+                return {
+                    gte: start,
+                    lte: now,
+                };
+            case 'this_month':
+                start.setDate(1);
+                start.setHours(0, 0, 0, 0);
+                return {
+                    gte: start,
+                    lte: now,
+                };
+            default:
+                return undefined;
+        }
     }
     async createAuditLog(params) {
         await this.prisma.auditLog.create({

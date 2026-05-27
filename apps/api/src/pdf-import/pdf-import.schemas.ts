@@ -48,8 +48,8 @@ export const updateParsedQuestionSchema = z.object({
   options: z.array(optionSchema).length(5),
   detectedAnswer: z.enum(['A', 'B', 'C', 'D', 'E']).optional(),
   category: z.nativeEnum(QuestionCategory),
-  subCategory: z.string().trim().min(1).max(100),
-  topicTag: z.string().trim().min(1).max(150),
+  resolvedSubCategoryId: z.string().trim().min(1),
+  resolvedTopicTagId: z.string().trim().min(1),
   difficulty: z.nativeEnum(QuestionDifficulty),
 });
 

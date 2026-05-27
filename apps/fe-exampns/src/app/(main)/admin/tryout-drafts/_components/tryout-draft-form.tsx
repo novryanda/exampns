@@ -83,29 +83,29 @@ export function TryoutDraftForm({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <div className="grid gap-2">
-          <Label htmlFor="tryoutType">Type</Label>
+          <Label htmlFor="tryoutType">Tipe</Label>
           <Select name="tryoutType" defaultValue={draft?.tryoutType ?? "generated"}>
             <SelectTrigger id="tryoutType" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder="Pilih tipe" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="generated">Generated</SelectItem>
+              <SelectItem value="generated">Otomatis</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
               <SelectItem value="hybrid">Hybrid</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="accessType">Access</Label>
+          <Label htmlFor="accessType">Akses</Label>
           <Select name="accessType" defaultValue={draft?.accessType ?? "trial_and_paid"}>
             <SelectTrigger id="accessType" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Access" />
+              <SelectValue placeholder="Pilih akses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="trial_and_paid">Trial & Paid</SelectItem>
-              <SelectItem value="paid_only">Paid Only</SelectItem>
-              <SelectItem value="premium_only">Premium Only</SelectItem>
-              <SelectItem value="trial_only">Trial Only</SelectItem>
+              <SelectItem value="trial_and_paid">Trial & Berbayar</SelectItem>
+              <SelectItem value="paid_only">Berbayar Saja</SelectItem>
+              <SelectItem value="premium_only">Premium Saja</SelectItem>
+              <SelectItem value="trial_only">Trial Saja</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -144,7 +144,7 @@ export function TryoutDraftForm({
           />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="sortOrder">Sort Order</Label>
+          <Label htmlFor="sortOrder">Urutan</Label>
           <Input
             id="sortOrder"
             name="sortOrder"
@@ -157,13 +157,13 @@ export function TryoutDraftForm({
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <ToggleField name="isFeatured" defaultChecked={draft?.isFeatured ?? false} label="Featured" />
+        <ToggleField name="isFeatured" defaultChecked={draft?.isFeatured ?? false} label="Unggulan" />
         <ToggleField
           name="showResultImmediately"
           defaultChecked={draft?.showResultImmediately ?? true}
-          label="Show Result"
+          label="Tampilkan Hasil"
         />
-        <ToggleField name="showAnswerReview" defaultChecked={draft?.showAnswerReview ?? true} label="Answer Review" />
+        <ToggleField name="showAnswerReview" defaultChecked={draft?.showAnswerReview ?? true} label="Tinjau Jawaban" />
       </div>
 
       <div className="flex flex-wrap gap-2">

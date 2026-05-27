@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException, BadRequestException, } from '@nestjs/common';
 import { ImportBatchStatus, ParsedQuestionStatus, QuestionCategory, QuestionStatus, SourceType, } from '../../generated/prisma/client.js';
 import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -184,6 +184,8 @@ let PdfImportService = class PdfImportService {
                 category: item.category,
                 subCategory: item.subCategory,
                 topicTag: item.topicTag,
+                resolvedSubCategoryId: item.resolvedSubCategoryId,
+                resolvedTopicTagId: item.resolvedTopicTagId,
                 difficulty: item.difficulty,
                 confidenceScore: item.confidenceScore === null ? null : Number(item.confidenceScore),
                 status: item.status,
@@ -193,6 +195,22 @@ let PdfImportService = class PdfImportService {
     async getParsedQuestionDetail(parsedQuestionId) {
         const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
             where: { id: parsedQuestionId },
+            include: {
+                resolvedSubCategoryRef: {
+                    select: {
+                        id: true,
+                        name: true,
+                        category: true,
+                    },
+                },
+                resolvedTopicTagRef: {
+                    select: {
+                        id: true,
+                        name: true,
+                        subCategoryId: true,
+                    },
+                },
+            },
         });
         if (!parsedQuestion) {
             throw new NotFoundException('Parsed question tidak ditemukan');
@@ -206,6 +224,10 @@ let PdfImportService = class PdfImportService {
             category: parsedQuestion.category,
             subCategory: parsedQuestion.subCategory,
             topicTag: parsedQuestion.topicTag,
+            resolvedSubCategoryId: parsedQuestion.resolvedSubCategoryId,
+            resolvedTopicTagId: parsedQuestion.resolvedTopicTagId,
+            resolvedSubCategory: parsedQuestion.resolvedSubCategoryRef?.name ?? null,
+            resolvedTopicTag: parsedQuestion.resolvedTopicTagRef?.name ?? null,
             difficulty: parsedQuestion.difficulty,
             confidenceScore: parsedQuestion.confidenceScore === null ? null : Number(parsedQuestion.confidenceScore),
             status: parsedQuestion.status,
@@ -217,6 +239,7 @@ let PdfImportService = class PdfImportService {
     async updateParsedQuestion(parsedQuestionId, rawBody, actor) {
         const payload = this.validationService.validate(updateParsedQuestionSchema, rawBody);
         assertQuestionOptionRules(payload.category, payload.options);
+        await this.assertResolvedMetadata(payload.category, payload.resolvedSubCategoryId, payload.resolvedTopicTagId);
         const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
             where: { id: parsedQuestionId },
             select: {
@@ -237,8 +260,8 @@ let PdfImportService = class PdfImportService {
                 optionsJson: toInputJson(payload.options),
                 detectedAnswer: payload.detectedAnswer ?? null,
                 category: payload.category,
-                subCategory: payload.subCategory,
-                topicTag: payload.topicTag,
+                resolvedSubCategoryId: payload.resolvedSubCategoryId,
+                resolvedTopicTagId: payload.resolvedTopicTagId,
                 difficulty: payload.difficulty,
                 status: ParsedQuestionStatus.pending_review,
                 reviewNotes: null,
@@ -254,7 +277,8 @@ let PdfImportService = class PdfImportService {
             targetId: parsedQuestionId,
             metadata: {
                 category: payload.category,
-                topicTag: payload.topicTag,
+                resolvedSubCategoryId: payload.resolvedSubCategoryId,
+                resolvedTopicTagId: payload.resolvedTopicTagId,
             },
         });
     }
@@ -269,12 +293,15 @@ let PdfImportService = class PdfImportService {
         if (parsedQuestion.questionId) {
             throw new ConflictException('Parsed question sudah pernah di-approve');
         }
-        if (!parsedQuestion.category ||
-            !parsedQuestion.subCategory ||
-            !parsedQuestion.topicTag ||
-            !parsedQuestion.difficulty) {
+        if (!parsedQuestion.category || !parsedQuestion.difficulty) {
             throw new ConflictException('Parsed question belum lengkap untuk di-approve');
         }
+        if (!parsedQuestion.resolvedSubCategoryId || !parsedQuestion.resolvedTopicTagId) {
+            throw new ConflictException('Parsed question belum dipetakan ke metadata master');
+        }
+        await this.assertResolvedMetadata(parsedQuestion.category, parsedQuestion.resolvedSubCategoryId, parsedQuestion.resolvedTopicTagId);
+        const resolvedSubCategoryId = parsedQuestion.resolvedSubCategoryId;
+        const resolvedTopicTagId = parsedQuestion.resolvedTopicTagId;
         const options = parsedQuestion.optionsJson;
         assertQuestionOptionRules(parsedQuestion.category, options.map((option) => ({
             label: option.label,
@@ -289,8 +316,8 @@ let PdfImportService = class PdfImportService {
                 data: {
                     questionText: parsedQuestion.questionText,
                     category: parsedQuestion.category,
-                    subCategory: parsedQuestion.subCategory,
-                    topicTag: parsedQuestion.topicTag,
+                    subCategoryId: resolvedSubCategoryId,
+                    topicTagId: resolvedTopicTagId,
                     competencyArea: null,
                     difficulty: parsedQuestion.difficulty,
                     questionType: 'multiple_choice',
@@ -422,11 +449,39 @@ let PdfImportService = class PdfImportService {
                         category: item.category ?? null,
                         subCategory: item.subCategory ?? null,
                         topicTag: item.topicTag ?? null,
+                        resolvedSubCategoryId: null,
+                        resolvedTopicTagId: null,
                         difficulty: item.difficulty ?? null,
                         confidenceScore: item.confidenceScore ?? null,
                         status: item.status ?? ParsedQuestionStatus.pending_review,
                     })),
                 });
+                await tx.$executeRawUnsafe(`
+            UPDATE "parsed_question_reviews" p
+            SET
+              "resolved_sub_category_id" = qsc."id",
+              "resolved_topic_tag_id" = qtt."id"
+            FROM "question_sub_categories" qsc
+            JOIN "question_topic_tags" qtt
+              ON qtt."sub_category_id" = qsc."id"
+            WHERE p."batch_id" = $1
+              AND p."category" IS NOT NULL
+              AND p."sub_category" IS NOT NULL
+              AND p."topic_tag" IS NOT NULL
+              AND qsc."category" = p."category"
+              AND qsc."slug" = regexp_replace(
+                regexp_replace(lower(btrim(p."sub_category")), '\\s+', ' ', 'g'),
+                '[^a-z0-9]+',
+                '_',
+                'g'
+              )
+              AND qtt."slug" = regexp_replace(
+                regexp_replace(lower(btrim(p."topic_tag")), '\\s+', ' ', 'g'),
+                '[^a-z0-9]+',
+                '_',
+                'g'
+              )
+          `, batchId);
                 const createdRows = parsedQuestions.map((item) => ({
                     status: item.status ?? ParsedQuestionStatus.pending_review,
                 }));
@@ -480,6 +535,38 @@ let PdfImportService = class PdfImportService {
             return 20;
         }
         return setting.value;
+    }
+    async assertResolvedMetadata(category, resolvedSubCategoryId, resolvedTopicTagId) {
+        const [subCategory, topicTag] = await Promise.all([
+            this.prisma.questionSubCategory.findUnique({
+                where: { id: resolvedSubCategoryId },
+                select: {
+                    id: true,
+                    category: true,
+                    isActive: true,
+                },
+            }),
+            this.prisma.questionTopicTag.findUnique({
+                where: { id: resolvedTopicTagId },
+                select: {
+                    id: true,
+                    subCategoryId: true,
+                    isActive: true,
+                },
+            }),
+        ]);
+        if (!subCategory || subCategory.category !== category) {
+            throw new BadRequestException('Resolved sub-category tidak valid untuk category terpilih');
+        }
+        if (!subCategory.isActive) {
+            throw new BadRequestException('Resolved sub-category inactive tidak dapat dipakai');
+        }
+        if (!topicTag || topicTag.subCategoryId !== resolvedSubCategoryId) {
+            throw new BadRequestException('Resolved topic tag tidak cocok dengan sub-category');
+        }
+        if (!topicTag.isActive) {
+            throw new BadRequestException('Resolved topic tag inactive tidak dapat dipakai');
+        }
     }
 };
 PdfImportService = __decorate([

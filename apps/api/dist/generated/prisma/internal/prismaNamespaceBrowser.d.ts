@@ -16,6 +16,8 @@ export declare const ModelName: {
     readonly Account: "Account";
     readonly Verification: "Verification";
     readonly Question: "Question";
+    readonly QuestionSubCategory: "QuestionSubCategory";
+    readonly QuestionTopicTag: "QuestionTopicTag";
     readonly QuestionOption: "QuestionOption";
     readonly QuestionTag: "QuestionTag";
     readonly QuestionImportBatch: "QuestionImportBatch";
@@ -106,8 +108,8 @@ export declare const QuestionScalarFieldEnum: {
     readonly id: "id";
     readonly questionText: "questionText";
     readonly category: "category";
-    readonly subCategory: "subCategory";
-    readonly topicTag: "topicTag";
+    readonly subCategoryId: "subCategoryId";
+    readonly topicTagId: "topicTagId";
     readonly competencyArea: "competencyArea";
     readonly difficulty: "difficulty";
     readonly questionType: "questionType";
@@ -121,6 +123,28 @@ export declare const QuestionScalarFieldEnum: {
     readonly deletedAt: "deletedAt";
 };
 export type QuestionScalarFieldEnum = (typeof QuestionScalarFieldEnum)[keyof typeof QuestionScalarFieldEnum];
+export declare const QuestionSubCategoryScalarFieldEnum: {
+    readonly id: "id";
+    readonly category: "category";
+    readonly name: "name";
+    readonly slug: "slug";
+    readonly isActive: "isActive";
+    readonly sortOrder: "sortOrder";
+    readonly createdAt: "createdAt";
+    readonly updatedAt: "updatedAt";
+};
+export type QuestionSubCategoryScalarFieldEnum = (typeof QuestionSubCategoryScalarFieldEnum)[keyof typeof QuestionSubCategoryScalarFieldEnum];
+export declare const QuestionTopicTagScalarFieldEnum: {
+    readonly id: "id";
+    readonly subCategoryId: "subCategoryId";
+    readonly name: "name";
+    readonly slug: "slug";
+    readonly isActive: "isActive";
+    readonly sortOrder: "sortOrder";
+    readonly createdAt: "createdAt";
+    readonly updatedAt: "updatedAt";
+};
+export type QuestionTopicTagScalarFieldEnum = (typeof QuestionTopicTagScalarFieldEnum)[keyof typeof QuestionTopicTagScalarFieldEnum];
 export declare const QuestionOptionScalarFieldEnum: {
     readonly id: "id";
     readonly questionId: "questionId";
@@ -166,6 +190,8 @@ export declare const ParsedQuestionReviewScalarFieldEnum: {
     readonly category: "category";
     readonly subCategory: "subCategory";
     readonly topicTag: "topicTag";
+    readonly resolvedSubCategoryId: "resolvedSubCategoryId";
+    readonly resolvedTopicTagId: "resolvedTopicTagId";
     readonly difficulty: "difficulty";
     readonly confidenceScore: "confidenceScore";
     readonly status: "status";

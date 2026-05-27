@@ -1142,18 +1142,12 @@ export class OperationsService {
 
   async getAuditLogs(rawQuery: unknown) {
     const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+    const createdAtFilter = this.resolveAuditLogCreatedAtFilter(query);
     const where: Prisma.AuditLogWhereInput = {
       ...(query.actorUserId ? { actorUserId: query.actorUserId } : {}),
       ...(query.module ? { module: query.module } : {}),
       ...(query.action ? { action: query.action } : {}),
-      ...(query.dateFrom || query.dateTo
-        ? {
-            createdAt: {
-              ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
-            },
-          }
-        : {}),
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
     };
 
     const skip = (query.page - 1) * query.limit;
@@ -1194,18 +1188,12 @@ export class OperationsService {
 
   async getAdminSelfAuditLogs(actor: AuthenticatedUser, rawQuery: unknown) {
     const query = this.validationService.validate(auditLogsQuerySchema, rawQuery);
+    const createdAtFilter = this.resolveAuditLogCreatedAtFilter(query);
     const where: Prisma.AuditLogWhereInput = {
       actorUserId: actor.id,
       ...(query.module ? { module: query.module } : {}),
       ...(query.action ? { action: query.action } : {}),
-      ...(query.dateFrom || query.dateTo
-        ? {
-            createdAt: {
-              ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
-              ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
-            },
-          }
-        : {}),
+      ...(createdAtFilter ? { createdAt: createdAtFilter } : {}),
     };
 
     const skip = (query.page - 1) * query.limit;
@@ -1266,6 +1254,58 @@ export class OperationsService {
     }
 
     return 'expired';
+  }
+
+  private resolveAuditLogCreatedAtFilter(query: {
+    dateFrom?: string;
+    dateTo?: string;
+    period?: 'today' | '7d' | '30d' | 'this_month';
+  }) {
+    if (query.dateFrom || query.dateTo) {
+      return {
+        ...(query.dateFrom ? { gte: new Date(query.dateFrom) } : {}),
+        ...(query.dateTo ? { lte: new Date(query.dateTo) } : {}),
+      } satisfies Prisma.DateTimeFilter;
+    }
+
+    if (!query.period) {
+      return undefined;
+    }
+
+    const now = new Date();
+    const start = new Date(now);
+
+    switch (query.period) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        return {
+          gte: start,
+          lte: now,
+        } satisfies Prisma.DateTimeFilter;
+      case '7d':
+        start.setDate(start.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
+        return {
+          gte: start,
+          lte: now,
+        } satisfies Prisma.DateTimeFilter;
+      case '30d':
+        start.setDate(start.getDate() - 29);
+        start.setHours(0, 0, 0, 0);
+        return {
+          gte: start,
+          lte: now,
+        } satisfies Prisma.DateTimeFilter;
+      case 'this_month':
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        return {
+          gte: start,
+          lte: now,
+        } satisfies Prisma.DateTimeFilter;
+      default:
+        return undefined;
+    }
   }
 
   private async createAuditLog(params: {

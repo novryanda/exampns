@@ -18,8 +18,8 @@ export declare const createQuestionSchema: z.ZodObject<{
         readonly TIU: "TIU";
         readonly TKP: "TKP";
     }>;
-    subCategory: z.ZodString;
-    topicTag: z.ZodString;
+    subCategoryId: z.ZodString;
+    topicTagId: z.ZodString;
     competencyArea: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
     difficulty: z.ZodEnum<{
         readonly easy: "easy";
@@ -54,8 +54,8 @@ export declare const updateQuestionSchema: z.ZodObject<{
         readonly TIU: "TIU";
         readonly TKP: "TKP";
     }>>;
-    subCategory: z.ZodOptional<z.ZodString>;
-    topicTag: z.ZodOptional<z.ZodString>;
+    subCategoryId: z.ZodOptional<z.ZodString>;
+    topicTagId: z.ZodOptional<z.ZodString>;
     competencyArea: z.ZodOptional<z.ZodPreprocess<z.ZodOptional<z.ZodString>>>;
     difficulty: z.ZodOptional<z.ZodEnum<{
         readonly easy: "easy";

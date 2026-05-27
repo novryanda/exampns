@@ -849,6 +849,16 @@ let ExamEngineService = class ExamEngineService {
                     deletedAt: null,
                 },
                 include: {
+                    subCategoryRef: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                    topicTagRef: {
+                        select: {
+                            name: true,
+                        },
+                    },
                     options: {
                         orderBy: { displayOrder: 'asc' },
                     },
@@ -916,12 +926,30 @@ let ExamEngineService = class ExamEngineService {
                 deletedAt: null,
                 category: input.category,
                 ...(input.difficulty ? { difficulty: input.difficulty } : {}),
-                ...(input.topicTag ? { topicTag: input.topicTag } : {}),
+                ...(input.topicTag
+                    ? {
+                        topicTagRef: {
+                            is: {
+                                name: input.topicTag,
+                            },
+                        },
+                    }
+                    : {}),
                 id: {
                     notIn: [...selected.keys(), ...input.excludedQuestionIds],
                 },
             },
             include: {
+                subCategoryRef: {
+                    select: {
+                        name: true,
+                    },
+                },
+                topicTagRef: {
+                    select: {
+                        name: true,
+                    },
+                },
                 options: {
                     orderBy: { displayOrder: 'asc' },
                 },
@@ -968,8 +996,8 @@ let ExamEngineService = class ExamEngineService {
                 id: question.id,
                 questionText: question.questionText,
                 category: question.category,
-                subCategory: question.subCategory,
-                topicTag: question.topicTag,
+                subCategory: question.subCategoryRef.name,
+                topicTag: question.topicTagRef.name,
                 competencyArea: question.competencyArea,
                 difficulty: question.difficulty,
                 explanation: question.explanation,
@@ -981,8 +1009,8 @@ let ExamEngineService = class ExamEngineService {
                 tkpWeight: option.tkpWeight,
             })),
             categorySnapshot: question.category,
-            subCategorySnapshot: question.subCategory,
-            topicTagSnapshot: question.topicTag,
+            subCategorySnapshot: question.subCategoryRef.name,
+            topicTagSnapshot: question.topicTagRef.name,
             difficultySnapshot: question.difficulty,
         };
     }

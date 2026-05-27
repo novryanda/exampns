@@ -42,6 +42,8 @@ export interface QuestionListItem {
   id: string;
   questionPreview: string;
   category: "TWK" | "TIU" | "TKP";
+  subCategoryId: string;
+  topicTagId: string;
   subCategory: string;
   topicTag: string;
   difficulty: "easy" | "medium" | "hard";
@@ -54,6 +56,8 @@ export interface QuestionDetail {
   id: string;
   questionText: string;
   category: "TWK" | "TIU" | "TKP";
+  subCategoryId: string;
+  topicTagId: string;
   subCategory: string;
   topicTag: string;
   competencyArea: string | null;
@@ -104,12 +108,56 @@ export interface ParsedQuestionDetail {
   category: "TWK" | "TIU" | "TKP" | null;
   subCategory: string | null;
   topicTag: string | null;
+  resolvedSubCategoryId: string | null;
+  resolvedTopicTagId: string | null;
+  resolvedSubCategory: string | null;
+  resolvedTopicTag: string | null;
   difficulty: "easy" | "medium" | "hard" | null;
   confidenceScore: number | null;
   status: "pending_review" | "approved" | "rejected" | "draft";
   rawAiOutput: unknown;
   reviewNotes: string | null;
   reviewedAt: string | null;
+}
+
+export interface QuestionMetadataOptionSubCategory {
+  id: string;
+  category: "TWK" | "TIU" | "TKP";
+  name: string;
+}
+
+export interface QuestionMetadataOptionTopicTag {
+  id: string;
+  name: string;
+  subCategoryId: string;
+}
+
+export interface QuestionMetadataOptions {
+  subCategories: QuestionMetadataOptionSubCategory[];
+  topicTags: QuestionMetadataOptionTopicTag[];
+}
+
+export interface QuestionSubCategoryItem {
+  id: string;
+  category: "TWK" | "TIU" | "TKP";
+  name: string;
+  slug: string;
+  isActive: boolean;
+  sortOrder: number;
+  topicTagCount: number;
+  questionCount: number;
+}
+
+export interface QuestionTopicTagItem {
+  id: string;
+  name: string;
+  slug: string;
+  isActive: boolean;
+  sortOrder: number;
+  subCategoryId: string;
+  subCategory: string;
+  category: "TWK" | "TIU" | "TKP";
+  questionCount: number;
 }
 
 export interface AdminTryoutDraftItem {
@@ -190,6 +238,55 @@ export async function getAdminParsedQuestionDetail(parsedQuestionId: string) {
     `/api/v1/admin/parsed-questions/${parsedQuestionId}`,
   );
   return response.data;
+}
+
+export async function getAdminQuestionMetadataOptions(params?: {
+  category?: string;
+  subCategoryId?: string;
+}) {
+  const response = await serverApiFetch<ApiSuccessResponse<QuestionMetadataOptions>>(
+    `/api/v1/admin/question-metadata/options${toQueryString({
+      category: params?.category,
+      subCategoryId: params?.subCategoryId,
+    })}`,
+  );
+  return response.data;
+}
+
+export async function getAdminQuestionSubCategories(params?: {
+  category?: string;
+  includeInactive?: boolean;
+  page?: number;
+  limit?: number;
+}) {
+  const response = await serverApiFetch<ApiPaginatedResponse<QuestionSubCategoryItem[]>>(
+    `/api/v1/admin/question-metadata/sub-categories${toQueryString({
+      category: params?.category,
+      includeInactive: params?.includeInactive,
+      page: params?.page,
+      limit: params?.limit,
+    })}`,
+  );
+  return response;
+}
+
+export async function getAdminQuestionTopicTags(params?: {
+  category?: string;
+  subCategoryId?: string;
+  includeInactive?: boolean;
+  page?: number;
+  limit?: number;
+}) {
+  const response = await serverApiFetch<ApiPaginatedResponse<QuestionTopicTagItem[]>>(
+    `/api/v1/admin/question-metadata/topic-tags${toQueryString({
+      category: params?.category,
+      subCategoryId: params?.subCategoryId,
+      includeInactive: params?.includeInactive,
+      page: params?.page,
+      limit: params?.limit,
+    })}`,
+  );
+  return response;
 }
 
 export async function getAdminTryoutDrafts(params?: Record<string, string | number | undefined>) {

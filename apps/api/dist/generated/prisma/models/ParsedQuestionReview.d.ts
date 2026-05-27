@@ -24,6 +24,8 @@ export type ParsedQuestionReviewMinAggregateOutputType = {
     category: $Enums.QuestionCategory | null;
     subCategory: string | null;
     topicTag: string | null;
+    resolvedSubCategoryId: string | null;
+    resolvedTopicTagId: string | null;
     difficulty: $Enums.QuestionDifficulty | null;
     confidenceScore: runtime.Decimal | null;
     status: $Enums.ParsedQuestionStatus | null;
@@ -42,6 +44,8 @@ export type ParsedQuestionReviewMaxAggregateOutputType = {
     category: $Enums.QuestionCategory | null;
     subCategory: string | null;
     topicTag: string | null;
+    resolvedSubCategoryId: string | null;
+    resolvedTopicTagId: string | null;
     difficulty: $Enums.QuestionDifficulty | null;
     confidenceScore: runtime.Decimal | null;
     status: $Enums.ParsedQuestionStatus | null;
@@ -62,6 +66,8 @@ export type ParsedQuestionReviewCountAggregateOutputType = {
     category: number;
     subCategory: number;
     topicTag: number;
+    resolvedSubCategoryId: number;
+    resolvedTopicTagId: number;
     difficulty: number;
     confidenceScore: number;
     status: number;
@@ -87,6 +93,8 @@ export type ParsedQuestionReviewMinAggregateInputType = {
     category?: true;
     subCategory?: true;
     topicTag?: true;
+    resolvedSubCategoryId?: true;
+    resolvedTopicTagId?: true;
     difficulty?: true;
     confidenceScore?: true;
     status?: true;
@@ -105,6 +113,8 @@ export type ParsedQuestionReviewMaxAggregateInputType = {
     category?: true;
     subCategory?: true;
     topicTag?: true;
+    resolvedSubCategoryId?: true;
+    resolvedTopicTagId?: true;
     difficulty?: true;
     confidenceScore?: true;
     status?: true;
@@ -125,6 +135,8 @@ export type ParsedQuestionReviewCountAggregateInputType = {
     category?: true;
     subCategory?: true;
     topicTag?: true;
+    resolvedSubCategoryId?: true;
+    resolvedTopicTagId?: true;
     difficulty?: true;
     confidenceScore?: true;
     status?: true;
@@ -174,6 +186,8 @@ export type ParsedQuestionReviewGroupByOutputType = {
     category: $Enums.QuestionCategory | null;
     subCategory: string | null;
     topicTag: string | null;
+    resolvedSubCategoryId: string | null;
+    resolvedTopicTagId: string | null;
     difficulty: $Enums.QuestionDifficulty | null;
     confidenceScore: runtime.Decimal | null;
     status: $Enums.ParsedQuestionStatus;
@@ -205,6 +219,8 @@ export type ParsedQuestionReviewWhereInput = {
     category?: Prisma.EnumQuestionCategoryNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionCategory | null;
     subCategory?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     topicTag?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedSubCategoryId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedTopicTagId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.DecimalNullableFilter<"ParsedQuestionReview"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFilter<"ParsedQuestionReview"> | $Enums.ParsedQuestionStatus;
@@ -216,6 +232,8 @@ export type ParsedQuestionReviewWhereInput = {
     batch?: Prisma.XOR<Prisma.QuestionImportBatchScalarRelationFilter, Prisma.QuestionImportBatchWhereInput>;
     question?: Prisma.XOR<Prisma.QuestionNullableScalarRelationFilter, Prisma.QuestionWhereInput> | null;
     reviewedByUser?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null;
+    resolvedSubCategoryRef?: Prisma.XOR<Prisma.QuestionSubCategoryNullableScalarRelationFilter, Prisma.QuestionSubCategoryWhereInput> | null;
+    resolvedTopicTagRef?: Prisma.XOR<Prisma.QuestionTopicTagNullableScalarRelationFilter, Prisma.QuestionTopicTagWhereInput> | null;
 };
 export type ParsedQuestionReviewOrderByWithRelationInput = {
     id?: Prisma.SortOrder;
@@ -228,6 +246,8 @@ export type ParsedQuestionReviewOrderByWithRelationInput = {
     category?: Prisma.SortOrderInput | Prisma.SortOrder;
     subCategory?: Prisma.SortOrderInput | Prisma.SortOrder;
     topicTag?: Prisma.SortOrderInput | Prisma.SortOrder;
+    resolvedSubCategoryId?: Prisma.SortOrderInput | Prisma.SortOrder;
+    resolvedTopicTagId?: Prisma.SortOrderInput | Prisma.SortOrder;
     difficulty?: Prisma.SortOrderInput | Prisma.SortOrder;
     confidenceScore?: Prisma.SortOrderInput | Prisma.SortOrder;
     status?: Prisma.SortOrder;
@@ -239,6 +259,8 @@ export type ParsedQuestionReviewOrderByWithRelationInput = {
     batch?: Prisma.QuestionImportBatchOrderByWithRelationInput;
     question?: Prisma.QuestionOrderByWithRelationInput;
     reviewedByUser?: Prisma.UserOrderByWithRelationInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryOrderByWithRelationInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagOrderByWithRelationInput;
 };
 export type ParsedQuestionReviewWhereUniqueInput = Prisma.AtLeast<{
     id?: string;
@@ -254,6 +276,8 @@ export type ParsedQuestionReviewWhereUniqueInput = Prisma.AtLeast<{
     category?: Prisma.EnumQuestionCategoryNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionCategory | null;
     subCategory?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     topicTag?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedSubCategoryId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedTopicTagId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.DecimalNullableFilter<"ParsedQuestionReview"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFilter<"ParsedQuestionReview"> | $Enums.ParsedQuestionStatus;
@@ -265,6 +289,8 @@ export type ParsedQuestionReviewWhereUniqueInput = Prisma.AtLeast<{
     batch?: Prisma.XOR<Prisma.QuestionImportBatchScalarRelationFilter, Prisma.QuestionImportBatchWhereInput>;
     question?: Prisma.XOR<Prisma.QuestionNullableScalarRelationFilter, Prisma.QuestionWhereInput> | null;
     reviewedByUser?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null;
+    resolvedSubCategoryRef?: Prisma.XOR<Prisma.QuestionSubCategoryNullableScalarRelationFilter, Prisma.QuestionSubCategoryWhereInput> | null;
+    resolvedTopicTagRef?: Prisma.XOR<Prisma.QuestionTopicTagNullableScalarRelationFilter, Prisma.QuestionTopicTagWhereInput> | null;
 }, "id">;
 export type ParsedQuestionReviewOrderByWithAggregationInput = {
     id?: Prisma.SortOrder;
@@ -277,6 +303,8 @@ export type ParsedQuestionReviewOrderByWithAggregationInput = {
     category?: Prisma.SortOrderInput | Prisma.SortOrder;
     subCategory?: Prisma.SortOrderInput | Prisma.SortOrder;
     topicTag?: Prisma.SortOrderInput | Prisma.SortOrder;
+    resolvedSubCategoryId?: Prisma.SortOrderInput | Prisma.SortOrder;
+    resolvedTopicTagId?: Prisma.SortOrderInput | Prisma.SortOrder;
     difficulty?: Prisma.SortOrderInput | Prisma.SortOrder;
     confidenceScore?: Prisma.SortOrderInput | Prisma.SortOrder;
     status?: Prisma.SortOrder;
@@ -305,6 +333,8 @@ export type ParsedQuestionReviewScalarWhereWithAggregatesInput = {
     category?: Prisma.EnumQuestionCategoryNullableWithAggregatesFilter<"ParsedQuestionReview"> | $Enums.QuestionCategory | null;
     subCategory?: Prisma.StringNullableWithAggregatesFilter<"ParsedQuestionReview"> | string | null;
     topicTag?: Prisma.StringNullableWithAggregatesFilter<"ParsedQuestionReview"> | string | null;
+    resolvedSubCategoryId?: Prisma.StringNullableWithAggregatesFilter<"ParsedQuestionReview"> | string | null;
+    resolvedTopicTagId?: Prisma.StringNullableWithAggregatesFilter<"ParsedQuestionReview"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyNullableWithAggregatesFilter<"ParsedQuestionReview"> | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.DecimalNullableWithAggregatesFilter<"ParsedQuestionReview"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusWithAggregatesFilter<"ParsedQuestionReview"> | $Enums.ParsedQuestionStatus;
@@ -333,6 +363,8 @@ export type ParsedQuestionReviewCreateInput = {
     batch: Prisma.QuestionImportBatchCreateNestedOneWithoutParsedQuestionsInput;
     question?: Prisma.QuestionCreateNestedOneWithoutParsedReviewsInput;
     reviewedByUser?: Prisma.UserCreateNestedOneWithoutReviewedParsedQuestionsInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryCreateNestedOneWithoutResolvedParsedReviewsInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagCreateNestedOneWithoutResolvedParsedReviewsInput;
 };
 export type ParsedQuestionReviewUncheckedCreateInput = {
     id?: string;
@@ -345,6 +377,8 @@ export type ParsedQuestionReviewUncheckedCreateInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -373,6 +407,8 @@ export type ParsedQuestionReviewUpdateInput = {
     batch?: Prisma.QuestionImportBatchUpdateOneRequiredWithoutParsedQuestionsNestedInput;
     question?: Prisma.QuestionUpdateOneWithoutParsedReviewsNestedInput;
     reviewedByUser?: Prisma.UserUpdateOneWithoutReviewedParsedQuestionsNestedInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryUpdateOneWithoutResolvedParsedReviewsNestedInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagUpdateOneWithoutResolvedParsedReviewsNestedInput;
 };
 export type ParsedQuestionReviewUncheckedUpdateInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -385,6 +421,8 @@ export type ParsedQuestionReviewUncheckedUpdateInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -405,6 +443,8 @@ export type ParsedQuestionReviewCreateManyInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -442,6 +482,8 @@ export type ParsedQuestionReviewUncheckedUpdateManyInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -470,6 +512,8 @@ export type ParsedQuestionReviewCountOrderByAggregateInput = {
     category?: Prisma.SortOrder;
     subCategory?: Prisma.SortOrder;
     topicTag?: Prisma.SortOrder;
+    resolvedSubCategoryId?: Prisma.SortOrder;
+    resolvedTopicTagId?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     confidenceScore?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
@@ -491,6 +535,8 @@ export type ParsedQuestionReviewMaxOrderByAggregateInput = {
     category?: Prisma.SortOrder;
     subCategory?: Prisma.SortOrder;
     topicTag?: Prisma.SortOrder;
+    resolvedSubCategoryId?: Prisma.SortOrder;
+    resolvedTopicTagId?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     confidenceScore?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
@@ -509,6 +555,8 @@ export type ParsedQuestionReviewMinOrderByAggregateInput = {
     category?: Prisma.SortOrder;
     subCategory?: Prisma.SortOrder;
     topicTag?: Prisma.SortOrder;
+    resolvedSubCategoryId?: Prisma.SortOrder;
+    resolvedTopicTagId?: Prisma.SortOrder;
     difficulty?: Prisma.SortOrder;
     confidenceScore?: Prisma.SortOrder;
     status?: Prisma.SortOrder;
@@ -597,6 +645,82 @@ export type ParsedQuestionReviewUncheckedUpdateManyWithoutQuestionNestedInput = 
     updateMany?: Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutQuestionInput | Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutQuestionInput[];
     deleteMany?: Prisma.ParsedQuestionReviewScalarWhereInput | Prisma.ParsedQuestionReviewScalarWhereInput[];
 };
+export type ParsedQuestionReviewCreateNestedManyWithoutResolvedSubCategoryRefInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInputEnvelope;
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+};
+export type ParsedQuestionReviewUncheckedCreateNestedManyWithoutResolvedSubCategoryRefInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInputEnvelope;
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+};
+export type ParsedQuestionReviewUpdateManyWithoutResolvedSubCategoryRefNestedInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput[];
+    upsert?: Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedSubCategoryRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInputEnvelope;
+    set?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    disconnect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    delete?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    update?: Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedSubCategoryRefInput[];
+    updateMany?: Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedSubCategoryRefInput[];
+    deleteMany?: Prisma.ParsedQuestionReviewScalarWhereInput | Prisma.ParsedQuestionReviewScalarWhereInput[];
+};
+export type ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedSubCategoryRefNestedInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput[];
+    upsert?: Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedSubCategoryRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInputEnvelope;
+    set?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    disconnect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    delete?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    update?: Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedSubCategoryRefInput[];
+    updateMany?: Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedSubCategoryRefInput[];
+    deleteMany?: Prisma.ParsedQuestionReviewScalarWhereInput | Prisma.ParsedQuestionReviewScalarWhereInput[];
+};
+export type ParsedQuestionReviewCreateNestedManyWithoutResolvedTopicTagRefInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInputEnvelope;
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+};
+export type ParsedQuestionReviewUncheckedCreateNestedManyWithoutResolvedTopicTagRefInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInputEnvelope;
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+};
+export type ParsedQuestionReviewUpdateManyWithoutResolvedTopicTagRefNestedInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput[];
+    upsert?: Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedTopicTagRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInputEnvelope;
+    set?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    disconnect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    delete?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    update?: Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedTopicTagRefInput[];
+    updateMany?: Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedTopicTagRefInput[];
+    deleteMany?: Prisma.ParsedQuestionReviewScalarWhereInput | Prisma.ParsedQuestionReviewScalarWhereInput[];
+};
+export type ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedTopicTagRefNestedInput = {
+    create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput> | Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput[];
+    connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput[];
+    upsert?: Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedTopicTagRefInput[];
+    createMany?: Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInputEnvelope;
+    set?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    disconnect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    delete?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    connect?: Prisma.ParsedQuestionReviewWhereUniqueInput | Prisma.ParsedQuestionReviewWhereUniqueInput[];
+    update?: Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedTopicTagRefInput[];
+    updateMany?: Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedTopicTagRefInput[];
+    deleteMany?: Prisma.ParsedQuestionReviewScalarWhereInput | Prisma.ParsedQuestionReviewScalarWhereInput[];
+};
 export type ParsedQuestionReviewCreateNestedManyWithoutBatchInput = {
     create?: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutBatchInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutBatchInput> | Prisma.ParsedQuestionReviewCreateWithoutBatchInput[] | Prisma.ParsedQuestionReviewUncheckedCreateWithoutBatchInput[];
     connectOrCreate?: Prisma.ParsedQuestionReviewCreateOrConnectWithoutBatchInput | Prisma.ParsedQuestionReviewCreateOrConnectWithoutBatchInput[];
@@ -669,6 +793,8 @@ export type ParsedQuestionReviewCreateWithoutReviewedByUserInput = {
     updatedAt?: Date | string;
     batch: Prisma.QuestionImportBatchCreateNestedOneWithoutParsedQuestionsInput;
     question?: Prisma.QuestionCreateNestedOneWithoutParsedReviewsInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryCreateNestedOneWithoutResolvedParsedReviewsInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagCreateNestedOneWithoutResolvedParsedReviewsInput;
 };
 export type ParsedQuestionReviewUncheckedCreateWithoutReviewedByUserInput = {
     id?: string;
@@ -681,6 +807,8 @@ export type ParsedQuestionReviewUncheckedCreateWithoutReviewedByUserInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -724,6 +852,8 @@ export type ParsedQuestionReviewScalarWhereInput = {
     category?: Prisma.EnumQuestionCategoryNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionCategory | null;
     subCategory?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     topicTag?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedSubCategoryId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
+    resolvedTopicTagId?: Prisma.StringNullableFilter<"ParsedQuestionReview"> | string | null;
     difficulty?: Prisma.EnumQuestionDifficultyNullableFilter<"ParsedQuestionReview"> | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.DecimalNullableFilter<"ParsedQuestionReview"> | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFilter<"ParsedQuestionReview"> | $Enums.ParsedQuestionStatus;
@@ -751,6 +881,8 @@ export type ParsedQuestionReviewCreateWithoutQuestionInput = {
     updatedAt?: Date | string;
     batch: Prisma.QuestionImportBatchCreateNestedOneWithoutParsedQuestionsInput;
     reviewedByUser?: Prisma.UserCreateNestedOneWithoutReviewedParsedQuestionsInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryCreateNestedOneWithoutResolvedParsedReviewsInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagCreateNestedOneWithoutResolvedParsedReviewsInput;
 };
 export type ParsedQuestionReviewUncheckedCreateWithoutQuestionInput = {
     id?: string;
@@ -762,6 +894,8 @@ export type ParsedQuestionReviewUncheckedCreateWithoutQuestionInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -792,6 +926,132 @@ export type ParsedQuestionReviewUpdateManyWithWhereWithoutQuestionInput = {
     where: Prisma.ParsedQuestionReviewScalarWhereInput;
     data: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateManyMutationInput, Prisma.ParsedQuestionReviewUncheckedUpdateManyWithoutQuestionInput>;
 };
+export type ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput = {
+    id?: string;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    batch: Prisma.QuestionImportBatchCreateNestedOneWithoutParsedQuestionsInput;
+    question?: Prisma.QuestionCreateNestedOneWithoutParsedReviewsInput;
+    reviewedByUser?: Prisma.UserCreateNestedOneWithoutReviewedParsedQuestionsInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagCreateNestedOneWithoutResolvedParsedReviewsInput;
+};
+export type ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput = {
+    id?: string;
+    batchId: string;
+    questionId?: string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    resolvedTopicTagId?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedBy?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+};
+export type ParsedQuestionReviewCreateOrConnectWithoutResolvedSubCategoryRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    create: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput>;
+};
+export type ParsedQuestionReviewCreateManyResolvedSubCategoryRefInputEnvelope = {
+    data: Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInput | Prisma.ParsedQuestionReviewCreateManyResolvedSubCategoryRefInput[];
+    skipDuplicates?: boolean;
+};
+export type ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedSubCategoryRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    update: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedUpdateWithoutResolvedSubCategoryRefInput>;
+    create: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedSubCategoryRefInput>;
+};
+export type ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedSubCategoryRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    data: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateWithoutResolvedSubCategoryRefInput, Prisma.ParsedQuestionReviewUncheckedUpdateWithoutResolvedSubCategoryRefInput>;
+};
+export type ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedSubCategoryRefInput = {
+    where: Prisma.ParsedQuestionReviewScalarWhereInput;
+    data: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateManyMutationInput, Prisma.ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedSubCategoryRefInput>;
+};
+export type ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput = {
+    id?: string;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+    batch: Prisma.QuestionImportBatchCreateNestedOneWithoutParsedQuestionsInput;
+    question?: Prisma.QuestionCreateNestedOneWithoutParsedReviewsInput;
+    reviewedByUser?: Prisma.UserCreateNestedOneWithoutReviewedParsedQuestionsInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryCreateNestedOneWithoutResolvedParsedReviewsInput;
+};
+export type ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput = {
+    id?: string;
+    batchId: string;
+    questionId?: string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedBy?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+};
+export type ParsedQuestionReviewCreateOrConnectWithoutResolvedTopicTagRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    create: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput>;
+};
+export type ParsedQuestionReviewCreateManyResolvedTopicTagRefInputEnvelope = {
+    data: Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInput | Prisma.ParsedQuestionReviewCreateManyResolvedTopicTagRefInput[];
+    skipDuplicates?: boolean;
+};
+export type ParsedQuestionReviewUpsertWithWhereUniqueWithoutResolvedTopicTagRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    update: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedUpdateWithoutResolvedTopicTagRefInput>;
+    create: Prisma.XOR<Prisma.ParsedQuestionReviewCreateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedCreateWithoutResolvedTopicTagRefInput>;
+};
+export type ParsedQuestionReviewUpdateWithWhereUniqueWithoutResolvedTopicTagRefInput = {
+    where: Prisma.ParsedQuestionReviewWhereUniqueInput;
+    data: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateWithoutResolvedTopicTagRefInput, Prisma.ParsedQuestionReviewUncheckedUpdateWithoutResolvedTopicTagRefInput>;
+};
+export type ParsedQuestionReviewUpdateManyWithWhereWithoutResolvedTopicTagRefInput = {
+    where: Prisma.ParsedQuestionReviewScalarWhereInput;
+    data: Prisma.XOR<Prisma.ParsedQuestionReviewUpdateManyMutationInput, Prisma.ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedTopicTagRefInput>;
+};
 export type ParsedQuestionReviewCreateWithoutBatchInput = {
     id?: string;
     rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
@@ -810,6 +1070,8 @@ export type ParsedQuestionReviewCreateWithoutBatchInput = {
     updatedAt?: Date | string;
     question?: Prisma.QuestionCreateNestedOneWithoutParsedReviewsInput;
     reviewedByUser?: Prisma.UserCreateNestedOneWithoutReviewedParsedQuestionsInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryCreateNestedOneWithoutResolvedParsedReviewsInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagCreateNestedOneWithoutResolvedParsedReviewsInput;
 };
 export type ParsedQuestionReviewUncheckedCreateWithoutBatchInput = {
     id?: string;
@@ -821,6 +1083,8 @@ export type ParsedQuestionReviewUncheckedCreateWithoutBatchInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -862,6 +1126,8 @@ export type ParsedQuestionReviewCreateManyReviewedByUserInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -888,6 +1154,8 @@ export type ParsedQuestionReviewUpdateWithoutReviewedByUserInput = {
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     batch?: Prisma.QuestionImportBatchUpdateOneRequiredWithoutParsedQuestionsNestedInput;
     question?: Prisma.QuestionUpdateOneWithoutParsedReviewsNestedInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryUpdateOneWithoutResolvedParsedReviewsNestedInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagUpdateOneWithoutResolvedParsedReviewsNestedInput;
 };
 export type ParsedQuestionReviewUncheckedUpdateWithoutReviewedByUserInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -900,6 +1168,8 @@ export type ParsedQuestionReviewUncheckedUpdateWithoutReviewedByUserInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -919,6 +1189,8 @@ export type ParsedQuestionReviewUncheckedUpdateManyWithoutReviewedByUserInput = 
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -937,6 +1209,8 @@ export type ParsedQuestionReviewCreateManyQuestionInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -964,6 +1238,8 @@ export type ParsedQuestionReviewUpdateWithoutQuestionInput = {
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     batch?: Prisma.QuestionImportBatchUpdateOneRequiredWithoutParsedQuestionsNestedInput;
     reviewedByUser?: Prisma.UserUpdateOneWithoutReviewedParsedQuestionsNestedInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryUpdateOneWithoutResolvedParsedReviewsNestedInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagUpdateOneWithoutResolvedParsedReviewsNestedInput;
 };
 export type ParsedQuestionReviewUncheckedUpdateWithoutQuestionInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -975,6 +1251,8 @@ export type ParsedQuestionReviewUncheckedUpdateWithoutQuestionInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -994,6 +1272,176 @@ export type ParsedQuestionReviewUncheckedUpdateManyWithoutQuestionInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+};
+export type ParsedQuestionReviewCreateManyResolvedSubCategoryRefInput = {
+    id?: string;
+    batchId: string;
+    questionId?: string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    resolvedTopicTagId?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedBy?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+};
+export type ParsedQuestionReviewUpdateWithoutResolvedSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    batch?: Prisma.QuestionImportBatchUpdateOneRequiredWithoutParsedQuestionsNestedInput;
+    question?: Prisma.QuestionUpdateOneWithoutParsedReviewsNestedInput;
+    reviewedByUser?: Prisma.UserUpdateOneWithoutReviewedParsedQuestionsNestedInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagUpdateOneWithoutResolvedParsedReviewsNestedInput;
+};
+export type ParsedQuestionReviewUncheckedUpdateWithoutResolvedSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    batchId?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+};
+export type ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedSubCategoryRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    batchId?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+};
+export type ParsedQuestionReviewCreateManyResolvedTopicTagRefInput = {
+    id?: string;
+    batchId: string;
+    questionId?: string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText: string;
+    optionsJson: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: string | null;
+    category?: $Enums.QuestionCategory | null;
+    subCategory?: string | null;
+    topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    difficulty?: $Enums.QuestionDifficulty | null;
+    confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status: $Enums.ParsedQuestionStatus;
+    reviewNotes?: string | null;
+    reviewedBy?: string | null;
+    reviewedAt?: Date | string | null;
+    createdAt?: Date | string;
+    updatedAt?: Date | string;
+};
+export type ParsedQuestionReviewUpdateWithoutResolvedTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    batch?: Prisma.QuestionImportBatchUpdateOneRequiredWithoutParsedQuestionsNestedInput;
+    question?: Prisma.QuestionUpdateOneWithoutParsedReviewsNestedInput;
+    reviewedByUser?: Prisma.UserUpdateOneWithoutReviewedParsedQuestionsNestedInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryUpdateOneWithoutResolvedParsedReviewsNestedInput;
+};
+export type ParsedQuestionReviewUncheckedUpdateWithoutResolvedTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    batchId?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
+    confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
+    status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
+    reviewNotes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    reviewedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null;
+    createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+    updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
+};
+export type ParsedQuestionReviewUncheckedUpdateManyWithoutResolvedTopicTagRefInput = {
+    id?: Prisma.StringFieldUpdateOperationsInput | string;
+    batchId?: Prisma.StringFieldUpdateOperationsInput | string;
+    questionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    rawAiOutput?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue;
+    questionText?: Prisma.StringFieldUpdateOperationsInput | string;
+    optionsJson?: Prisma.JsonNullValueInput | runtime.InputJsonValue;
+    detectedAnswer?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
+    subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -1013,6 +1461,8 @@ export type ParsedQuestionReviewCreateManyBatchInput = {
     category?: $Enums.QuestionCategory | null;
     subCategory?: string | null;
     topicTag?: string | null;
+    resolvedSubCategoryId?: string | null;
+    resolvedTopicTagId?: string | null;
     difficulty?: $Enums.QuestionDifficulty | null;
     confidenceScore?: runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status: $Enums.ParsedQuestionStatus;
@@ -1040,6 +1490,8 @@ export type ParsedQuestionReviewUpdateWithoutBatchInput = {
     updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string;
     question?: Prisma.QuestionUpdateOneWithoutParsedReviewsNestedInput;
     reviewedByUser?: Prisma.UserUpdateOneWithoutReviewedParsedQuestionsNestedInput;
+    resolvedSubCategoryRef?: Prisma.QuestionSubCategoryUpdateOneWithoutResolvedParsedReviewsNestedInput;
+    resolvedTopicTagRef?: Prisma.QuestionTopicTagUpdateOneWithoutResolvedParsedReviewsNestedInput;
 };
 export type ParsedQuestionReviewUncheckedUpdateWithoutBatchInput = {
     id?: Prisma.StringFieldUpdateOperationsInput | string;
@@ -1051,6 +1503,8 @@ export type ParsedQuestionReviewUncheckedUpdateWithoutBatchInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -1070,6 +1524,8 @@ export type ParsedQuestionReviewUncheckedUpdateManyWithoutBatchInput = {
     category?: Prisma.NullableEnumQuestionCategoryFieldUpdateOperationsInput | $Enums.QuestionCategory | null;
     subCategory?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     topicTag?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedSubCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
+    resolvedTopicTagId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null;
     difficulty?: Prisma.NullableEnumQuestionDifficultyFieldUpdateOperationsInput | $Enums.QuestionDifficulty | null;
     confidenceScore?: Prisma.NullableDecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string | null;
     status?: Prisma.EnumParsedQuestionStatusFieldUpdateOperationsInput | $Enums.ParsedQuestionStatus;
@@ -1090,6 +1546,8 @@ export type ParsedQuestionReviewSelect<ExtArgs extends runtime.Types.Extensions.
     category?: boolean;
     subCategory?: boolean;
     topicTag?: boolean;
+    resolvedSubCategoryId?: boolean;
+    resolvedTopicTagId?: boolean;
     difficulty?: boolean;
     confidenceScore?: boolean;
     status?: boolean;
@@ -1101,6 +1559,8 @@ export type ParsedQuestionReviewSelect<ExtArgs extends runtime.Types.Extensions.
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 }, ExtArgs["result"]["parsedQuestionReview"]>;
 export type ParsedQuestionReviewSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
@@ -1113,6 +1573,8 @@ export type ParsedQuestionReviewSelectCreateManyAndReturn<ExtArgs extends runtim
     category?: boolean;
     subCategory?: boolean;
     topicTag?: boolean;
+    resolvedSubCategoryId?: boolean;
+    resolvedTopicTagId?: boolean;
     difficulty?: boolean;
     confidenceScore?: boolean;
     status?: boolean;
@@ -1124,6 +1586,8 @@ export type ParsedQuestionReviewSelectCreateManyAndReturn<ExtArgs extends runtim
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 }, ExtArgs["result"]["parsedQuestionReview"]>;
 export type ParsedQuestionReviewSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
     id?: boolean;
@@ -1136,6 +1600,8 @@ export type ParsedQuestionReviewSelectUpdateManyAndReturn<ExtArgs extends runtim
     category?: boolean;
     subCategory?: boolean;
     topicTag?: boolean;
+    resolvedSubCategoryId?: boolean;
+    resolvedTopicTagId?: boolean;
     difficulty?: boolean;
     confidenceScore?: boolean;
     status?: boolean;
@@ -1147,6 +1613,8 @@ export type ParsedQuestionReviewSelectUpdateManyAndReturn<ExtArgs extends runtim
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 }, ExtArgs["result"]["parsedQuestionReview"]>;
 export type ParsedQuestionReviewSelectScalar = {
     id?: boolean;
@@ -1159,6 +1627,8 @@ export type ParsedQuestionReviewSelectScalar = {
     category?: boolean;
     subCategory?: boolean;
     topicTag?: boolean;
+    resolvedSubCategoryId?: boolean;
+    resolvedTopicTagId?: boolean;
     difficulty?: boolean;
     confidenceScore?: boolean;
     status?: boolean;
@@ -1168,21 +1638,27 @@ export type ParsedQuestionReviewSelectScalar = {
     createdAt?: boolean;
     updatedAt?: boolean;
 };
-export type ParsedQuestionReviewOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "batchId" | "questionId" | "rawAiOutput" | "questionText" | "optionsJson" | "detectedAnswer" | "category" | "subCategory" | "topicTag" | "difficulty" | "confidenceScore" | "status" | "reviewNotes" | "reviewedBy" | "reviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["parsedQuestionReview"]>;
+export type ParsedQuestionReviewOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "batchId" | "questionId" | "rawAiOutput" | "questionText" | "optionsJson" | "detectedAnswer" | "category" | "subCategory" | "topicTag" | "resolvedSubCategoryId" | "resolvedTopicTagId" | "difficulty" | "confidenceScore" | "status" | "reviewNotes" | "reviewedBy" | "reviewedAt" | "createdAt" | "updatedAt", ExtArgs["result"]["parsedQuestionReview"]>;
 export type ParsedQuestionReviewInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 };
 export type ParsedQuestionReviewIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 };
 export type ParsedQuestionReviewIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     batch?: boolean | Prisma.QuestionImportBatchDefaultArgs<ExtArgs>;
     question?: boolean | Prisma.ParsedQuestionReview$questionArgs<ExtArgs>;
     reviewedByUser?: boolean | Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>;
+    resolvedSubCategoryRef?: boolean | Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>;
+    resolvedTopicTagRef?: boolean | Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>;
 };
 export type $ParsedQuestionReviewPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     name: "ParsedQuestionReview";
@@ -1190,6 +1666,8 @@ export type $ParsedQuestionReviewPayload<ExtArgs extends runtime.Types.Extension
         batch: Prisma.$QuestionImportBatchPayload<ExtArgs>;
         question: Prisma.$QuestionPayload<ExtArgs> | null;
         reviewedByUser: Prisma.$UserPayload<ExtArgs> | null;
+        resolvedSubCategoryRef: Prisma.$QuestionSubCategoryPayload<ExtArgs> | null;
+        resolvedTopicTagRef: Prisma.$QuestionTopicTagPayload<ExtArgs> | null;
     };
     scalars: runtime.Types.Extensions.GetPayloadResult<{
         id: string;
@@ -1202,6 +1680,8 @@ export type $ParsedQuestionReviewPayload<ExtArgs extends runtime.Types.Extension
         category: $Enums.QuestionCategory | null;
         subCategory: string | null;
         topicTag: string | null;
+        resolvedSubCategoryId: string | null;
+        resolvedTopicTagId: string | null;
         difficulty: $Enums.QuestionDifficulty | null;
         confidenceScore: runtime.Decimal | null;
         status: $Enums.ParsedQuestionStatus;
@@ -1265,6 +1745,8 @@ export interface Prisma__ParsedQuestionReviewClient<T, Null = never, ExtArgs ext
     batch<T extends Prisma.QuestionImportBatchDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.QuestionImportBatchDefaultArgs<ExtArgs>>): Prisma.Prisma__QuestionImportBatchClient<runtime.Types.Result.GetResult<Prisma.$QuestionImportBatchPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>;
     question<T extends Prisma.ParsedQuestionReview$questionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ParsedQuestionReview$questionArgs<ExtArgs>>): Prisma.Prisma__QuestionClient<runtime.Types.Result.GetResult<Prisma.$QuestionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     reviewedByUser<T extends Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ParsedQuestionReview$reviewedByUserArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
+    resolvedSubCategoryRef<T extends Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs>>): Prisma.Prisma__QuestionSubCategoryClient<runtime.Types.Result.GetResult<Prisma.$QuestionSubCategoryPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
+    resolvedTopicTagRef<T extends Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs>>): Prisma.Prisma__QuestionTopicTagClient<runtime.Types.Result.GetResult<Prisma.$QuestionTopicTagPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>;
     then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): runtime.Types.Utils.JsPromise<TResult1 | TResult2>;
     catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): runtime.Types.Utils.JsPromise<T | TResult>;
     finally(onfinally?: (() => void) | undefined | null): runtime.Types.Utils.JsPromise<T>;
@@ -1280,6 +1762,8 @@ export interface ParsedQuestionReviewFieldRefs {
     readonly category: Prisma.FieldRef<"ParsedQuestionReview", 'QuestionCategory'>;
     readonly subCategory: Prisma.FieldRef<"ParsedQuestionReview", 'String'>;
     readonly topicTag: Prisma.FieldRef<"ParsedQuestionReview", 'String'>;
+    readonly resolvedSubCategoryId: Prisma.FieldRef<"ParsedQuestionReview", 'String'>;
+    readonly resolvedTopicTagId: Prisma.FieldRef<"ParsedQuestionReview", 'String'>;
     readonly difficulty: Prisma.FieldRef<"ParsedQuestionReview", 'QuestionDifficulty'>;
     readonly confidenceScore: Prisma.FieldRef<"ParsedQuestionReview", 'Decimal'>;
     readonly status: Prisma.FieldRef<"ParsedQuestionReview", 'ParsedQuestionStatus'>;
@@ -1400,6 +1884,18 @@ export type ParsedQuestionReview$reviewedByUserArgs<ExtArgs extends runtime.Type
     omit?: Prisma.UserOmit<ExtArgs> | null;
     include?: Prisma.UserInclude<ExtArgs> | null;
     where?: Prisma.UserWhereInput;
+};
+export type ParsedQuestionReview$resolvedSubCategoryRefArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    select?: Prisma.QuestionSubCategorySelect<ExtArgs> | null;
+    omit?: Prisma.QuestionSubCategoryOmit<ExtArgs> | null;
+    include?: Prisma.QuestionSubCategoryInclude<ExtArgs> | null;
+    where?: Prisma.QuestionSubCategoryWhereInput;
+};
+export type ParsedQuestionReview$resolvedTopicTagRefArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+    select?: Prisma.QuestionTopicTagSelect<ExtArgs> | null;
+    omit?: Prisma.QuestionTopicTagOmit<ExtArgs> | null;
+    include?: Prisma.QuestionTopicTagInclude<ExtArgs> | null;
+    where?: Prisma.QuestionTopicTagWhereInput;
 };
 export type ParsedQuestionReviewDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
     select?: Prisma.ParsedQuestionReviewSelect<ExtArgs> | null;

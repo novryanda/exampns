@@ -90,6 +90,12 @@ export declare const auditLogsQuerySchema: z.ZodObject<{
     actorUserId: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
     module: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
     action: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
+    period: z.ZodPreprocess<z.ZodOptional<z.ZodEnum<{
+        today: "today";
+        "7d": "7d";
+        "30d": "30d";
+        this_month: "this_month";
+    }>>>;
     dateFrom: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
     dateTo: z.ZodPreprocess<z.ZodOptional<z.ZodString>>;
     page: z.ZodDefault<z.ZodCoercedNumber<unknown>>;

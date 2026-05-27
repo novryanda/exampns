@@ -13,6 +13,8 @@ export declare class QuestionBankService {
             id: string;
             questionPreview: string;
             category: QuestionCategory;
+            subCategoryId: string;
+            topicTagId: string;
             subCategory: string;
             topicTag: string;
             difficulty: import("../../generated/prisma/enums.js").QuestionDifficulty;
@@ -35,6 +37,8 @@ export declare class QuestionBankService {
         id: string;
         questionText: string;
         category: QuestionCategory;
+        subCategoryId: string;
+        topicTagId: string;
         subCategory: string;
         topicTag: string;
         competencyArea: string | null;
@@ -55,5 +59,7 @@ export declare class QuestionBankService {
     }>;
     updateQuestion(questionId: string, rawBody: unknown, actor: AuthenticatedUser): Promise<void>;
     archiveQuestion(questionId: string, actor: AuthenticatedUser): Promise<void>;
+    toggleQuestionStatus(questionId: string, nextStatus: 'active' | 'archived', actor: AuthenticatedUser): Promise<void>;
     private buildListWhere;
+    private assertQuestionMetadata;
 }

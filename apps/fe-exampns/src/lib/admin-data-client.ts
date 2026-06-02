@@ -29,12 +29,19 @@ function toQueryString(params: Record<string, string | number | boolean | undefi
 export async function fetchAdminData<T>(
   path: string,
   params?: Record<string, string | number | boolean | undefined | null>,
+  options?: { scope?: "admin" | "super-admin" },
 ): Promise<T> {
-  const response = await fetch(`/api/admin-data/${path}${toQueryString(params ?? {})}`, {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-  });
+  const response = await fetch(
+    `/api/admin-data/${path}${toQueryString({
+      ...(params ?? {}),
+      ...(options?.scope ? { scope: options.scope } : {}),
+    })}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      credentials: "same-origin",
+    },
+  );
 
   if (!response.ok) {
     let message = `API request failed: ${path} (${response.status})`;

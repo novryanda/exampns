@@ -1,4 +1,4 @@
-import { SubscriptionStatus, UserRole, UserStatus } from '../../generated/prisma/client.js';
+import { SubscriptionStatus, SubscriptionTier, UserRole, UserStatus } from '../../generated/prisma/client.js';
 import { prisma } from '../common/prisma.service.js';
 
 const addDays = (date: Date, days: number) => {
@@ -58,6 +58,7 @@ export const provisionTrialSubscriptionForUser = async (userId: string) => {
       tryoutLimit: trialConfig.freeTryoutCount,
       tryoutUsed: 0,
       isTrial: true,
+      tierSnapshot: SubscriptionTier.trial,
       activationSource: 'trial',
     },
   });

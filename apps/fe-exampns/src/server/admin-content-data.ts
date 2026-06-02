@@ -1,11 +1,6 @@
 import "server-only";
 
-import {
-  serverApiFetch,
-  toQueryString,
-  type ApiPaginatedResponse,
-  type ApiSuccessResponse,
-} from "@/server/api-client";
+import { type ApiPaginatedResponse, type ApiSuccessResponse, serverApiFetch, toQueryString } from "@/server/api-client";
 
 export interface AdminContentDashboardSummary {
   totalQuestions: number;
@@ -35,6 +30,31 @@ export interface AdminContentDashboardSummary {
     targetType: string | null;
     targetId: string | null;
     createdAt: string;
+  }>;
+}
+
+export interface QuestionBankDistributionItem {
+  key: string;
+  count: number;
+  percentage: number;
+}
+
+export interface QuestionBankOverview {
+  totalQuestions: number;
+  activeQuestions: number;
+  inactiveQuestions: number;
+  totalSubCategories: number;
+  totalTopicTags: number;
+  categoryDistribution: QuestionBankDistributionItem[];
+  statusDistribution: QuestionBankDistributionItem[];
+  statusPeriod: "7d" | "all";
+  difficultyDistribution: QuestionBankDistributionItem[];
+  topTopicTags: Array<{
+    id: string;
+    name: string;
+    category: "TWK" | "TIU" | "TKP";
+    subCategory: string;
+    questionCount: number;
   }>;
 }
 
@@ -103,7 +123,7 @@ export interface ParsedQuestionDetail {
   id: string;
   batchId: string;
   questionText: string;
-  options: Array<{ label: "A" | "B" | "C" | "D" | "E"; text: string }>;
+  options: Array<{ label: "A" | "B" | "C" | "D" | "E"; text: string; tkpWeight?: number | null }>;
   detectedAnswer: "A" | "B" | "C" | "D" | "E" | null;
   category: "TWK" | "TIU" | "TKP" | null;
   subCategory: string | null;
@@ -137,6 +157,15 @@ export interface QuestionMetadataOptions {
   topicTags: QuestionMetadataOptionTopicTag[];
 }
 
+export interface QuestionMetadataSummary {
+  totalSubCategories: number;
+  activeSubCategories: number;
+  inactiveSubCategories: number;
+  totalTopicTags: number;
+  activeTopicTags: number;
+  inactiveTopicTags: number;
+}
+
 export interface QuestionSubCategoryItem {
   id: string;
   category: "TWK" | "TIU" | "TKP";
@@ -158,6 +187,20 @@ export interface QuestionTopicTagItem {
   subCategory: string;
   category: "TWK" | "TIU" | "TKP";
   questionCount: number;
+}
+
+export interface QuestionTopicTagQuestionItem {
+  id: string;
+  questionPreview: string;
+  category: "TWK" | "TIU" | "TKP";
+  subCategoryId: string;
+  topicTagId: string;
+  subCategory: string;
+  topicTag: string;
+  difficulty: "easy" | "medium" | "hard";
+  status: "draft" | "pending_review" | "active" | "archived";
+  sourceType: "manual" | "pdf_import";
+  updatedAt: string;
 }
 
 export interface AdminTryoutDraftItem {
@@ -186,6 +229,80 @@ export interface AdminTryoutDraftDetail {
   totalQuestions: number;
   showResultImmediately: boolean;
   showAnswerReview: boolean;
+  generationRule: AdminTryoutGenerationRule | null;
+  workingManualQuestionSetSummary: AdminWorkingManualQuestionSet | null;
+  builderStatus: AdminTryoutBuilderStatus;
+}
+
+export interface HybridRuleConfig {
+  manualPlacement: "prepend";
+}
+
+export interface AdaptiveRuleConfig {
+  strategy: "latest_ai_recommendation";
+  fallbackStrategy: "generation_rule";
+  maxWeakAreas: number;
+  perWeakAreaQuestionCap: number;
+  includeTrendBoost: boolean;
+}
+
+export interface AdminTryoutGenerationSection {
+  id?: string;
+  category: "TWK" | "TIU" | "TKP";
+  questionCount: number;
+  difficultyDistributionJson: Partial<Record<"easy" | "medium" | "hard", number>> | null;
+  topicDistributionJson: Array<{ topicTag: string; questionCount: number }> | null;
+  sortOrder: number;
+}
+
+export interface AdminTryoutGenerationRule {
+  id: string;
+  randomizationMode:
+    | "random_by_category"
+    | "random_by_category_and_difficulty"
+    | "random_by_topic_distribution"
+    | "manual_question_set"
+    | "hybrid_manual_and_random"
+    | "adaptive_weak_area";
+  questionOrderMode: "category_order" | "mixed_random" | "manual_order";
+  avoidRecentQuestions: boolean;
+  avoidRecentExamCount: number;
+  rulesJson: HybridRuleConfig | AdaptiveRuleConfig | Record<string, unknown> | null;
+  sections: AdminTryoutGenerationSection[];
+}
+
+export interface AdminWorkingManualQuestionSet {
+  id: string;
+  name: string;
+  description: string | null;
+  status: "draft" | "review" | "approved" | "archived";
+  questionIds: string[];
+  itemCount: number;
+  updatedAt: string;
+  items: Array<{
+    order: number;
+    question: {
+      id: string;
+      questionPreview: string;
+      category: "TWK" | "TIU" | "TKP";
+      subCategory: string;
+      topicTag: string;
+      difficulty: "easy" | "medium" | "hard";
+      status: "draft" | "pending_review" | "active" | "archived";
+    };
+  }>;
+}
+
+export interface AdminTryoutBuilderStatus {
+  isStructurallyValid: boolean;
+  missingParts: string[];
+  modeSpecificWarnings: string[];
+}
+
+export interface AdminTryoutAvailabilityCheck {
+  isReady: boolean;
+  issues: string[];
+  checks: Record<string, unknown>;
 }
 
 export interface AuditActivityItem {
@@ -214,10 +331,17 @@ export async function getAdminQuestions(params?: Record<string, string | number 
   );
 }
 
-export async function getAdminQuestionDetail(questionId: string) {
-  const response = await serverApiFetch<ApiSuccessResponse<QuestionDetail>>(
-    `/api/v1/admin/questions/${questionId}`,
+export async function getAdminQuestionBankOverview(params?: { statusPeriod?: "7d" | "all" }) {
+  const response = await serverApiFetch<ApiSuccessResponse<QuestionBankOverview>>(
+    `/api/v1/admin/questions/overview${toQueryString({
+      statusPeriod: params?.statusPeriod,
+    })}`,
   );
+  return response.data;
+}
+
+export async function getAdminQuestionDetail(questionId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<QuestionDetail>>(`/api/v1/admin/questions/${questionId}`);
   return response.data;
 }
 
@@ -240,10 +364,7 @@ export async function getAdminParsedQuestionDetail(parsedQuestionId: string) {
   return response.data;
 }
 
-export async function getAdminQuestionMetadataOptions(params?: {
-  category?: string;
-  subCategoryId?: string;
-}) {
+export async function getAdminQuestionMetadataOptions(params?: { category?: string; subCategoryId?: string }) {
   const response = await serverApiFetch<ApiSuccessResponse<QuestionMetadataOptions>>(
     `/api/v1/admin/question-metadata/options${toQueryString({
       category: params?.category,
@@ -253,8 +374,18 @@ export async function getAdminQuestionMetadataOptions(params?: {
   return response.data;
 }
 
+export async function getAdminQuestionMetadataSummary(params?: { category?: string }) {
+  const response = await serverApiFetch<ApiSuccessResponse<QuestionMetadataSummary>>(
+    `/api/v1/admin/question-metadata/summary${toQueryString({
+      category: params?.category,
+    })}`,
+  );
+  return response.data;
+}
+
 export async function getAdminQuestionSubCategories(params?: {
   category?: string;
+  search?: string;
   includeInactive?: boolean;
   page?: number;
   limit?: number;
@@ -262,6 +393,7 @@ export async function getAdminQuestionSubCategories(params?: {
   const response = await serverApiFetch<ApiPaginatedResponse<QuestionSubCategoryItem[]>>(
     `/api/v1/admin/question-metadata/sub-categories${toQueryString({
       category: params?.category,
+      search: params?.search,
       includeInactive: params?.includeInactive,
       page: params?.page,
       limit: params?.limit,
@@ -273,6 +405,7 @@ export async function getAdminQuestionSubCategories(params?: {
 export async function getAdminQuestionTopicTags(params?: {
   category?: string;
   subCategoryId?: string;
+  search?: string;
   includeInactive?: boolean;
   page?: number;
   limit?: number;
@@ -281,7 +414,26 @@ export async function getAdminQuestionTopicTags(params?: {
     `/api/v1/admin/question-metadata/topic-tags${toQueryString({
       category: params?.category,
       subCategoryId: params?.subCategoryId,
+      search: params?.search,
       includeInactive: params?.includeInactive,
+      page: params?.page,
+      limit: params?.limit,
+    })}`,
+  );
+  return response;
+}
+
+export async function getAdminTopicTagQuestions(
+  topicTagId: string,
+  params?: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  },
+) {
+  const response = await serverApiFetch<ApiPaginatedResponse<QuestionTopicTagQuestionItem[]>>(
+    `/api/v1/admin/question-metadata/topic-tags/${topicTagId}/questions${toQueryString({
+      search: params?.search,
       page: params?.page,
       limit: params?.limit,
     })}`,
@@ -296,8 +448,47 @@ export async function getAdminTryoutDrafts(params?: Record<string, string | numb
 }
 
 export async function getAdminTryoutDraftDetail(tryoutDraftId: string) {
-  const response = await serverApiFetch<ApiSuccessResponse<AdminTryoutDraftDetail>>(
-    `/api/v1/admin/tryout-drafts/${tryoutDraftId}`,
+  return await getTryoutBuilderDetail("admin", tryoutDraftId);
+}
+
+export async function getTryoutBuilderDetail(scope: "admin" | "super-admin", tryoutId: string) {
+  const basePath = scope === "super-admin" ? "/api/v1/super-admin/tryout-catalogs" : "/api/v1/admin/tryout-drafts";
+  const response = await serverApiFetch<ApiSuccessResponse<AdminTryoutDraftDetail>>(`${basePath}/${tryoutId}`);
+  return response.data;
+}
+
+export async function getAdminTryoutDraftGenerationRule(tryoutDraftId: string) {
+  return await getTryoutBuilderGenerationRule("admin", tryoutDraftId);
+}
+
+export async function getTryoutBuilderGenerationRule(scope: "admin" | "super-admin", tryoutId: string) {
+  const basePath = scope === "super-admin" ? "/api/v1/super-admin/tryout-catalogs" : "/api/v1/admin/tryout-drafts";
+  const response = await serverApiFetch<ApiSuccessResponse<AdminTryoutGenerationRule | null>>(
+    `${basePath}/${tryoutId}/generation-rule`,
+  );
+  return response.data;
+}
+
+export async function getAdminTryoutDraftManualQuestionSet(tryoutDraftId: string) {
+  return await getTryoutBuilderManualQuestionSet("admin", tryoutDraftId);
+}
+
+export async function getTryoutBuilderManualQuestionSet(scope: "admin" | "super-admin", tryoutId: string) {
+  const basePath = scope === "super-admin" ? "/api/v1/super-admin/tryout-catalogs" : "/api/v1/admin/tryout-drafts";
+  const response = await serverApiFetch<ApiSuccessResponse<AdminWorkingManualQuestionSet | null>>(
+    `${basePath}/${tryoutId}/manual-question-set`,
+  );
+  return response.data;
+}
+
+export async function getAdminTryoutDraftAvailabilityCheck(tryoutDraftId: string) {
+  return await getTryoutBuilderAvailabilityCheck("admin", tryoutDraftId);
+}
+
+export async function getTryoutBuilderAvailabilityCheck(scope: "admin" | "super-admin", tryoutId: string) {
+  const basePath = scope === "super-admin" ? "/api/v1/super-admin/tryout-catalogs" : "/api/v1/admin/tryout-drafts";
+  const response = await serverApiFetch<ApiSuccessResponse<AdminTryoutAvailabilityCheck>>(
+    `${basePath}/${tryoutId}/availability-check`,
   );
   return response.data;
 }

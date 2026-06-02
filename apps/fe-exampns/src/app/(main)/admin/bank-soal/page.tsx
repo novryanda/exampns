@@ -4,7 +4,11 @@ import { Plus } from "lucide-react";
 
 import { PageHeader } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
-import { getAdminQuestions } from "@/server/admin-content-data";
+import {
+  getAdminQuestionBankOverview,
+  getAdminQuestionMetadataOptions,
+  getAdminQuestions,
+} from "@/server/admin-content-data";
 
 import { BankSoalManager } from "./_components/bank-soal-manager";
 
@@ -26,21 +30,27 @@ export default async function BankSoalPage({
   const params = await searchParams;
   const search = readParam(params.search);
   const category = readParam(params.category);
+  const subCategoryId = readParam(params.subCategoryId);
   const difficulty = readParam(params.difficulty);
   const status = readParam(params.status);
   const page = readPageParam(params.page);
 
-  const questions = await getAdminQuestions({
-    search: search || undefined,
-    category: category && category !== "all" ? category : undefined,
-    difficulty: difficulty && difficulty !== "all" ? difficulty : undefined,
-    status: status && status !== "all" ? status : undefined,
-    page,
-    limit: 50,
-  });
+  const [questions, overview, metadataOptions] = await Promise.all([
+    getAdminQuestions({
+      search: search || undefined,
+      category: category && category !== "all" ? category : undefined,
+      subCategoryId: subCategoryId && subCategoryId !== "all" ? subCategoryId : undefined,
+      difficulty: difficulty && difficulty !== "all" ? difficulty : undefined,
+      status: status && status !== "all" ? status : undefined,
+      page,
+      limit: 20,
+    }),
+    getAdminQuestionBankOverview(),
+    getAdminQuestionMetadataOptions(),
+  ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
       <PageHeader
         title="Bank Soal"
         description="Kelola soal TWK, TIU, dan TKP yang digunakan untuk tryout."
@@ -56,9 +66,12 @@ export default async function BankSoalPage({
 
       <BankSoalManager
         initialResponse={questions}
+        initialOverview={overview}
+        initialMetadataOptions={metadataOptions}
         initialFilters={{
           search: search || undefined,
           category: category || undefined,
+          subCategoryId: subCategoryId || undefined,
           difficulty: difficulty || undefined,
           status: status || undefined,
         }}

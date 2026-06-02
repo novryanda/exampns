@@ -76,6 +76,15 @@ export class TryoutCatalogController {
     return apiData({ id: duplicated.id }, 'Tryout catalog berhasil diduplikasi');
   }
 
+  @Post(':tryoutCatalogId/submit')
+  async submitCatalogForReview(
+    @Param('tryoutCatalogId') tryoutCatalogId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiMessageResponse> {
+    await this.tryoutManagementService.submitTryoutCatalogForReview(tryoutCatalogId, actor);
+    return apiMessage('Tryout catalog berhasil diajukan ke review');
+  }
+
   @Post(':tryoutCatalogId/publish')
   async publishCatalog(
     @Param('tryoutCatalogId') tryoutCatalogId: string,
@@ -108,6 +117,43 @@ export class TryoutCatalogController {
   ): Promise<ApiMessageResponse> {
     await this.tryoutManagementService.upsertGenerationRule(tryoutCatalogId, body);
     return apiMessage('Tryout generation rule berhasil disimpan');
+  }
+
+  @Get(':tryoutCatalogId/manual-question-set')
+  async getWorkingManualQuestionSet(
+    @Param('tryoutCatalogId') tryoutCatalogId: string,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.tryoutManagementService.getWorkingManualQuestionSetForBuilder(tryoutCatalogId),
+    );
+  }
+
+  @Post(':tryoutCatalogId/manual-question-set')
+  async upsertWorkingManualQuestionSet(
+    @Param('tryoutCatalogId') tryoutCatalogId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiMessageResponse> {
+    await this.tryoutManagementService.upsertWorkingManualQuestionSetForBuilder(
+      tryoutCatalogId,
+      body,
+      actor,
+    );
+    return apiMessage('Manual question set builder berhasil disimpan');
+  }
+
+  @Patch(':tryoutCatalogId/manual-question-set')
+  async patchWorkingManualQuestionSet(
+    @Param('tryoutCatalogId') tryoutCatalogId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiMessageResponse> {
+    await this.tryoutManagementService.upsertWorkingManualQuestionSetForBuilder(
+      tryoutCatalogId,
+      body,
+      actor,
+    );
+    return apiMessage('Manual question set builder berhasil diperbarui');
   }
 
   @Get(':tryoutCatalogId/availability-check')

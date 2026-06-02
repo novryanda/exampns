@@ -105,6 +105,11 @@ export class SuperAdminController {
     );
   }
 
+  @Get('subscription-plans')
+  async listSubscriptionPlans(): Promise<ApiSuccessResponse<unknown[]>> {
+    return apiData(await this.operationsService.listSubscriptionPlansForAdmin());
+  }
+
   @Patch('subscription-plans/:planId')
   async updateSubscriptionPlan(
     @Param('planId') planId: string,
@@ -168,6 +173,44 @@ export class SuperAdminController {
     return apiData(
       await this.operationsService.manualSubscriptionActivation(body, actor),
       'Subscription berhasil diaktifkan secara manual',
+    );
+  }
+
+  @Post('users/:userId/access-overrides')
+  @HttpCode(HttpStatus.CREATED)
+  async grantUserAccessOverride(
+    @Param('userId') userId: string,
+    @Body() body: Record<string, unknown>,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.operationsService.grantUserAccessOverride(
+        {
+          ...body,
+          userId,
+        },
+        actor,
+      ),
+      'Override akses berhasil diberikan',
+    );
+  }
+
+  @Get('users/:userId/access-overrides')
+  async listUserAccessOverrides(
+    @Param('userId') userId: string,
+  ): Promise<ApiSuccessResponse<unknown[]>> {
+    return apiData(await this.operationsService.listUserAccessOverrides(userId));
+  }
+
+  @Patch('access-overrides/:overrideId/revoke')
+  async revokeUserAccessOverride(
+    @Param('overrideId') overrideId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.operationsService.revokeUserAccessOverride(overrideId, body, actor),
+      'Override akses berhasil dicabut',
     );
   }
 

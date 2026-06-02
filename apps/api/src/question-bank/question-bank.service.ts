@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import {
   QuestionCategory,
+  QuestionDifficulty,
+  QuestionStatus,
   SourceType,
   Prisma,
 } from '../../generated/prisma/client.js';
@@ -15,6 +17,7 @@ import type { AuthenticatedUser } from '../auth/auth.types.js';
 import {
   createQuestionSchema,
   listQuestionsQuerySchema,
+  questionOverviewQuerySchema,
   updateQuestionSchema,
   type CreateQuestionInput,
   type ListQuestionsQuery,
@@ -111,6 +114,173 @@ export class QuestionBankService {
     private readonly auditLogService: AuditLogService,
     private readonly validationService: ValidationService,
   ) {}
+
+  async getOverview(rawQuery: unknown) {
+    const query = this.validationService.validate(questionOverviewQuerySchema, rawQuery);
+    const baseWhere = {
+      deletedAt: null,
+    } satisfies Prisma.QuestionWhereInput;
+    const statusPeriodWhere =
+      query.statusPeriod === '7d'
+        ? {
+            ...baseWhere,
+            updatedAt: {
+              gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+            },
+          }
+        : baseWhere;
+
+    const [
+      totalQuestions,
+      activeQuestions,
+      totalSubCategories,
+      totalTopicTags,
+      categoryRows,
+      periodActiveQuestions,
+      periodInactiveQuestions,
+      difficultyRows,
+      topTopicTagGroups,
+    ] = await Promise.all([
+      this.prisma.question.count({ where: baseWhere }),
+      this.prisma.question.count({
+        where: {
+          ...baseWhere,
+          status: QuestionStatus.active,
+        },
+      }),
+      this.prisma.questionSubCategory.count(),
+      this.prisma.questionTopicTag.count(),
+      this.prisma.question.groupBy({
+        by: ['category'],
+        where: baseWhere,
+        _count: {
+          _all: true,
+        },
+      }),
+      this.prisma.question.count({
+        where: {
+          ...statusPeriodWhere,
+          status: QuestionStatus.active,
+        },
+      }),
+      this.prisma.question.count({
+        where: {
+          ...statusPeriodWhere,
+          status: {
+            not: QuestionStatus.active,
+          },
+        },
+      }),
+      this.prisma.question.groupBy({
+        by: ['difficulty'],
+        where: baseWhere,
+        _count: {
+          _all: true,
+        },
+      }),
+      this.prisma.question.groupBy({
+        by: ['topicTagId'],
+        where: baseWhere,
+        _count: {
+          _all: true,
+        },
+      }),
+    ]);
+
+    const topTopicTagIds = [...topTopicTagGroups]
+      .sort((left, right) => right._count._all - left._count._all)
+      .slice(0, 5)
+      .map((item) => item.topicTagId);
+
+    const topTopicTagDetails = topTopicTagIds.length
+      ? await this.prisma.questionTopicTag.findMany({
+          where: {
+            id: {
+              in: topTopicTagIds,
+            },
+          },
+          select: {
+            id: true,
+            name: true,
+            subCategory: {
+              select: {
+                name: true,
+                category: true,
+              },
+            },
+          },
+        })
+      : [];
+
+    const topTopicTagCountMap = new Map(
+      topTopicTagGroups.map((item) => [item.topicTagId, item._count._all]),
+    );
+
+    const toDistribution = (
+      rows: Array<{ key: string; count: number }>,
+      total: number,
+    ) =>
+      rows.map((row) => ({
+        key: row.key,
+        count: row.count,
+        percentage: total > 0 ? Number(((row.count / total) * 100).toFixed(1)) : 0,
+      }));
+
+    const categoryDistribution = toDistribution(
+      ['TWK', 'TIU', 'TKP'].map((category) => ({
+        key: category,
+        count:
+          categoryRows.find((row) => row.category === category)?._count._all ?? 0,
+      })),
+      totalQuestions,
+    );
+
+    const statusPeriodTotal = periodActiveQuestions + periodInactiveQuestions;
+    const statusDistribution = toDistribution(
+      [
+        { key: 'active', count: periodActiveQuestions },
+        { key: 'inactive', count: periodInactiveQuestions },
+      ],
+      statusPeriodTotal,
+    );
+
+    const difficultyDistribution = toDistribution(
+      [QuestionDifficulty.easy, QuestionDifficulty.medium, QuestionDifficulty.hard].map((difficulty) => ({
+        key: difficulty,
+        count:
+          difficultyRows.find((row) => row.difficulty === difficulty)?._count._all ?? 0,
+      })),
+      totalQuestions,
+    );
+
+    return {
+      totalQuestions,
+      activeQuestions,
+      inactiveQuestions: totalQuestions - activeQuestions,
+      totalSubCategories,
+      totalTopicTags,
+      categoryDistribution,
+      statusDistribution,
+      statusPeriod: query.statusPeriod,
+      difficultyDistribution,
+      topTopicTags: topTopicTagIds
+        .map((topicTagId) => {
+          const detail = topTopicTagDetails.find((item) => item.id === topicTagId);
+          if (!detail) {
+            return null;
+          }
+
+          return {
+            id: detail.id,
+            name: detail.name,
+            category: detail.subCategory.category,
+            subCategory: detail.subCategory.name,
+            questionCount: topTopicTagCountMap.get(topicTagId) ?? 0,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null),
+    };
+  }
 
   async listQuestions(rawQuery: unknown) {
     const query = this.validationService.validate(listQuestionsQuerySchema, rawQuery);
@@ -470,6 +640,7 @@ export class QuestionBankService {
           }
         : {}),
       ...(query.category ? { category: query.category } : {}),
+      ...(query.subCategoryId ? { subCategoryId: query.subCategoryId } : {}),
       ...(query.subCategory
         ? {
             subCategoryRef: {
@@ -482,6 +653,7 @@ export class QuestionBankService {
             },
           }
         : {}),
+      ...(query.topicTagId ? { topicTagId: query.topicTagId } : {}),
       ...(query.topicTag
         ? {
             topicTagRef: {

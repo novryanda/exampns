@@ -15,8 +15,13 @@ export const metadataOptionsQuerySchema = z.object({
   subCategoryId: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
+export const metadataSummaryQuerySchema = z.object({
+  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+});
+
 export const listSubCategoriesQuerySchema = z.object({
   category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  search: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
   includeInactive: z.preprocess(
     (value) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined),
     z.boolean().default(false),
@@ -44,12 +49,19 @@ export const updateSubCategorySchema = z
 export const listTopicTagsQuerySchema = z.object({
   subCategoryId: z.preprocess(emptyToUndefined, z.string().optional()),
   category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  search: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
   includeInactive: z.preprocess(
     (value) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined),
     z.boolean().default(false),
   ),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const listTopicTagQuestionsQuerySchema = z.object({
+  search: z.preprocess(emptyToUndefined, z.string().trim().max(255).optional()),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export const createTopicTagSchema = z.object({

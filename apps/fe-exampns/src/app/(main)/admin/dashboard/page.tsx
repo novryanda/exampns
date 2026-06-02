@@ -3,32 +3,18 @@ import Link from "next/link";
 import { Activity, BookCopy, FileSearch, Files, ShieldAlert, Upload } from "lucide-react";
 
 import { MetricCard, PageHeader, SectionCard } from "@/app/(main)/_components/page-shell";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   getAdminAuditActivity,
   getAdminContentDashboardSummary,
   getAdminPdfImportBatches,
 } from "@/server/admin-content-data";
 
+import { QuestionDistributionCard } from "./_components/question-distribution-card";
 import { RecentActivityTable } from "./_components/recent-activity-table";
 import { RecentImportBatchesTable } from "./_components/recent-import-batches-table";
 
 const metricIcons = [Files, BookCopy, FileSearch, Upload, ShieldAlert, Activity] as const;
 const metricTints = ["blue", "green", "amber", "violet", "red", "blue"] as const;
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("id-ID", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
-function toLabel(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
 
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
@@ -132,23 +118,13 @@ export default async function AdminDashboardPage({
       </div>
 
       <div className="grid gap-4 2xl:grid-cols-[0.9fr_1.1fr]">
-        <SectionCard title="Distribusi Soal" description="Distribusi soal aktif per kategori.">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kategori</TableHead>
-                <TableHead>Soal Aktif</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {summary.questionDistribution.map((item) => (
-                <TableRow key={item.category}>
-                  <TableCell className="font-medium text-slate-950">{item.category}</TableCell>
-                  <TableCell>{item.activeCount.toLocaleString("id-ID")}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <SectionCard
+          title="Distribusi Soal"
+          description="Distribusi soal aktif per kategori."
+          className="overflow-hidden"
+          contentClassName="pt-2"
+        >
+          <QuestionDistributionCard distribution={summary.questionDistribution} />
         </SectionCard>
 
         <SectionCard
@@ -160,10 +136,7 @@ export default async function AdminDashboardPage({
             </Link>
           }
         >
-          <RecentImportBatchesTable
-            initialResponse={recentImportBatches}
-            activityPage={recentActivity.meta.page}
-          />
+          <RecentImportBatchesTable initialResponse={recentImportBatches} activityPage={recentActivity.meta.page} />
         </SectionCard>
       </div>
 
@@ -176,10 +149,7 @@ export default async function AdminDashboardPage({
           </Link>
         }
       >
-        <RecentActivityTable
-          initialResponse={recentActivity}
-          importPage={recentImportBatches.meta.page}
-        />
+        <RecentActivityTable initialResponse={recentActivity} importPage={recentImportBatches.meta.page} />
       </SectionCard>
     </div>
   );

@@ -1,4 +1,4 @@
-import { PaymentStatus, UserStatus } from '../../generated/prisma/client.js';
+import { PaymentStatus, SubscriptionTier, UserStatus } from '../../generated/prisma/client.js';
 import { z } from 'zod';
 
 const emptyToUndefined = (value: unknown) => {
@@ -14,7 +14,7 @@ export const adminUsersQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().max(255).optional()),
   subscriptionStatus: z.preprocess(
     emptyToUndefined,
-    z.enum(['active', 'expired', 'trial']).optional(),
+    z.enum(['active', 'expired', 'trial', 'standard', 'premium']).optional(),
   ),
   status: z.preprocess(emptyToUndefined, z.nativeEnum(UserStatus).optional()),
   page: z.coerce.number().int().min(1).default(1),
@@ -34,10 +34,13 @@ export const adminTransactionsQuerySchema = z.object({
 export const createSubscriptionPlanSchema = z.object({
   name: z.string().min(3).max(100),
   description: z.preprocess(emptyToUndefined, z.string().max(500).nullable().optional()),
+  tier: z.nativeEnum(SubscriptionTier),
   durationDays: z.coerce.number().int().min(1).max(3650),
   price: z.coerce.number().nonnegative(),
   currency: z.preprocess(emptyToUndefined, z.string().min(3).max(10).default('IDR')),
   isActive: z.boolean().default(true),
+  trialTryoutLimit: z.coerce.number().int().min(0).max(1000).nullable().optional(),
+  trialDayLimit: z.coerce.number().int().min(1).max(365).nullable().optional(),
 });
 
 export const updateSubscriptionPlanSchema = createSubscriptionPlanSchema.partial().refine(
@@ -82,6 +85,18 @@ export const manualSubscriptionActivationSchema = z.object({
   subscriptionPlanId: z.string().uuid(),
   durationDays: z.coerce.number().int().min(1).max(3650),
   reason: z.string().min(5).max(500),
+});
+
+export const createUserAccessOverrideSchema = z.object({
+  userId: z.string().uuid(),
+  tier: z.enum([SubscriptionTier.standard, SubscriptionTier.premium]),
+  startsAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  reason: z.string().min(5).max(500),
+});
+
+export const revokeUserAccessOverrideSchema = z.object({
+  reason: z.preprocess(emptyToUndefined, z.string().min(5).max(500).optional()),
 });
 
 export const auditLogsQuerySchema = z.object({

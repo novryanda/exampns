@@ -65,7 +65,7 @@ export default async function AdminAuditActivityPage({
   });
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
       <PageHeader
         title="Audit Aktivitas"
         description="Riwayat aktivitas operasional konten dari akun admin yang sedang login."

@@ -9,10 +9,13 @@ import {
   ActivationSource,
   PaymentStatus,
   SubscriptionStatus,
+  SubscriptionTier,
   type Prisma,
   type UserRole,
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AccessResolverService } from '../common/access-resolver.service.js';
+import { getSubscriptionTierSnapshot } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -36,6 +39,7 @@ import {
 export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly accessResolverService: AccessResolverService,
     private readonly validationService: ValidationService,
   ) {}
 
@@ -43,7 +47,9 @@ export class BillingService {
     const plans = await this.prisma.subscriptionPlan.findMany({
       where: {
         isActive: true,
-        isTrial: false,
+        tier: {
+          in: [SubscriptionTier.standard, SubscriptionTier.premium],
+        },
       },
       orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
     });
@@ -55,29 +61,16 @@ export class BillingService {
       durationDays: plan.durationDays,
       price: Number(plan.price),
       currency: plan.currency,
+      tier: plan.tier,
       isTrial: plan.isTrial,
       isActive: plan.isActive,
     }));
   }
 
   async getMySubscription(actor: AuthenticatedUser) {
-    const activeSubscription = await this.prisma.userSubscription.findFirst({
-      where: {
-        userId: actor.id,
-        status: SubscriptionStatus.active,
-        endDate: {
-          gt: new Date(),
-        },
-      },
-      include: {
-        subscriptionPlan: true,
-      },
-      orderBy: [{ isTrial: 'desc' }, { endDate: 'desc' }, { createdAt: 'desc' }],
-    });
-
-    const subscription =
-      activeSubscription ??
-      (await this.prisma.userSubscription.findFirst({
+    const [accessResolution, subscription] = await Promise.all([
+      this.accessResolverService.resolveEffectiveAccessLevel(actor.id),
+      this.prisma.userSubscription.findFirst({
         where: {
           userId: actor.id,
         },
@@ -85,12 +78,16 @@ export class BillingService {
           subscriptionPlan: true,
         },
         orderBy: [{ endDate: 'desc' }, { createdAt: 'desc' }],
-      }));
+      }),
+    ]);
 
     if (!subscription) {
       return {
         status: null,
         isTrial: false,
+        tier: null,
+        accessLevel: 'expired',
+        accessSource: 'none',
         planName: null,
         startDate: null,
         endDate: null,
@@ -104,16 +101,19 @@ export class BillingService {
     return {
       status: subscription.status,
       isTrial: subscription.isTrial,
+      tier: getSubscriptionTierSnapshot(subscription),
+      accessLevel: accessResolution.effectiveAccessLevel,
+      accessSource: accessResolution.effectiveAccessSource,
       planName: subscription.subscriptionPlan.name,
       startDate: subscription.startDate,
       endDate: subscription.endDate,
-        tryoutLimit: subscription.tryoutLimit,
-        tryoutUsed: subscription.tryoutUsed,
-        tryoutRemaining: computeTryoutRemaining(subscription.tryoutLimit, subscription.tryoutUsed),
-        daysRemaining: isSubscriptionCurrentlyActive(subscription.status, subscription.endDate)
-          ? computeDaysRemaining(subscription.endDate)
-          : 0,
-      };
+      tryoutLimit: subscription.tryoutLimit,
+      tryoutUsed: subscription.tryoutUsed,
+      tryoutRemaining: computeTryoutRemaining(subscription.tryoutLimit, subscription.tryoutUsed),
+      daysRemaining: isSubscriptionCurrentlyActive(subscription.status, subscription.endDate)
+        ? computeDaysRemaining(subscription.endDate)
+        : 0,
+    };
   }
 
   async createCheckout(
@@ -151,10 +151,34 @@ export class BillingService {
       });
     }
 
-    if (!plan.isActive || plan.isTrial) {
+    if (!plan.isActive || plan.tier === SubscriptionTier.trial || plan.isTrial) {
       throw new ConflictException({
         code: 'PLAN_INACTIVE',
         message: 'Plan tidak aktif',
+      });
+    }
+
+    const activePaidSubscription = await this.prisma.userSubscription.findFirst({
+      where: {
+        userId: actor.id,
+        status: SubscriptionStatus.active,
+        endDate: {
+          gt: new Date(),
+        },
+        tierSnapshot: {
+          in: [SubscriptionTier.standard, SubscriptionTier.premium],
+        },
+      },
+      orderBy: [{ tierSnapshot: 'desc' }, { endDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    if (
+      activePaidSubscription?.tierSnapshot === SubscriptionTier.premium &&
+      plan.tier === SubscriptionTier.standard
+    ) {
+      throw new ConflictException({
+        code: 'PLAN_DOWNGRADE_NOT_ALLOWED',
+        message: 'Akses premium aktif tidak bisa diturunkan ke plan standard.',
       });
     }
 
@@ -370,26 +394,63 @@ export class BillingService {
         const activePaidSubscription = await tx.userSubscription.findFirst({
           where: {
             userId: payment.userId,
-            isTrial: false,
             status: SubscriptionStatus.active,
             endDate: {
               gt: new Date(),
             },
+            tierSnapshot: {
+              in: [SubscriptionTier.standard, SubscriptionTier.premium],
+            },
           },
-          orderBy: { endDate: 'desc' },
+          orderBy: [{ tierSnapshot: 'desc' }, { endDate: 'desc' }, { createdAt: 'desc' }],
         });
 
         if (activePaidSubscription) {
-          const baseDate = activePaidSubscription.endDate > new Date()
-            ? activePaidSubscription.endDate
-            : new Date();
-          const updatedSubscription = await tx.userSubscription.update({
-            where: { id: activePaidSubscription.id },
-            data: {
-              endDate: addDays(baseDate, payment.subscriptionPlan.durationDays),
-            },
-          });
-          activatedSubscriptionId = updatedSubscription.id;
+          if (
+            activePaidSubscription.tierSnapshot === SubscriptionTier.premium &&
+            payment.subscriptionPlan.tier === SubscriptionTier.standard
+          ) {
+            throw new ConflictException('Plan standard tidak bisa mengurangi akses premium yang masih aktif');
+          }
+
+          if (activePaidSubscription.tierSnapshot === payment.subscriptionPlan.tier) {
+            const baseDate =
+              activePaidSubscription.endDate > new Date()
+                ? activePaidSubscription.endDate
+                : new Date();
+            const updatedSubscription = await tx.userSubscription.update({
+              where: { id: activePaidSubscription.id },
+              data: {
+                endDate: addDays(baseDate, payment.subscriptionPlan.durationDays),
+              },
+            });
+            activatedSubscriptionId = updatedSubscription.id;
+          } else {
+            const now = new Date();
+            await tx.userSubscription.update({
+              where: { id: activePaidSubscription.id },
+              data: {
+                status: SubscriptionStatus.cancelled,
+                endDate: now,
+              },
+            });
+
+            const createdSubscription = await tx.userSubscription.create({
+              data: {
+                userId: payment.userId,
+                subscriptionPlanId: payment.subscriptionPlanId,
+                status: SubscriptionStatus.active,
+                startDate: now,
+                endDate: addDays(now, payment.subscriptionPlan.durationDays),
+                tryoutLimit: null,
+                tryoutUsed: 0,
+                isTrial: false,
+                tierSnapshot: payment.subscriptionPlan.tier,
+                activationSource: ActivationSource.payment,
+              },
+            });
+            activatedSubscriptionId = createdSubscription.id;
+          }
         } else {
           const now = new Date();
           const createdSubscription = await tx.userSubscription.create({
@@ -402,6 +463,7 @@ export class BillingService {
               tryoutLimit: null,
               tryoutUsed: 0,
               isTrial: false,
+              tierSnapshot: payment.subscriptionPlan.tier,
               activationSource: ActivationSource.payment,
             },
           });

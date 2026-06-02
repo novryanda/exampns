@@ -12,6 +12,8 @@ export function UserDetailActions({ user }: { readonly user: AdminUserDetail }) 
         image: user.image ?? null,
         status: user.status,
         subscriptionStatus: user.subscription?.status ?? "expired",
+        effectiveAccessLevel: user.effectiveAccessLevel,
+        effectiveAccessSource: user.effectiveAccessSource,
         totalExams: user.examSummary.totalExams,
         lastActiveAt: user.examSummary.lastExamAt,
       }}

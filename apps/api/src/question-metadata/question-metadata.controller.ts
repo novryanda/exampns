@@ -35,6 +35,13 @@ export class QuestionMetadataController {
     return apiData(await this.questionMetadataService.getOptions(query));
   }
 
+  @Get('summary')
+  async getSummary(
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(await this.questionMetadataService.getSummary(query));
+  }
+
   @Get('sub-categories')
   async listSubCategories(
     @Query() query: Record<string, unknown>,
@@ -81,6 +88,15 @@ export class QuestionMetadataController {
     @Query() query: Record<string, unknown>,
   ): Promise<ApiPaginatedResponse<unknown[]>> {
     const result = await this.questionMetadataService.listTopicTags(query);
+    return apiPaginated(result.data, result.meta);
+  }
+
+  @Get('topic-tags/:topicTagId/questions')
+  async listTopicTagQuestions(
+    @Param('topicTagId') topicTagId: string,
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiPaginatedResponse<unknown[]>> {
+    const result = await this.questionMetadataService.listTopicTagQuestions(topicTagId, query);
     return apiPaginated(result.data, result.meta);
   }
 

@@ -25,8 +25,8 @@ export type ContentLayout = (typeof CONTENT_LAYOUT_VALUES)[number];
 
 // Navbar Style
 export const NAVBAR_STYLE_OPTIONS = [
-  { label: "Sticky", value: "sticky" },
-  { label: "Scroll", value: "scroll" },
+  { label: "Tetap di Atas", value: "sticky" },
+  { label: "Ikut Halaman", value: "scroll" },
 ] as const;
 export const NAVBAR_STYLE_VALUES = NAVBAR_STYLE_OPTIONS.map((v) => v.value);
 export type NavbarStyle = (typeof NAVBAR_STYLE_VALUES)[number];

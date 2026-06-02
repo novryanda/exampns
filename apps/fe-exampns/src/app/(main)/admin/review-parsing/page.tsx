@@ -15,13 +15,15 @@ export default async function ReviewParsingPage({
   const batchId = readParam(params.batchId);
   const search = readParam(params.search);
   const category = readParam(params.category);
+  const page = Math.max(1, Number(readParam(params.page) || "1") || 1);
 
   const parsedQuestions = await getAdminParsedQuestions({
     status: status === "all" ? undefined : status,
     batchId: batchId || undefined,
     search: search || undefined,
     category: category && category !== "all" ? category : undefined,
-    limit: 25,
+    page,
+    limit: 20,
   });
 
   return (
@@ -32,6 +34,7 @@ export default async function ReviewParsingPage({
         batchId: batchId || undefined,
         search: search || undefined,
         category: category || undefined,
+        page,
       }}
     />
   );

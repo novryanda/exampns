@@ -1,6 +1,6 @@
 import "server-only";
 
-import { serverApiFetch, toQueryString, type ApiPaginatedResponse, type ApiSuccessResponse } from "@/server/api-client";
+import { type ApiPaginatedResponse, type ApiSuccessResponse, serverApiFetch, toQueryString } from "@/server/api-client";
 
 export interface AdminDashboardSummary {
   totalUsers: number;
@@ -39,6 +39,8 @@ export interface AdminUserItem {
   image?: string | null;
   status: "active" | "inactive" | "suspended";
   subscriptionStatus: "active" | "expired" | "trial";
+  effectiveAccessLevel: "expired" | "trial" | "standard" | "premium";
+  effectiveAccessSource: "none" | "override" | "trial_subscription" | "standard_subscription" | "premium_subscription";
   totalExams: number;
   lastActiveAt: string | null;
 }
@@ -50,17 +52,34 @@ export interface AdminUserDetail {
   image?: string | null;
   phone: string | null;
   status: "active" | "inactive" | "suspended";
+  effectiveAccessLevel: "expired" | "trial" | "standard" | "premium";
+  effectiveAccessSource: "none" | "override" | "trial_subscription" | "standard_subscription" | "premium_subscription";
   subscription: {
     status: "active" | "expired" | "trial";
+    tier: "trial" | "standard" | "premium";
+    planName: string;
     endDate: string;
     tryoutUsed: number;
-    tryoutLimit: number;
+    tryoutLimit: number | null;
   } | null;
+  accessOverrides: UserAccessOverrideItem[];
   examSummary: {
     totalExams: number;
     averageScore: number;
     lastExamAt: string | null;
   };
+}
+
+export interface UserAccessOverrideItem {
+  id: string;
+  tier: "standard" | "premium";
+  startsAt: string;
+  expiresAt: string;
+  reason: string;
+  revokedAt: string | null;
+  grantedBy: string;
+  revokedBy: string | null;
+  createdAt?: string;
 }
 
 export interface SuperAdminAccountItem {
@@ -141,10 +160,24 @@ export interface TrialConfig {
   isActive: boolean;
 }
 
+export interface SubscriptionPlanItem {
+  id: string;
+  name: string;
+  description: string | null;
+  tier: "trial" | "standard" | "premium";
+  durationDays: number;
+  price: number;
+  currency: string;
+  isActive: boolean;
+  isTrial: boolean;
+  trialTryoutLimit: number | null;
+  trialDayLimit: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export async function getAdminDashboardSummary() {
-  const response = await serverApiFetch<ApiSuccessResponse<AdminDashboardSummary>>(
-    "/api/v1/admin/dashboard/summary",
-  );
+  const response = await serverApiFetch<ApiSuccessResponse<AdminDashboardSummary>>("/api/v1/admin/dashboard/summary");
   return response.data;
 }
 
@@ -169,9 +202,7 @@ export async function getAdminUsers(params?: {
 }
 
 export async function getAdminUserDetail(userId: string) {
-  const response = await serverApiFetch<ApiSuccessResponse<AdminUserDetail>>(
-    `/api/v1/admin/users/${userId}`,
-  );
+  const response = await serverApiFetch<ApiSuccessResponse<AdminUserDetail>>(`/api/v1/admin/users/${userId}`);
   return response.data;
 }
 
@@ -242,15 +273,25 @@ export async function getAiRecommendationSettings() {
 }
 
 export async function getPassingGradeConfig() {
-  const response = await serverApiFetch<ApiSuccessResponse<PassingGradeConfig>>(
-    "/api/v1/super-admin/passing-grade",
-  );
+  const response = await serverApiFetch<ApiSuccessResponse<PassingGradeConfig>>("/api/v1/super-admin/passing-grade");
   return response.data;
 }
 
 export async function getTrialConfig() {
-  const response = await serverApiFetch<ApiSuccessResponse<TrialConfig>>(
-    "/api/v1/super-admin/trial-config",
+  const response = await serverApiFetch<ApiSuccessResponse<TrialConfig>>("/api/v1/super-admin/trial-config");
+  return response.data;
+}
+
+export async function getSubscriptionPlans() {
+  const response = await serverApiFetch<ApiSuccessResponse<SubscriptionPlanItem[]>>(
+    "/api/v1/super-admin/subscription-plans",
+  );
+  return response.data;
+}
+
+export async function getUserAccessOverrides(userId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<UserAccessOverrideItem[]>>(
+    `/api/v1/super-admin/users/${userId}/access-overrides`,
   );
   return response.data;
 }

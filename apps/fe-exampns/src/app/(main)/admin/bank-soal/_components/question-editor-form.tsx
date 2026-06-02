@@ -4,19 +4,42 @@ import { useActionState, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
+import { Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { SearchableCombobox } from "@/components/ui/searchable-combobox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { initialResourceActionState } from "@/server/admin-action-state";
 import { createQuestionAction, updateQuestionAction } from "@/server/admin-content-actions";
 import type { QuestionDetail, QuestionMetadataOptions } from "@/server/admin-content-data";
 
 const optionLabels = ["A", "B", "C", "D", "E"] as const;
+
+function FormSection({
+  title,
+  hint,
+  children,
+}: {
+  readonly title: string;
+  readonly hint?: string;
+  readonly children: React.ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="font-semibold text-base text-slate-950">{title}</h3>
+        {hint ? <p className="text-slate-500 text-sm">{hint}</p> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
 
 export function QuestionEditorForm({
   question,
@@ -75,127 +98,128 @@ export function QuestionEditorForm({
   }, [availableTopicTags, topicTagId]);
 
   return (
-    <form action={formAction} className="grid gap-6">
+    <form action={formAction} className="space-y-8">
       {question ? <input type="hidden" name="questionId" value={question.id} /> : null}
 
-      <div className="grid gap-2">
-        <Label htmlFor="questionText">Teks Soal</Label>
+      <FormSection title="Teks Soal">
         <Textarea
           id="questionText"
           name="questionText"
           defaultValue={question?.questionText ?? ""}
-          className="min-h-36 rounded-xl border-slate-200"
+          className="min-h-36 rounded-xl border-slate-200 bg-white"
           required
         />
-      </div>
+      </FormSection>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <div className="grid gap-2">
-          <Label htmlFor="category">Kategori</Label>
-          <NativeSelect
-            id="category"
-            name="category"
-            value={category}
-            onChange={(event) => setCategory(event.target.value as "TWK" | "TIU" | "TKP")}
-            className="w-full rounded-xl border-slate-200 bg-white"
-          >
-            <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-            <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-            <NativeSelectOption value="TKP">TKP</NativeSelectOption>
-          </NativeSelect>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="subCategoryId">Sub-kategori</Label>
-          <NativeSelect
-            id="subCategoryId"
-            name="subCategoryId"
-            value={subCategoryId}
-            onChange={(event) => setSubCategoryId(event.target.value)}
-            className="w-full rounded-xl border-slate-200 bg-white"
-            required
-            disabled={availableSubCategories.length === 0}
-          >
-            {availableSubCategories.length === 0 ? (
-              <NativeSelectOption value="">Belum ada sub-kategori aktif</NativeSelectOption>
-            ) : null}
-            {availableSubCategories.map((item) => (
-              <NativeSelectOption key={item.id} value={item.id}>
-                {item.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="topicTagId">Topik Tag</Label>
-          <NativeSelect
-            id="topicTagId"
-            name="topicTagId"
-            value={topicTagId}
-            onChange={(event) => setTopicTagId(event.target.value)}
-            className="w-full rounded-xl border-slate-200 bg-white"
-            required
-            disabled={availableTopicTags.length === 0}
-          >
-            {availableTopicTags.length === 0 ? (
-              <NativeSelectOption value="">Belum ada topik tag aktif</NativeSelectOption>
-            ) : null}
-            {availableTopicTags.map((item) => (
-              <NativeSelectOption key={item.id} value={item.id}>
-                {item.name}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="difficulty">Tingkat Kesulitan</Label>
-          <Select name="difficulty" defaultValue={question?.difficulty ?? "medium"}>
-            <SelectTrigger id="difficulty" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Pilih tingkat kesulitan" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="easy">Mudah</SelectItem>
-              <SelectItem value="medium">Sedang</SelectItem>
-              <SelectItem value="hard">Sulit</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="status">Status</Label>
-          <Select name="status" defaultValue={question?.status ?? "draft"}>
-            <SelectTrigger id="status" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Pilih status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="active">Aktif</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      <div className="grid gap-2">
-        <div className="space-y-1">
-          <Label htmlFor="competencyArea">Area Kompetensi</Label>
-          <p className="text-sm text-slate-500">
-            Opsional. Dipakai untuk mengelompokkan materi yang lebih luas, misalnya "Nasionalisme",
-            "Penalaran Umum", atau "Pelayanan Publik".
-          </p>
-        </div>
-        <Input
-          id="competencyArea"
-          name="competencyArea"
-          defaultValue={question?.competencyArea ?? ""}
-          className="rounded-xl border-slate-200"
-          placeholder="Contoh: Nasionalisme"
-        />
-      </div>
-
-      <div className="grid gap-4">
-        {isTkp ? null : (
+      <FormSection title="Metadata Soal">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div className="grid gap-2">
+            <Label htmlFor="category">Kategori</Label>
+            <NativeSelect
+              id="category"
+              name="category"
+              value={category}
+              onChange={(event) => setCategory(event.target.value as "TWK" | "TIU" | "TKP")}
+              className="w-full rounded-xl border-slate-200 bg-white"
+            >
+              <NativeSelectOption value="TWK">TWK</NativeSelectOption>
+              <NativeSelectOption value="TIU">TIU</NativeSelectOption>
+              <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+            </NativeSelect>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="subCategoryId">Sub-kategori</Label>
+            <SearchableCombobox
+              id="subCategoryId"
+              name="subCategoryId"
+              value={subCategoryId}
+              onValueChange={setSubCategoryId}
+              placeholder="Belum ada sub-kategori aktif"
+              searchPlaceholder="Cari sub-kategori..."
+              emptyMessage="Sub-kategori tidak ditemukan."
+              disabled={availableSubCategories.length === 0}
+              options={availableSubCategories.map((item) => ({
+                value: item.id,
+                label: item.name,
+                keywords: [item.category],
+              }))}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="topicTagId">Topik Tag</Label>
+            <SearchableCombobox
+              id="topicTagId"
+              name="topicTagId"
+              value={topicTagId}
+              onValueChange={setTopicTagId}
+              placeholder="Belum ada topik tag aktif"
+              searchPlaceholder="Cari topik tag..."
+              emptyMessage="Topik tag tidak ditemukan."
+              disabled={availableTopicTags.length === 0}
+              options={availableTopicTags.map((item) => ({
+                value: item.id,
+                label: item.name,
+              }))}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="difficulty">Tingkat Kesulitan</Label>
+            <Select name="difficulty" defaultValue={question?.difficulty ?? "medium"}>
+              <SelectTrigger id="difficulty" className="w-full rounded-xl border-slate-200 bg-white">
+                <SelectValue placeholder="Pilih tingkat kesulitan" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="easy">Mudah</SelectItem>
+                <SelectItem value="medium">Sedang</SelectItem>
+                <SelectItem value="hard">Sulit</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="status">Status</Label>
+            <Select name="status" defaultValue={question?.status ?? "draft"}>
+              <SelectTrigger id="status" className="w-full rounded-xl border-slate-200 bg-white">
+                <SelectValue placeholder="Pilih status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="active">Aktif</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="grid gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="competencyArea">Area Kompetensi (Opsional)</Label>
+            <p className="text-slate-500 text-sm">
+              Opsional. Dipakai untuk mengelompokkan materi yang lebih luas, misalnya &quot;Nasionalisme&quot;,
+              &quot;Penalaran Umum&quot;, atau &quot;Pelayanan Publik&quot;.
+            </p>
+          </div>
+          <Input
+            id="competencyArea"
+            name="competencyArea"
+            defaultValue={question?.competencyArea ?? ""}
+            className="rounded-xl border-slate-200 bg-white"
+            placeholder="Contoh: Nasionalisme"
+          />
+        </div>
+      </FormSection>
+
+      <FormSection
+        title="Pilihan Jawaban"
+        hint={isTkp ? "Isi jawaban dan nilai TKP untuk setiap opsi." : "Isi jawaban dan pilih jawaban benar untuk TWK/TIU."}
+      >
+        {!isTkp ? (
+          <div className="grid max-w-xs gap-2">
             <Label htmlFor="correctAnswer">Jawaban Benar (untuk TWK/TIU)</Label>
-            <Select name="correctAnswer" value={correctAnswer} onValueChange={(value) => setCorrectAnswer(value as (typeof optionLabels)[number])}>
-              <SelectTrigger id="correctAnswer" className="rounded-xl border-slate-200 bg-white md:w-48">
+            <Select
+              name="correctAnswer"
+              value={correctAnswer}
+              onValueChange={(value) => setCorrectAnswer(value as (typeof optionLabels)[number])}
+            >
+              <SelectTrigger id="correctAnswer" className="rounded-xl border-slate-200 bg-white">
                 <SelectValue placeholder="Jawaban benar" />
               </SelectTrigger>
               <SelectContent>
@@ -207,28 +231,53 @@ export function QuestionEditorForm({
               </SelectContent>
             </Select>
           </div>
-        )}
+        ) : null}
 
-        {optionLabels.map((label, index) => {
-          const option = question?.options[index];
-          return (
-            <div
-              key={label}
-              className={`grid gap-3 rounded-2xl border border-slate-100 p-4 ${
-                isTkp ? "md:grid-cols-[80px_1fr_140px]" : "md:grid-cols-[80px_1fr]"
-              }`}
-            >
-              <div className="flex items-center font-medium text-slate-950">{label}</div>
-              <Input
-                name={`optionText${label}`}
-                defaultValue={option?.text ?? ""}
-                className="rounded-xl border-slate-200"
-                placeholder={`Opsi ${label}`}
-                required
-              />
-              {isTkp ? (
-                <div className="grid gap-2">
-                  <Label htmlFor={`optionWeight${label}`}>Nilai TKP</Label>
+        <div className="space-y-3">
+          {isTkp ? (
+            <div className="hidden gap-3 sm:grid sm:grid-cols-[3rem_minmax(0,1fr)_7.5rem] sm:items-center">
+              <span />
+              <span />
+              <span className="text-right font-medium text-slate-600 text-sm">Nilai TKP</span>
+            </div>
+          ) : null}
+
+          {optionLabels.map((label, index) => {
+            const option = question?.options[index];
+            const isCorrectOption = !isTkp && correctAnswer === label;
+
+            return (
+              <div
+                key={label}
+                className={cn(
+                  "rounded-xl transition-colors",
+                  isCorrectOption && "border border-emerald-200 bg-emerald-50/80 p-3",
+                  isTkp
+                    ? "grid grid-cols-1 items-center gap-3 sm:grid-cols-[3rem_minmax(0,1fr)_7.5rem]"
+                    : "grid grid-cols-1 items-center gap-3 sm:grid-cols-[3rem_minmax(0,1fr)]",
+                )}
+              >
+                <div
+                  className={cn(
+                    "flex size-12 shrink-0 items-center justify-center rounded-xl border font-semibold",
+                    isCorrectOption
+                      ? "border-emerald-300 bg-emerald-100 text-emerald-700"
+                      : "border-slate-200 bg-slate-50 text-slate-700",
+                  )}
+                >
+                  {label}
+                </div>
+                <Input
+                  name={`optionText${label}`}
+                  defaultValue={option?.text ?? ""}
+                  className={cn(
+                    "rounded-xl bg-white",
+                    isCorrectOption ? "border-emerald-300 focus-visible:ring-emerald-200" : "border-slate-200",
+                  )}
+                  placeholder={`Opsi ${label}`}
+                  required
+                />
+                {isTkp ? (
                   <Input
                     id={`optionWeight${label}`}
                     name={`optionWeight${label}`}
@@ -236,38 +285,47 @@ export function QuestionEditorForm({
                     min={1}
                     max={5}
                     defaultValue={option?.tkpWeight ?? 1}
-                    className="rounded-xl border-slate-200"
-                    placeholder="Nilai 1-5"
+                    className="rounded-xl border-slate-200 bg-white sm:text-right"
+                    placeholder="1-5"
                     required
+                    aria-label={`Nilai TKP opsi ${label}`}
                   />
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </FormSection>
 
-      <div className="grid gap-2">
-        <Label htmlFor="explanation">Pembahasan</Label>
+      <FormSection title="Pembahasan (Opsional)">
         <Textarea
           id="explanation"
           name="explanation"
           defaultValue={question?.explanation ?? ""}
-          className="min-h-28 rounded-xl border-slate-200"
+          className="min-h-28 rounded-xl border-slate-200 bg-white"
+          placeholder="Tulis pembahasan jawaban..."
         />
-      </div>
+      </FormSection>
 
-      <div className="flex flex-wrap gap-2">
-        <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-          {isPending ? "Menyimpan..." : question ? "Simpan Perubahan" : "Simpan Soal"}
-        </Button>
+      <div className="flex flex-wrap justify-end gap-3 border-slate-100 border-t pt-6">
         <Button
           type="button"
           variant="outline"
-          className="rounded-xl border-slate-200"
+          className="rounded-xl border-slate-200 bg-white px-6"
           onClick={() => router.push(redirectPath)}
+          disabled={isPending}
         >
           Batal
+        </Button>
+        <Button type="submit" className="rounded-xl bg-blue-600 px-6 hover:bg-blue-700" disabled={isPending}>
+          {isPending ? (
+            "Menyimpan..."
+          ) : (
+            <>
+              <Save className="size-4" />
+              {question ? "Simpan Perubahan" : "Simpan Soal"}
+            </>
+          )}
         </Button>
       </div>
     </form>

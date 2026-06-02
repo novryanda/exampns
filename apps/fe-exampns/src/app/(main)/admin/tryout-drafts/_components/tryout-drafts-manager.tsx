@@ -1,19 +1,24 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 
 import Link from "next/link";
 
-import { Copy, Pencil, Plus, Send } from "lucide-react";
+import { Copy, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
+import { ConfirmActionDialog } from "@/components/ui/confirm-action-dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { type ClientPaginatedResponse, fetchAdminData } from "@/lib/admin-data-client";
-import { duplicateTryoutDraftAction, submitTryoutDraftAction } from "@/server/admin-content-actions";
+import {
+  archiveTryoutDraftAction,
+  duplicateTryoutDraftAction,
+  submitTryoutDraftAction,
+} from "@/server/admin-content-actions";
 import type { AdminTryoutDraftItem } from "@/server/admin-content-data";
 
 function formatDateTime(value: string) {
@@ -30,11 +35,7 @@ function toLabel(value: string) {
     .join(" ");
 }
 
-function buildFilterHref(filters: {
-  search?: string;
-  status?: string;
-  tryoutType?: string;
-}) {
+function buildFilterHref(filters: { search?: string; status?: string; tryoutType?: string }) {
   const searchParams = new URLSearchParams();
 
   if (filters.search) {
@@ -53,11 +54,7 @@ function buildFilterHref(filters: {
   return query ? `/admin/tryout-drafts?${query}` : "/admin/tryout-drafts";
 }
 
-async function fetchDrafts(params: {
-  search?: string;
-  status?: string;
-  tryoutType?: string;
-}) {
+async function fetchDrafts(params: { search?: string; status?: string; tryoutType?: string }) {
   return fetchAdminData<ClientPaginatedResponse<AdminTryoutDraftItem[]>>("tryout-drafts", {
     search: params.search,
     status: params.status,
@@ -84,11 +81,7 @@ export function TryoutDraftsManager({
   const [typeInput, setTypeInput] = useState(initialFilters.tryoutType ?? "all");
   const [isPending, startTransition] = useTransition();
 
-  const applyFilters = (nextFilters: {
-    search?: string;
-    status?: string;
-    tryoutType?: string;
-  }) => {
+  const applyFilters = useCallback((nextFilters: { search?: string; status?: string; tryoutType?: string }) => {
     startTransition(async () => {
       try {
         const nextResponse = await fetchDrafts(nextFilters);
@@ -99,13 +92,36 @@ export function TryoutDraftsManager({
         toast.error(error instanceof Error ? error.message : "Gagal memuat draft tryout.");
       }
     });
-  };
+  }, []);
 
   const handleApply = () => {
     applyFilters({
       search: searchInput.trim() || undefined,
       status: statusInput !== "all" ? statusInput : undefined,
       tryoutType: typeInput !== "all" ? typeInput : undefined,
+    });
+  };
+
+  const handleDelete = async (draft: AdminTryoutDraftItem) => {
+    await new Promise<void>((resolve, reject) => {
+      startTransition(async () => {
+        try {
+          await archiveTryoutDraftAction(draft.id);
+          setResponse((current) => ({
+            success: true,
+            data: current.data.filter((item) => item.id !== draft.id),
+            meta: {
+              ...current.meta,
+              totalItems: Math.max(0, current.meta.totalItems - 1),
+            },
+          }));
+          toast.success("Tryout draft berhasil dihapus dari daftar draft.");
+          resolve();
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Gagal menghapus draft tryout.");
+          reject(error);
+        }
+      });
     });
   };
 
@@ -128,7 +144,7 @@ export function TryoutDraftsManager({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [appliedFilters.search, appliedFilters.status, appliedFilters.tryoutType, searchInput]);
+  }, [appliedFilters.search, appliedFilters.status, appliedFilters.tryoutType, applyFilters, searchInput]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -167,6 +183,7 @@ export function TryoutDraftsManager({
             <SelectItem value="generated">Otomatis</SelectItem>
             <SelectItem value="manual">Manual</SelectItem>
             <SelectItem value="hybrid">Hybrid</SelectItem>
+            <SelectItem value="adaptive">Adaptive</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusInput} onValueChange={setStatusInput}>
@@ -227,7 +244,7 @@ export function TryoutDraftsManager({
                       <Button variant="outline" size="sm" className="rounded-lg" asChild>
                         <Link href={`/admin/tryout-drafts/${draft.id}/edit`}>
                           <Pencil className="mr-1 size-4" />
-                          Ubah
+                          Builder
                         </Link>
                       </Button>
                       <form action={duplicateTryoutDraftAction.bind(null, draft.id)}>
@@ -244,6 +261,17 @@ export function TryoutDraftsManager({
                           </Button>
                         </form>
                       ) : null}
+                      <ConfirmActionDialog
+                        title="Hapus draft tryout?"
+                        description={`Draft "${draft.name}" akan diarsipkan dan tidak tampil lagi di daftar draft admin.`}
+                        confirmLabel="Ya, hapus draft"
+                        onConfirm={() => handleDelete(draft)}
+                      >
+                        <Button type="button" size="sm" variant="destructive" className="rounded-lg">
+                          <Trash2 className="mr-1 size-4" />
+                          Hapus
+                        </Button>
+                      </ConfirmActionDialog>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -34,10 +34,14 @@ function ToggleField({
 
 export function TryoutDraftForm({
   draft,
+  scope = "admin",
   redirectPath,
+  createRedirectBasePath,
 }: {
   readonly draft?: AdminTryoutDraftDetail;
+  readonly scope?: "admin" | "super-admin";
   readonly redirectPath: string;
+  readonly createRedirectBasePath?: string;
 }) {
   const router = useRouter();
   const action = draft ? updateTryoutDraftAction : createTryoutDraftAction;
@@ -46,7 +50,11 @@ export function TryoutDraftForm({
   useEffect(() => {
     if (state.status === "success") {
       toast.success(state.message);
-      router.push(redirectPath);
+      if (!draft && state.resourceId) {
+        router.push(`${createRedirectBasePath ?? "/admin/tryout-drafts"}/${state.resourceId}/edit`);
+      } else {
+        router.push(redirectPath);
+      }
       router.refresh();
       return;
     }
@@ -54,11 +62,12 @@ export function TryoutDraftForm({
     if (state.status === "error") {
       toast.error(state.message);
     }
-  }, [redirectPath, router, state]);
+  }, [createRedirectBasePath, draft, redirectPath, router, state]);
 
   return (
     <form action={formAction} className="grid gap-6">
       {draft ? <input type="hidden" name="tryoutDraftId" value={draft.id} /> : null}
+      <input type="hidden" name="scope" value={scope} />
 
       <div className="grid gap-2">
         <Label htmlFor="name">Nama Draft</Label>
@@ -92,6 +101,7 @@ export function TryoutDraftForm({
               <SelectItem value="generated">Otomatis</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
               <SelectItem value="hybrid">Hybrid</SelectItem>
+              <SelectItem value="adaptive">Adaptive</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -102,8 +112,8 @@ export function TryoutDraftForm({
               <SelectValue placeholder="Pilih akses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="trial_and_paid">Trial & Berbayar</SelectItem>
-              <SelectItem value="paid_only">Berbayar Saja</SelectItem>
+              <SelectItem value="trial_and_paid">Semua Pengguna Aktif</SelectItem>
+              <SelectItem value="paid_only">Semua Berbayar</SelectItem>
               <SelectItem value="premium_only">Premium Saja</SelectItem>
               <SelectItem value="trial_only">Trial Saja</SelectItem>
             </SelectContent>

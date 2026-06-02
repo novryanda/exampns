@@ -124,6 +124,11 @@ export const superAdminSidebarItems: NavGroup[] = [
         url: "/super-admin/transactions",
         icon: ReceiptText,
       },
+      {
+        title: "Subscription Plans",
+        url: "/super-admin/subscription-plans",
+        icon: WalletCards,
+      },
     ],
   },
   {

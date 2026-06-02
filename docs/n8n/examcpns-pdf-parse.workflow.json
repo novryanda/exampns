@@ -7,9 +7,7 @@
         "httpMethod": "POST",
         "responseMode": "lastNode",
         "responseData": "firstEntryJson",
-        "options": {
-          "rawBody": true
-        }
+        "options": {}
       },
       "id": "ba8af9db-dc46-43f5-818f-90dfcf280201",
       "name": "PDF Parse Webhook",
@@ -23,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const incoming = $input.first().json;\nconst headers = incoming.headers ?? {};\nconst body = incoming.body ?? incoming;\nconst optionalSecret = $env.PDF_IMPORT_WEBHOOK_SECRET;\nconst apiKey = headers['x-api-key'] ?? headers['X-Api-Key'] ?? headers['X-API-KEY'];\n\nif (optionalSecret && apiKey !== optionalSecret) {\n  throw new Error('Unauthorized: invalid x-api-key for PDF import workflow');\n}\n\nif (!body.batchId || !body.fileName || !body.fileContentBase64 || body.fileMimeType !== 'application/pdf') {\n  throw new Error('Invalid payload for PDF import workflow');\n}\n\nconst categoryHint = body.categoryHint || 'auto';\n\nreturn [{\n  json: {\n    batchId: body.batchId,\n    fileName: body.fileName,\n    fileMimeType: body.fileMimeType,\n    categoryHint\n  },\n  binary: {\n    data: {\n      data: body.fileContentBase64,\n      mimeType: body.fileMimeType,\n      fileName: body.fileName\n    }\n  }\n}];"
+        "jsCode": "const incoming = $input.first().json;\nconst body = incoming.body ?? incoming;\n\n// Secret check is intentionally disabled here because the current backend\n// doesn't send x-api-key for PDF imports and this n8n instance denies $env\n// access from the Code node.\nif (!body.batchId || !body.fileName || !body.fileContentBase64 || body.fileMimeType !== 'application/pdf') {\n  throw new Error('Invalid payload for PDF import workflow');\n}\n\nconst categoryHint = body.categoryHint || 'auto';\nconst callbackUrl = body.callbackUrl || null;\nconst callbackSecret = body.callbackSecret || null;\n\nreturn [{\n  json: {\n    batchId: body.batchId,\n    fileName: body.fileName,\n    fileMimeType: body.fileMimeType,\n    categoryHint,\n    callbackUrl,\n    callbackSecret\n  },\n  binary: {\n    data: {\n      data: body.fileContentBase64,\n      mimeType: body.fileMimeType,\n      fileName: body.fileName\n    }\n  }\n}];"
       },
       "id": "78581721-8ab1-4d8c-b8b7-b0f3ea20b202",
       "name": "Validate And Decode PDF",
@@ -50,7 +48,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const extracted = $input.first().json;\nconst source = $('Validate And Decode PDF').first().json;\n\nconst rawText = extracted.text ?? extracted.data ?? extracted.content ?? JSON.stringify(extracted);\nconst cleanText = String(rawText)\n  .replace(/\\r/g, '\\n')\n  .replace(/[\\t ]+/g, ' ')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\nif (!cleanText) {\n  throw new Error('No text extracted from PDF');\n}\n\nconst truncatedText = cleanText.length > 120000 ? cleanText.slice(0, 120000) : cleanText;\n\nconst prompt = [\n  'Ekstrak semua soal CPNS dari teks PDF berikut.',\n  'Keluarkan JSON valid saja tanpa markdown fence.',\n  'Output wajib berupa object dengan key parsedQuestions.',\n  'Setiap item parsedQuestions harus memiliki field:',\n  JSON.stringify({\n    questionText: 'string',\n    options: [\n      { label: 'A', text: 'string' },\n      { label: 'B', text: 'string' },\n      { label: 'C', text: 'string' },\n      { label: 'D', text: 'string' },\n      { label: 'E', text: 'string' }\n    ],\n    detectedAnswer: 'A',\n    category: 'TWK',\n    subCategory: 'Tata Negara',\n    topicTag: 'Hak dan Kewajiban Warga Negara',\n    difficulty: 'medium',\n    confidenceScore: 86.5,\n    rawAiOutput: {},\n    status: 'pending_review'\n  }, null, 2),\n  'Gunakan status rejected jika satu soal tidak bisa dipulihkan dengan aman.',\n  `categoryHint: ${source.categoryHint}`,\n  '',\n  'Teks PDF:',\n  truncatedText,\n].join('\\n\\n');\n\nconst model = $env.OPENAI_MODEL || 'gpt-4.1-mini';\nconst llmRequest = {\n  model,\n  temperature: 0.1,\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'Anda adalah mesin ekstraksi soal CPNS dari PDF dan harus menjawab dalam JSON valid.'\n    },\n    {\n      role: 'user',\n      content: prompt\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    batchId: source.batchId,\n    categoryHint: source.categoryHint,\n    extractedTextLength: cleanText.length,\n    llmRequest\n  }\n}];"
+        "jsCode": "const extracted = $input.first().json;\nconst source = $('Validate And Decode PDF').first().json;\n\nconst rawText = extracted.text ?? extracted.data ?? extracted.content ?? JSON.stringify(extracted);\nconst cleanText = String(rawText)\n  .replace(/\\r/g, '\\n')\n  .replace(/[\\t ]+/g, ' ')\n  .replace(/\\n{3,}/g, '\\n\\n')\n  .trim();\n\nif (!cleanText) {\n  throw new Error('No text extracted from PDF');\n}\n\nconst truncatedText = cleanText.length > 120000 ? cleanText.slice(0, 120000) : cleanText;\n\nconst prompt = [\n  'Ekstrak semua soal CPNS dari teks PDF berikut.',\n  'Keluarkan JSON valid saja tanpa markdown fence.',\n  'Output wajib berupa object dengan key parsedQuestions.',\n  'Setiap item parsedQuestions harus memiliki field:',\n  JSON.stringify({\n    questionText: 'string',\n    options: [\n      { label: 'A', text: 'string', tkpWeight: 5 },\n      { label: 'B', text: 'string', tkpWeight: 4 },\n      { label: 'C', text: 'string', tkpWeight: 3 },\n      { label: 'D', text: 'string', tkpWeight: 2 },\n      { label: 'E', text: 'string', tkpWeight: 1 }\n    ],\n    detectedAnswer: 'A',\n    category: 'TWK',\n    subCategory: 'Tata Negara',\n    topicTag: 'Hak dan Kewajiban Warga Negara',\n    difficulty: 'medium',\n    confidenceScore: 86.5,\n    rawAiOutput: {},\n    status: 'pending_review'\n  }, null, 2),\n  'Aturan penting:',\n  '- Untuk TWK/TIU, isi detectedAnswer dengan satu label A-E dan kosongkan tkpWeight pada opsi.',\n  '- Untuk TKP, isi tkpWeight 1-5 di setiap opsi, detectedAnswer harus null karena tidak ada satu jawaban benar.',\n  '- Jika skor TKP tidak tertulis eksplisit, inferensikan urutan nilai terbaik hingga terendah dari pembahasan atau konteks soal.',\n  'Gunakan status rejected jika satu soal tidak bisa dipulihkan dengan aman.',\n  `categoryHint: ${source.categoryHint}`,\n  '',\n  'Teks PDF:',\n  truncatedText,\n].join('\\n\\n');\n\nconst model = 'gemini-2.5-flash';\nconst llmRequest = {\n  model,\n  temperature: 0.1,\n  response_format: { type: 'json_object' },\n  messages: [\n    {\n      role: 'system',\n      content: 'Anda adalah mesin ekstraksi soal CPNS dari PDF dan harus menjawab dalam JSON valid.'\n    },\n    {\n      role: 'user',\n      content: prompt\n    }\n  ]\n};\n\nreturn [{\n  json: {\n    batchId: source.batchId,\n    categoryHint: source.categoryHint,\n    extractedTextLength: cleanText.length,\n    llmRequest\n  }\n}];"
       },
       "id": "c1a6051d-2e03-4957-9f42-f14e0d4b2204",
       "name": "Build Parse Prompt",
@@ -64,13 +62,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "={{$env.OPENAI_BASE_URL || 'https://api.openai.com/v1/chat/completions'}}",
+        "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "Authorization",
-              "value": "=Bearer {{$env.OPENAI_API_KEY}}"
+              "value": "Bearer REPLACE_WITH_GEMINI_API_KEY"
             },
             {
               "name": "Content-Type",
@@ -94,7 +92,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const llmResponse = $input.first().json;\nlet raw = llmResponse.choices?.[0]?.message?.content ?? llmResponse.output_text ?? llmResponse.content ?? llmResponse;\nif (Array.isArray(raw)) {\n  raw = raw.map((item) => item?.text ?? '').join('\\n');\n}\nif (typeof raw === 'object') {\n  raw = JSON.stringify(raw);\n}\nif (typeof raw !== 'string') {\n  throw new Error('LLM response does not contain string content');\n}\n\nconst cleaned = raw\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```$/i, '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch {\n  throw new Error('LLM returned invalid JSON for parsedQuestions');\n}\n\nconst parsedQuestionsRaw = Array.isArray(parsed.parsedQuestions)\n  ? parsed.parsedQuestions\n  : Array.isArray(parsed.questions)\n    ? parsed.questions\n    : [];\n\nconst normalized = parsedQuestionsRaw.map((item) => {\n  const options = Array.isArray(item.options) ? item.options : [];\n  const normalizedOptions = ['A', 'B', 'C', 'D', 'E'].map((label, index) => ({\n    label,\n    text: String(options[index]?.text ?? options.find((option) => option?.label === label)?.text ?? '').trim(),\n  }));\n\n  const hasAllOptionTexts = normalizedOptions.every((option) => option.text.length > 0);\n  const category = ['TWK', 'TIU', 'TKP'].includes(item.category) ? item.category : null;\n  const difficulty = ['easy', 'medium', 'hard'].includes(item.difficulty) ? item.difficulty : null;\n  const detectedAnswer = ['A', 'B', 'C', 'D', 'E'].includes(item.detectedAnswer) ? item.detectedAnswer : null;\n  const status = item.status === 'rejected' || !item.questionText || !hasAllOptionTexts ? 'rejected' : 'pending_review';\n\n  return {\n    questionText: String(item.questionText ?? '').trim(),\n    options: normalizedOptions,\n    detectedAnswer,\n    category,\n    subCategory: item.subCategory ? String(item.subCategory).trim() : null,\n    topicTag: item.topicTag ? String(item.topicTag).trim() : null,\n    difficulty,\n    confidenceScore: typeof item.confidenceScore === 'number' ? item.confidenceScore : null,\n    rawAiOutput: item.rawAiOutput ?? item,\n    status,\n  };\n});\n\nconst validCount = normalized.filter((item) => item.status === 'pending_review').length;\nconst invalidCount = normalized.filter((item) => item.status === 'rejected').length;\n\nreturn [{\n  json: {\n    parsedQuestions: normalized,\n    totalParsed: normalized.length,\n    validCount,\n    invalidCount\n  }\n}];"
+        "jsCode": "const llmResponse = $input.first().json;\nlet raw = llmResponse.choices?.[0]?.message?.content ?? llmResponse.output_text ?? llmResponse.content ?? llmResponse;\nif (Array.isArray(raw)) {\n  raw = raw.map((item) => item?.text ?? '').join('\\n');\n}\nif (typeof raw === 'object') {\n  raw = JSON.stringify(raw);\n}\nif (typeof raw !== 'string') {\n  throw new Error('LLM response does not contain string content');\n}\n\nconst cleaned = raw\n  .replace(/^```json\\s*/i, '')\n  .replace(/^```\\s*/i, '')\n  .replace(/```$/i, '')\n  .trim();\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch {\n  throw new Error('LLM returned invalid JSON for parsedQuestions');\n}\n\nconst parsedQuestionsRaw = Array.isArray(parsed.parsedQuestions)\n  ? parsed.parsedQuestions\n  : Array.isArray(parsed.questions)\n    ? parsed.questions\n    : [];\n\nconst hasUsefulRawOutput = (value) => {\n  if (value === null || value === undefined) {\n    return false;\n  }\n\n  if (typeof value !== 'object') {\n    return true;\n  }\n\n  return Object.keys(value).length > 0;\n};\n\nconst normalized = parsedQuestionsRaw.map((item) => {\n  const options = Array.isArray(item.options) ? item.options : [];\n  const category = ['TWK', 'TIU', 'TKP'].includes(item.category) ? item.category : null;\n  const normalizedOptions = ['A', 'B', 'C', 'D', 'E'].map((label, index) => {\n    const matchedOption = options[index] ?? options.find((option) => option?.label === label) ?? {};\n    const rawTkpWeight = Number(matchedOption?.tkpWeight);\n\n    return {\n      label,\n      text: String(matchedOption?.text ?? '').trim(),\n      ...(category === 'TKP' && Number.isInteger(rawTkpWeight) && rawTkpWeight >= 1 && rawTkpWeight <= 5\n        ? { tkpWeight: rawTkpWeight }\n        : {}),\n    };\n  });\n\n  const hasAllOptionTexts = normalizedOptions.every((option) => option.text.length > 0);\n  const difficulty = ['easy', 'medium', 'hard'].includes(item.difficulty) ? item.difficulty : null;\n  const detectedAnswer =\n    category === 'TKP'\n      ? null\n      : ['A', 'B', 'C', 'D', 'E'].includes(item.detectedAnswer)\n        ? item.detectedAnswer\n        : null;\n  const status = item.status === 'rejected' || !item.questionText || !hasAllOptionTexts ? 'rejected' : 'pending_review';\n  const rawAiOutput = hasUsefulRawOutput(item.rawAiOutput)\n    ? item.rawAiOutput\n    : {\n        ...item,\n        category,\n        difficulty,\n        detectedAnswer,\n      };\n\n  return {\n    questionText: String(item.questionText ?? '').trim(),\n    options: normalizedOptions,\n    detectedAnswer,\n    category,\n    subCategory: item.subCategory ? String(item.subCategory).trim() : null,\n    topicTag: item.topicTag ? String(item.topicTag).trim() : null,\n    difficulty,\n    confidenceScore: typeof item.confidenceScore === 'number' ? item.confidenceScore : null,\n    rawAiOutput,\n    status,\n  };\n});\n\nconst validCount = normalized.filter((item) => item.status === 'pending_review').length;\nconst invalidCount = normalized.filter((item) => item.status === 'rejected').length;\n\nreturn [{\n  json: {\n    parsedQuestions: normalized,\n    totalParsed: normalized.length,\n    validCount,\n    invalidCount\n  }\n}];"
       },
       "id": "029e5c39-7255-4293-af73-1765c7d9d306",
       "name": "Normalize Parsed Questions",
@@ -102,6 +100,37 @@
       "typeVersion": 2,
       "position": [
         1540,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Validate And Decode PDF').first().json.callbackUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $('Validate And Decode PDF').first().json.callbackSecret }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ batchId: $('Validate And Decode PDF').first().json.batchId, success: true, parsedQuestions: $json.parsedQuestions, totalParsed: $json.totalParsed, validCount: $json.validCount, invalidCount: $json.invalidCount }) }}",
+        "options": {}
+      },
+      "id": "5c02a3bd-7fbe-4899-a240-8af9f17f42a1",
+      "name": "Send Parse Result Callback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1800,
         320
       ]
     }
@@ -157,6 +186,17 @@
         [
           {
             "node": "Normalize Parsed Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Parsed Questions": {
+      "main": [
+        [
+          {
+            "node": "Send Parse Result Callback",
             "type": "main",
             "index": 0
           }

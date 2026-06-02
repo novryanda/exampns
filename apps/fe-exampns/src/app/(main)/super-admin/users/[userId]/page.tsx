@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { requirePrivilegedProfile } from "@/lib/auth/server-auth";
 import { getAdminUserDetail } from "@/server/admin-data";
 
+import { AccessOverrideManager } from "../_components/access-override-manager";
 import { UserDetailActions } from "../_components/user-detail-actions";
 import { UserDetailPhoto } from "../_components/user-detail-photo";
 
@@ -31,6 +32,8 @@ function toLabel(value: string) {
 
 function toStatusBadgeTone(status: string) {
   if (status === "active") return "success";
+  if (status === "standard") return "brand";
+  if (status === "premium") return "success";
   if (status === "trial" || status === "inactive") return "warning";
   if (status === "suspended" || status === "expired") return "danger";
   return "neutral";
@@ -99,7 +102,7 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
         <SectionCard title="Profil" description="Data akun pengguna">
           <div className="mb-6">
             <p className="mb-3 font-medium text-slate-700 text-sm">Foto profil</p>
-            <UserDetailPhoto name={user.fullName} imageUrl={user.image} />
+            <UserDetailPhoto name={user.fullName} imageUrl={user.image ?? null} />
           </div>
           <dl className="space-y-4 text-sm">
             <div className="flex items-start gap-3">
@@ -136,11 +139,29 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
           {user.subscription ? (
             <dl className="space-y-3 text-sm">
               <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Akses efektif</dt>
+                <dd>
+                  <StatusBadge tone={toStatusBadgeTone(user.effectiveAccessLevel)}>
+                    {toLabel(user.effectiveAccessLevel)}
+                  </StatusBadge>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Sumber akses</dt>
+                <dd className="font-medium text-slate-950">{toLabel(user.effectiveAccessSource)}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Status</dt>
                 <dd>
                   <StatusBadge tone={toStatusBadgeTone(user.subscription.status)}>
                     {toLabel(user.subscription.status)}
                   </StatusBadge>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Plan</dt>
+                <dd className="font-medium text-slate-950">
+                  {user.subscription.planName} ({toLabel(user.subscription.tier)})
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
@@ -155,10 +176,31 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
               </div>
             </dl>
           ) : (
-            <p className="text-slate-500 text-sm">Belum ada subscription aktif.</p>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Akses efektif</dt>
+                <dd>
+                  <StatusBadge tone={toStatusBadgeTone(user.effectiveAccessLevel)}>
+                    {toLabel(user.effectiveAccessLevel)}
+                  </StatusBadge>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Sumber akses</dt>
+                <dd className="font-medium text-slate-950">{toLabel(user.effectiveAccessSource)}</dd>
+              </div>
+              <p className="text-slate-500 text-sm">Belum ada subscription aktif.</p>
+            </div>
           )}
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Access Override"
+        description="Berikan akses standard atau premium sementara tanpa mengubah plan utama pengguna."
+      >
+        <AccessOverrideManager userId={user.id} overrides={user.accessOverrides} />
+      </SectionCard>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 
-import { Loader2 } from "lucide-react";
+import { CircleCheck, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ export function ProfileForm({ profile }: { readonly profile: CurrentUserProfile 
   }, [state]);
 
   return (
-    <form action={formAction} className="grid gap-4 md:grid-cols-2">
+    <form action={formAction} className="grid gap-4 border-t border-slate-100 pt-5 md:grid-cols-2">
       <div className="grid gap-2 md:col-span-2">
         <Label htmlFor="profile-name">Nama lengkap</Label>
         <Input
@@ -42,7 +42,18 @@ export function ProfileForm({ profile }: { readonly profile: CurrentUserProfile 
       </div>
       <div className="grid gap-2">
         <Label htmlFor="profile-email">Email</Label>
-        <Input id="profile-email" value={profile.email} readOnly disabled className="bg-slate-50" />
+        <div className="relative">
+          <Input
+            id="profile-email"
+            value={profile.email}
+            readOnly
+            disabled
+            className="bg-slate-50 pr-10"
+          />
+          {profile.emailVerified ? (
+            <CircleCheck className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-emerald-500" />
+          ) : null}
+        </div>
       </div>
       <div className="grid gap-2">
         <Label htmlFor="profile-phone">Nomor telepon</Label>
@@ -51,6 +62,7 @@ export function ProfileForm({ profile }: { readonly profile: CurrentUserProfile 
           name="phone"
           type="tel"
           defaultValue={profile.phone ?? ""}
+          placeholder="Masukkan nomor telepon"
           required
           maxLength={30}
           autoComplete="tel"
@@ -61,7 +73,7 @@ export function ProfileForm({ profile }: { readonly profile: CurrentUserProfile 
           type="submit"
           size="sm"
           disabled={isPending}
-          className="rounded-xl bg-blue-600 px-4 hover:bg-blue-700"
+          className="rounded-xl bg-blue-600 px-5 hover:bg-blue-700"
         >
           {isPending ? (
             <>
@@ -69,7 +81,10 @@ export function ProfileForm({ profile }: { readonly profile: CurrentUserProfile 
               Menyimpan…
             </>
           ) : (
-            "Simpan"
+            <>
+              <Save className="size-4" />
+              Simpan Perubahan
+            </>
           )}
         </Button>
       </div>

@@ -28,8 +28,8 @@ async function bootstrap() {
   );
 
   app.use('/api/auth', toNodeHandler(auth));
-  app.use(json());
-  app.use(urlencoded({ extended: true }));
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ extended: true, limit: '10mb' }));
 
   const port = process.env.PORT ?? 3001;
   await app.listen(port);

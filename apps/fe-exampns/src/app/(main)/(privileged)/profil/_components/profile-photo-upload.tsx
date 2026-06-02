@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Camera, Loader2, Trash2 } from "lucide-react";
+import { Camera, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -77,15 +77,26 @@ export function ProfilePhotoUpload({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-      <Avatar className="size-24 rounded-2xl ring-2 ring-slate-100">
-        <AvatarImage src={previewUrl ?? undefined} alt={name} className="object-cover" />
-        <AvatarFallback className="rounded-2xl text-lg">{getInitials(name)}</AvatarFallback>
-      </Avatar>
+      <div className="relative w-fit shrink-0">
+        <Avatar className="size-24 rounded-2xl bg-blue-50 ring-2 ring-slate-100">
+          <AvatarImage src={previewUrl ?? undefined} alt={name} className="object-cover" />
+          <AvatarFallback className="rounded-2xl bg-blue-50 text-lg text-blue-700">{getInitials(name)}</AvatarFallback>
+        </Avatar>
+        <button
+          type="button"
+          className="absolute right-0 bottom-0 flex size-8 items-center justify-center rounded-full border-2 border-white bg-blue-600 text-white shadow-sm"
+          disabled={isBusy}
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Unggah foto profil"
+        >
+          <Camera className="size-3.5" />
+        </button>
+      </div>
 
       <div className="space-y-2">
         <p className="font-medium text-slate-950 text-sm">Foto profil</p>
-        <p className="max-w-sm text-slate-500 text-xs">
-          JPEG, PNG, atau WebP. Maksimal 2 MB. Foto ditampilkan di sidebar dan menu akun.
+        <p className="max-w-md text-slate-500 text-xs leading-relaxed">
+          JPG, PNG, atau WebP. Maksimal 2 MB. Foto ditampilkan di sidebar dan menu akun.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <form ref={uploadFormRef} action={uploadAction} className="contents">
@@ -103,11 +114,11 @@ export function ProfilePhotoUpload({
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-xl"
+            className="rounded-xl border-blue-200 bg-white text-blue-600 hover:bg-blue-50 hover:text-blue-700"
             disabled={isBusy}
             onClick={() => fileInputRef.current?.click()}
           >
-            {isUploading ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+            {isUploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
             {isUploading ? "Mengunggah…" : "Unggah foto"}
           </Button>
           {previewUrl ? (

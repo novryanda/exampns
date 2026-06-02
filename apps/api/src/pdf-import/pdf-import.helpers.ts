@@ -15,6 +15,20 @@ export interface UploadedPdfFile {
 export interface ParsedQuestionOptionPayload {
   label: 'A' | 'B' | 'C' | 'D' | 'E';
   text: string;
+  tkpWeight?: number | null;
+}
+
+export interface ParsedQuestionCallbackPayload {
+  questionText: string;
+  options: ParsedQuestionOptionPayload[];
+  detectedAnswer?: string | null;
+  category?: QuestionCategory | null;
+  subCategory?: string | null;
+  topicTag?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard' | null;
+  confidenceScore?: number | null;
+  rawAiOutput?: unknown;
+  status?: ParsedQuestionStatus;
 }
 
 export const buildQuestionPreview = (text: string) => {
@@ -61,7 +75,7 @@ export const toQuestionOptionCreateMany = (
     label: option.label,
     optionText: option.text,
     isCorrect: category === QuestionCategory.TKP ? false : option.label === detectedAnswer,
-    tkpWeight: null,
+    tkpWeight: category === QuestionCategory.TKP ? option.tkpWeight ?? null : null,
     displayOrder: index + 1,
   }));
 
@@ -72,3 +86,8 @@ export const deriveParsedQuestionStatusCounters = (
   validCount: parsedQuestions.filter((item) => item.status === ParsedQuestionStatus.approved).length,
   invalidCount: parsedQuestions.filter((item) => item.status === ParsedQuestionStatus.rejected).length,
 });
+
+export const getApiPublicBase = () =>
+  (process.env.PUBLIC_API_URL ?? process.env.BETTER_AUTH_URL ?? 'http://localhost:3001')
+    .replace(/\/$/, '')
+    .replace(/\/api\/auth$/, '');

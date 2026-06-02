@@ -11,6 +11,7 @@ import {
   TryoutType,
   UserRole,
 } from '../../generated/prisma/client.js';
+import type { EffectiveAccessLevel } from '../common/access-control.helpers.js';
 
 export interface QuestionSnapshotOption {
   label: string;
@@ -177,20 +178,17 @@ export const resolveTryoutCatalogId = (payload: { tryoutCatalogId?: string; exam
 
 export const ensureUserCanAccessTryout = (
   accessType: AccessType,
-  subscription: { isTrial: boolean } | null,
+  accessLevel: EffectiveAccessLevel,
 ) => {
-  if (!subscription) {
-    return false;
-  }
-
   switch (accessType) {
     case AccessType.trial_only:
-      return subscription.isTrial;
+      return accessLevel === 'trial';
     case AccessType.paid_only:
+      return accessLevel === 'standard' || accessLevel === 'premium';
     case AccessType.premium_only:
-      return !subscription.isTrial;
+      return accessLevel === 'premium';
     case AccessType.trial_and_paid:
-      return true;
+      return accessLevel !== 'expired';
     default:
       return false;
   }

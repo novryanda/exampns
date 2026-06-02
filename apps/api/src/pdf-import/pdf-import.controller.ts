@@ -105,6 +105,21 @@ export class PdfImportController {
     );
   }
 
+  @Post('parsed-questions/bulk-approve')
+  @HttpCode(HttpStatus.CREATED)
+  async bulkApproveParsedQuestions(
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    const result = await this.pdfImportService.bulkApproveParsedQuestions(body, actor);
+    const message =
+      result.failedCount === 0
+        ? `${result.approvedCount} parsed question berhasil disetujui`
+        : `${result.approvedCount} parsed question disetujui, ${result.failedCount} lainnya perlu ditinjau manual`;
+
+    return apiData(result, message);
+  }
+
   @Post('parsed-questions/:parsedQuestionId/reject')
   async rejectParsedQuestion(
     @Param('parsedQuestionId') parsedQuestionId: string,

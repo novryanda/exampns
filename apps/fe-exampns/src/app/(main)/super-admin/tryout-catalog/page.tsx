@@ -13,6 +13,8 @@ const statIcons = [ClipboardList, CheckCircle2, FileText, Layers2] as const;
 const statTints = ["blue", "green", "amber", "violet"] as const;
 
 function toLabel(value: string) {
+  if (value === "trial_and_paid") return "Semua Pengguna Aktif";
+  if (value === "paid_only") return "Semua Berbayar";
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -103,6 +105,7 @@ export default async function SuperAdminTryoutCatalogPage() {
             <SelectItem value="generated">Generated</SelectItem>
             <SelectItem value="manual">Manual</SelectItem>
             <SelectItem value="hybrid">Hybrid</SelectItem>
+            <SelectItem value="adaptive">Adaptive</SelectItem>
           </SelectContent>
         </Select>
         <Select defaultValue="all-access">
@@ -111,9 +114,10 @@ export default async function SuperAdminTryoutCatalogPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all-access">Semua Akses</SelectItem>
-            <SelectItem value="trial_and_paid">Trial & Paid</SelectItem>
-            <SelectItem value="paid_only">Paid Only</SelectItem>
+            <SelectItem value="trial_and_paid">Semua Pengguna Aktif</SelectItem>
+            <SelectItem value="paid_only">Semua Berbayar</SelectItem>
             <SelectItem value="premium_only">Premium Only</SelectItem>
+            <SelectItem value="trial_only">Trial Only</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -148,12 +152,13 @@ export default async function SuperAdminTryoutCatalogPage() {
               <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Updated At</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {allTryouts.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-slate-400">
+                <TableCell colSpan={9} className="py-10 text-center text-slate-400">
                   Belum ada tryout yang tersedia.
                 </TableCell>
               </TableRow>
@@ -183,6 +188,11 @@ export default async function SuperAdminTryoutCatalogPage() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>{formatDate(tryout.updatedAt)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" className="rounded-lg border-slate-200 bg-white" asChild>
+                      <Link href={`/super-admin/tryout-catalog/${tryout.id}/edit`}>Buka Builder</Link>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))
             )}

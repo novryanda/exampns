@@ -36,6 +36,13 @@ export class QuestionBankController {
     return apiPaginated(result.data, result.meta);
   }
 
+  @Get('overview')
+  async getOverview(
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(await this.questionBankService.getOverview(query));
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createQuestion(

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { QuestionCategory } from '../../generated/prisma/client.js';
+import { Prisma, QuestionCategory } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -13,12 +13,19 @@ import {
   createSubCategorySchema,
   createTopicTagSchema,
   listSubCategoriesQuerySchema,
+  listTopicTagQuestionsQuerySchema,
   listTopicTagsQuerySchema,
   metadataOptionsQuerySchema,
+  metadataSummaryQuerySchema,
   updateSubCategorySchema,
   updateTopicTagSchema,
 } from './question-metadata.schemas.js';
 import { normalizeMetadataName, toMetadataSlug } from './question-metadata.utils.js';
+
+const buildQuestionPreview = (text: string) => {
+  const compact = text.replace(/\s+/g, ' ').trim();
+  return compact.length <= 120 ? compact : `${compact.slice(0, 117)}...`;
+};
 
 @Injectable()
 export class QuestionMetadataService {
@@ -73,10 +80,62 @@ export class QuestionMetadataService {
     };
   }
 
+  async getSummary(rawQuery: unknown) {
+    const query = this.validationService.validate(metadataSummaryQuerySchema, rawQuery);
+    const subCategoryWhere = {
+      ...(query.category ? { category: query.category } : {}),
+    };
+    const topicTagWhere = {
+      ...(query.category
+        ? {
+            subCategory: {
+              is: {
+                category: query.category,
+              },
+            },
+          }
+        : {}),
+    };
+
+    const [totalSubCategories, activeSubCategories, totalTopicTags, activeTopicTags] = await Promise.all([
+      this.prisma.questionSubCategory.count({ where: subCategoryWhere }),
+      this.prisma.questionSubCategory.count({
+        where: {
+          ...subCategoryWhere,
+          isActive: true,
+        },
+      }),
+      this.prisma.questionTopicTag.count({ where: topicTagWhere }),
+      this.prisma.questionTopicTag.count({
+        where: {
+          ...topicTagWhere,
+          isActive: true,
+        },
+      }),
+    ]);
+
+    return {
+      totalSubCategories,
+      activeSubCategories,
+      inactiveSubCategories: totalSubCategories - activeSubCategories,
+      totalTopicTags,
+      activeTopicTags,
+      inactiveTopicTags: totalTopicTags - activeTopicTags,
+    };
+  }
+
   async listSubCategories(rawQuery: unknown) {
     const query = this.validationService.validate(listSubCategoriesQuerySchema, rawQuery);
     const where = {
       ...(query.category ? { category: query.category } : {}),
+      ...(query.search
+        ? {
+            name: {
+              contains: query.search,
+              mode: Prisma.QueryMode.insensitive,
+            },
+          }
+        : {}),
       ...(query.includeInactive ? {} : { isActive: true }),
     };
     const skip = (query.page - 1) * query.limit;
@@ -248,6 +307,14 @@ export class QuestionMetadataService {
             },
           }
         : {}),
+      ...(query.search
+        ? {
+            name: {
+              contains: query.search,
+              mode: Prisma.QueryMode.insensitive,
+            },
+          }
+        : {}),
       ...(query.includeInactive ? {} : { isActive: true }),
     };
     const skip = (query.page - 1) * query.limit;
@@ -296,6 +363,114 @@ export class QuestionMetadataService {
         subCategory: item.subCategory.name,
         category: item.subCategory.category,
         questionCount: item._count.questions,
+      })),
+      meta: {
+        page: query.page,
+        limit: query.limit,
+        totalItems,
+        totalPages: Math.max(1, Math.ceil(totalItems / query.limit)),
+      },
+    };
+  }
+
+  async listTopicTagQuestions(topicTagId: string, rawQuery: unknown) {
+    const query = this.validationService.validate(listTopicTagQuestionsQuerySchema, rawQuery);
+    const topicTag = await this.prisma.questionTopicTag.findUnique({
+      where: { id: topicTagId },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!topicTag) {
+      throw new NotFoundException('Question topic tag not found');
+    }
+
+    const where = {
+      topicTagId,
+      ...(query.search
+        ? {
+            OR: [
+              {
+                questionText: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                competencyArea: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                explanation: {
+                  contains: query.search,
+                  mode: 'insensitive' as const,
+                },
+              },
+              {
+                tags: {
+                  some: {
+                    tag: {
+                      contains: query.search,
+                      mode: 'insensitive' as const,
+                    },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    } satisfies Prisma.QuestionWhereInput;
+    const skip = (query.page - 1) * query.limit;
+
+    const [items, totalItems] = await Promise.all([
+      this.prisma.question.findMany({
+        where,
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        select: {
+          id: true,
+          questionText: true,
+          category: true,
+          subCategoryId: true,
+          topicTagId: true,
+          subCategoryRef: {
+            select: {
+              name: true,
+            },
+          },
+          topicTagRef: {
+            select: {
+              name: true,
+            },
+          },
+          difficulty: true,
+          status: true,
+          sourceType: true,
+          updatedAt: true,
+        },
+        skip,
+        take: query.limit,
+      }),
+      this.prisma.question.count({ where }),
+    ]);
+
+    return {
+      data: items.map((item) => ({
+        id: item.id,
+        questionPreview: buildQuestionPreview(item.questionText),
+        category: item.category,
+        subCategoryId: item.subCategoryId,
+        topicTagId: item.topicTagId,
+        subCategory: item.subCategoryRef.name,
+        topicTag: item.topicTagRef.name,
+        difficulty: item.difficulty,
+        status: item.status,
+        sourceType: item.sourceType,
+        updatedAt: item.updatedAt,
       })),
       meta: {
         page: query.page,

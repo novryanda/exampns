@@ -141,6 +141,24 @@ const manualSetSelect = {
   },
 } as const;
 
+interface HybridRuleConfig {
+  manualPlacement?: 'prepend';
+}
+
+interface AdaptiveRuleConfig {
+  strategy?: 'latest_ai_recommendation';
+  fallbackStrategy?: 'generation_rule';
+  maxWeakAreas?: number;
+  perWeakAreaQuestionCap?: number;
+  includeTrendBoost?: boolean;
+}
+
+interface BuilderStatusSummary {
+  isStructurallyValid: boolean;
+  missingParts: string[];
+  modeSpecificWarnings: string[];
+}
+
 @Injectable()
 export class TryoutManagementService {
   constructor(
@@ -224,25 +242,9 @@ export class TryoutManagementService {
   }
 
   async getTryoutCatalogDetail(tryoutCatalogId: string) {
-    const catalog = await this.prisma.tryoutCatalog.findUnique({
-      where: { id: tryoutCatalogId },
-      select: catalogDetailSelect,
-    });
-
-    if (!catalog) {
-      throw new NotFoundException('Tryout catalog not found');
-    }
-
-    return {
-      ...catalog,
-      manualQuestionSets: catalog.manualQuestionSets.map((item) => ({
-        id: item.id,
-        name: item.name,
-        status: item.status,
-        itemCount: item._count.items,
-        updatedAt: item.updatedAt,
-      })),
-    };
+    const catalog = await this.getCatalogDetailRecord(tryoutCatalogId);
+    const workingManualQuestionSet = await this.findWorkingManualQuestionSet(tryoutCatalogId);
+    return this.formatBuilderDetail(catalog, workingManualQuestionSet);
   }
 
   async updateTryoutCatalog(
@@ -404,6 +406,23 @@ export class TryoutManagementService {
       });
     }
 
+    const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
+    if (catalog.accessType === 'premium_only') {
+      const premiumPlanCount = await this.prisma.subscriptionPlan.count({
+        where: {
+          isActive: true,
+          tier: 'premium',
+        },
+      });
+
+      if (premiumPlanCount === 0) {
+        throw new BadRequestException({
+          code: 'PREMIUM_PLAN_REQUIRED',
+          message: 'Tryout premium tidak bisa dipublish sebelum ada plan premium aktif.',
+        });
+      }
+    }
+
     await this.prisma.tryoutCatalog.update({
       where: { id: tryoutCatalogId },
       data: {
@@ -508,7 +527,10 @@ export class TryoutManagementService {
 
   async getAdminTryoutDraftDetail(tryoutCatalogId: string) {
     const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
-    return await this.getTryoutCatalogDetail(catalog.id);
+    const detail = await this.getCatalogDetailRecord(catalog.id);
+    const workingManualQuestionSet = await this.findWorkingManualQuestionSet(catalog.id);
+
+    return this.formatBuilderDetail(detail, workingManualQuestionSet);
   }
 
   async updateAdminTryoutDraft(
@@ -538,10 +560,27 @@ export class TryoutManagementService {
     return await this.duplicateTryoutCatalog(tryoutCatalogId, actor);
   }
 
+  async archiveAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    await this.archiveTryoutCatalog(tryoutCatalogId, actor);
+  }
+
   async submitAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser) {
     const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
     if (catalog.status === TryoutStatus.review) {
       return;
+    }
+
+    const detail = await this.getCatalogDetailRecord(tryoutCatalogId);
+    const workingManualQuestionSet = await this.findWorkingManualQuestionSet(tryoutCatalogId);
+    const builderStatus = this.buildBuilderStatus(detail, workingManualQuestionSet);
+
+    if (!builderStatus.isStructurallyValid) {
+      throw new BadRequestException({
+        code: 'TRYOUT_DRAFT_INCOMPLETE',
+        message: 'Tryout draft belum memenuhi struktur minimal untuk diajukan',
+        missingParts: builderStatus.missingParts,
+      });
     }
 
     await this.prisma.tryoutCatalog.update({
@@ -558,7 +597,112 @@ export class TryoutManagementService {
       module: 'tryout_draft',
       targetType: 'tryout_catalog',
       targetId: tryoutCatalogId,
+      metadata: {
+        builderWarnings: builderStatus.modeSpecificWarnings,
+      },
     });
+  }
+
+  async getAdminDraftGenerationRule(tryoutCatalogId: string) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.prisma.tryoutGenerationRule.findUnique({
+      where: { tryoutCatalogId },
+      include: {
+        sections: {
+          orderBy: {
+            sortOrder: 'asc',
+          },
+        },
+      },
+    });
+  }
+
+  async upsertAdminDraftGenerationRule(tryoutCatalogId: string, rawBody: unknown) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.upsertGenerationRule(tryoutCatalogId, rawBody);
+  }
+
+  async getAdminDraftWorkingManualQuestionSet(tryoutCatalogId: string) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.getWorkingManualQuestionSetForBuilder(tryoutCatalogId);
+  }
+
+  async upsertAdminDraftWorkingManualQuestionSet(
+    tryoutCatalogId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.upsertWorkingManualQuestionSetForBuilder(tryoutCatalogId, rawBody, actor);
+  }
+
+  async runAdminDraftAvailabilityCheck(tryoutCatalogId: string) {
+    await this.ensureAdminEditableDraft(tryoutCatalogId);
+    return await this.runAvailabilityCheck(tryoutCatalogId);
+  }
+
+  async submitTryoutCatalogForReview(tryoutCatalogId: string, actor: AuthenticatedUser) {
+    const catalog = await this.ensureBuilderEditableCatalog(tryoutCatalogId);
+    if (catalog.status === TryoutStatus.review) {
+      return;
+    }
+
+    const detail = await this.getCatalogDetailRecord(tryoutCatalogId);
+    const workingManualQuestionSet = await this.findWorkingManualQuestionSet(tryoutCatalogId);
+    const builderStatus = this.buildBuilderStatus(detail, workingManualQuestionSet);
+
+    if (!builderStatus.isStructurallyValid) {
+      throw new BadRequestException({
+        code: 'TRYOUT_DRAFT_INCOMPLETE',
+        message: 'Tryout draft belum memenuhi struktur minimal untuk diajukan',
+        missingParts: builderStatus.missingParts,
+      });
+    }
+
+    await this.prisma.tryoutCatalog.update({
+      where: { id: tryoutCatalogId },
+      data: {
+        status: TryoutStatus.review,
+        isPublic: false,
+      },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'SUBMIT_TRYOUT_DRAFT',
+      module: 'tryout_draft',
+      targetType: 'tryout_catalog',
+      targetId: tryoutCatalogId,
+      metadata: {
+        builderWarnings: builderStatus.modeSpecificWarnings,
+      },
+    });
+  }
+
+  async getWorkingManualQuestionSetForBuilder(tryoutCatalogId: string) {
+    const workingSet = await this.findWorkingManualQuestionSet(tryoutCatalogId);
+    return workingSet ? this.formatManualQuestionSetDetail(workingSet) : null;
+  }
+
+  async upsertWorkingManualQuestionSetForBuilder(
+    tryoutCatalogId: string,
+    rawBody: unknown,
+    actor: AuthenticatedUser,
+  ) {
+    await this.ensureBuilderEditableCatalog(tryoutCatalogId);
+    const existing = await this.findWorkingManualQuestionSet(tryoutCatalogId);
+
+    if (existing) {
+      return await this.updateManualQuestionSet(
+        tryoutCatalogId,
+        existing.id,
+        rawBody,
+        actor,
+        true,
+      );
+    }
+
+    return await this.createManualQuestionSet(tryoutCatalogId, rawBody, actor, true);
   }
 
   async getGenerationRule(tryoutCatalogId: string) {
@@ -677,9 +821,13 @@ export class TryoutManagementService {
     tryoutCatalogId: string,
     rawBody: unknown,
     actor: AuthenticatedUser,
+    adminDraftOnly = false,
   ) {
     const payload = this.validationService.validate(manualQuestionSetSchema, rawBody);
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
+    if (adminDraftOnly) {
+      this.assertAdminManualSetStatus(payload.status);
+    }
     assertManualQuestionSetRules(catalog, payload);
     await this.assertQuestionsReadyForManualSet(payload.questionIds);
 
@@ -717,22 +865,7 @@ export class TryoutManagementService {
       throw new NotFoundException('Manual question set not found');
     }
 
-    return {
-      ...set,
-      questionIds: set.items.map((item) => item.question.id),
-      items: set.items.map((item) => ({
-        order: item.questionOrder,
-        question: {
-          id: item.question.id,
-          questionPreview: item.question.questionText.slice(0, 120),
-          category: item.question.category,
-          subCategory: item.question.subCategoryRef.name,
-          topicTag: item.question.topicTagRef.name,
-          difficulty: item.question.difficulty,
-          status: item.question.status,
-        },
-      })),
-    };
+    return this.formatManualQuestionSetDetail(set);
   }
 
   async updateManualQuestionSet(
@@ -740,14 +873,18 @@ export class TryoutManagementService {
     manualQuestionSetId: string,
     rawBody: unknown,
     actor: AuthenticatedUser,
+    adminDraftOnly = false,
   ) {
     const payload = this.validationService.validate(updateManualQuestionSetSchema, rawBody);
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
+    if (adminDraftOnly && payload.status) {
+      this.assertAdminManualSetStatus(payload.status);
+    }
     assertManualQuestionSetRules(catalog, payload);
 
     const existing = await this.prisma.manualQuestionSet.findFirst({
       where: { id: manualQuestionSetId, tryoutCatalogId },
-      select: { id: true },
+      select: { id: true, status: true },
     });
 
     if (!existing) {
@@ -758,7 +895,7 @@ export class TryoutManagementService {
       await this.assertQuestionsReadyForManualSet(payload.questionIds);
     }
 
-    await this.prisma.$transaction(async (tx) => {
+    return await this.prisma.$transaction(async (tx) => {
       await tx.manualQuestionSet.update({
         where: { id: manualQuestionSetId },
         data: {
@@ -784,6 +921,10 @@ export class TryoutManagementService {
           })),
         });
       }
+      return {
+        id: manualQuestionSetId,
+        status: payload.status ?? existing.status,
+      };
     });
   }
 
@@ -821,7 +962,16 @@ export class TryoutManagementService {
             },
           },
           include: {
-            items: true,
+            items: {
+              include: {
+                question: {
+                  select: {
+                    id: true,
+                    category: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -842,6 +992,16 @@ export class TryoutManagementService {
       issues.push('Passing grade configuration is missing');
     }
 
+    const approvedManualSet = catalog.manualQuestionSets.find(
+      (set) => set.status === ManualQuestionSetStatus.approved,
+    );
+    const approvedManualCountsByCategory = approvedManualSet
+      ? approvedManualSet.items.reduce<Record<string, number>>((acc, item) => {
+          acc[item.question.category] = (acc[item.question.category] ?? 0) + 1;
+          return acc;
+        }, {})
+      : {};
+
     if (catalog.tryoutType !== TryoutType.manual) {
       if (!catalog.generationRule) {
         issues.push('Generation rule is missing');
@@ -849,6 +1009,11 @@ export class TryoutManagementService {
         const sectionSummary: Array<Record<string, unknown>> = [];
 
         for (const section of catalog.generationRule.sections) {
+          const seededManualCount = approvedManualCountsByCategory[section.category] ?? 0;
+          const generatedRequired =
+            catalog.tryoutType === TryoutType.hybrid
+              ? Math.max(0, section.questionCount - seededManualCount)
+              : section.questionCount;
           const availableQuestions = await this.prisma.question.count({
             where: {
               status: QuestionStatus.active,
@@ -860,6 +1025,8 @@ export class TryoutManagementService {
           const detail: Record<string, unknown> = {
             category: section.category,
             required: section.questionCount,
+            generatedRequired,
+            seededManualCount,
             available: availableQuestions,
           };
 
@@ -870,6 +1037,10 @@ export class TryoutManagementService {
           if (difficultyDistribution) {
             const difficultyChecks: Array<Record<string, unknown>> = [];
             for (const [difficulty, requiredCount] of Object.entries(difficultyDistribution)) {
+              const generatedDifficultyRequired =
+                catalog.tryoutType === TryoutType.hybrid
+                  ? Math.max(0, requiredCount - seededManualCount)
+                  : requiredCount;
               const availableByDifficulty = await this.prisma.question.count({
                 where: {
                   status: QuestionStatus.active,
@@ -882,10 +1053,11 @@ export class TryoutManagementService {
               difficultyChecks.push({
                 difficulty,
                 required: requiredCount,
+                generatedRequired: generatedDifficultyRequired,
                 available: availableByDifficulty,
               });
 
-              if (availableByDifficulty < requiredCount) {
+              if (availableByDifficulty < generatedDifficultyRequired) {
                 issues.push(
                   `Not enough active ${section.category} questions for difficulty ${difficulty}`,
                 );
@@ -902,6 +1074,10 @@ export class TryoutManagementService {
           if (topicDistribution) {
             const topicChecks: Array<Record<string, unknown>> = [];
             for (const topic of topicDistribution) {
+              const generatedTopicRequired =
+                catalog.tryoutType === TryoutType.hybrid
+                  ? Math.max(0, topic.questionCount - seededManualCount)
+                  : topic.questionCount;
               const availableByTopic = await this.prisma.question.count({
                 where: {
                   status: QuestionStatus.active,
@@ -918,10 +1094,11 @@ export class TryoutManagementService {
               topicChecks.push({
                 topicTag: topic.topicTag,
                 required: topic.questionCount,
+                generatedRequired: generatedTopicRequired,
                 available: availableByTopic,
               });
 
-              if (availableByTopic < topic.questionCount) {
+              if (availableByTopic < generatedTopicRequired) {
                 issues.push(
                   `Not enough active ${section.category} questions for topic ${topic.topicTag}`,
                 );
@@ -931,7 +1108,7 @@ export class TryoutManagementService {
             detail.topicChecks = topicChecks;
           }
 
-          if (availableQuestions < section.questionCount) {
+          if (availableQuestions < generatedRequired) {
             issues.push(`Not enough active questions for category ${section.category}`);
           }
 
@@ -955,7 +1132,10 @@ export class TryoutManagementService {
       }
     }
 
-    if (catalog.tryoutType !== TryoutType.generated) {
+    if (
+      catalog.tryoutType === TryoutType.manual ||
+      catalog.tryoutType === TryoutType.hybrid
+    ) {
       if (catalog.manualQuestionSets.length === 0) {
         issues.push('Manual question set is missing');
       }
@@ -968,17 +1148,57 @@ export class TryoutManagementService {
       }));
 
       if (catalog.tryoutType === TryoutType.manual) {
-        const approvedSet = catalog.manualQuestionSets.find(
-          (set) => set.status === ManualQuestionSetStatus.approved,
-        );
-
-        if (!approvedSet) {
+        if (!approvedManualSet) {
           issues.push('At least one approved manual question set is required');
-        } else if (approvedSet.items.length !== catalog.totalQuestions) {
+        } else if (approvedManualSet.items.length !== catalog.totalQuestions) {
           issues.push(
             'Approved manual question set item count must match tryout catalog totalQuestions',
           );
         }
+      }
+
+      if (catalog.tryoutType === TryoutType.hybrid) {
+        if (!approvedManualSet) {
+          issues.push('At least one approved manual question set is required for hybrid tryout');
+        } else {
+          if (approvedManualSet.items.length <= 0) {
+            issues.push('Approved manual question set for hybrid tryout must contain questions');
+          }
+
+          if (approvedManualSet.items.length >= catalog.totalQuestions) {
+            issues.push(
+              'Approved manual question set for hybrid tryout must be smaller than totalQuestions',
+            );
+          }
+
+          if (catalog.generationRule) {
+            for (const section of catalog.generationRule.sections) {
+              const manualCount = approvedManualCountsByCategory[section.category] ?? 0;
+              if (manualCount > section.questionCount) {
+                issues.push(
+                  `Approved manual question set exceeds section target for category ${section.category}`,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (catalog.tryoutType === TryoutType.adaptive) {
+      const adaptiveConfig = this.readAdaptiveRuleConfig(catalog.generationRule?.rulesJson);
+      if (!adaptiveConfig) {
+        issues.push('Adaptive tryout configuration is missing');
+      } else {
+        checks.adaptive = {
+          strategy: adaptiveConfig.strategy,
+          fallbackStrategy: adaptiveConfig.fallbackStrategy,
+          maxWeakAreas: adaptiveConfig.maxWeakAreas,
+          perWeakAreaQuestionCap: adaptiveConfig.perWeakAreaQuestionCap,
+          includeTrendBoost: adaptiveConfig.includeTrendBoost,
+          runtimeNote:
+            'Adaptive targeting is resolved at runtime per user and falls back to generation rule when history is insufficient.',
+        };
       }
     }
 
@@ -996,6 +1216,7 @@ export class TryoutManagementService {
         id: true,
         totalQuestions: true,
         tryoutType: true,
+        accessType: true,
       },
     });
 
@@ -1007,6 +1228,15 @@ export class TryoutManagementService {
   }
 
   private async ensureAdminEditableDraft(tryoutCatalogId: string) {
+    const catalog = await this.ensureBuilderEditableCatalog(tryoutCatalogId);
+    if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
+      throw new BadRequestException('Admin can only access draft or review tryouts');
+    }
+
+    return catalog;
+  }
+
+  private async ensureBuilderEditableCatalog(tryoutCatalogId: string) {
     const catalog = await this.prisma.tryoutCatalog.findUnique({
       where: { id: tryoutCatalogId },
       select: {
@@ -1020,16 +1250,283 @@ export class TryoutManagementService {
     }
 
     if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
-      throw new BadRequestException('Admin can only access draft or review tryouts');
+      throw new BadRequestException('Builder hanya bisa digunakan untuk tryout draft atau review');
     }
 
     return catalog;
+  }
+
+  private async getCatalogDetailRecord(tryoutCatalogId: string) {
+    const catalog = await this.prisma.tryoutCatalog.findUnique({
+      where: { id: tryoutCatalogId },
+      select: catalogDetailSelect,
+    });
+
+    if (!catalog) {
+      throw new NotFoundException('Tryout catalog not found');
+    }
+
+    return catalog;
+  }
+
+  private formatCatalogDetail(
+    catalog: Prisma.TryoutCatalogGetPayload<{ select: typeof catalogDetailSelect }>,
+  ) {
+    return {
+      ...catalog,
+      manualQuestionSets: catalog.manualQuestionSets.map((item) => ({
+        id: item.id,
+        name: item.name,
+        status: item.status,
+        itemCount: item._count.items,
+        updatedAt: item.updatedAt,
+      })),
+    };
+  }
+
+  private formatBuilderDetail(
+    catalog: Prisma.TryoutCatalogGetPayload<{ select: typeof catalogDetailSelect }>,
+    workingManualQuestionSet:
+      | Prisma.ManualQuestionSetGetPayload<{ select: typeof manualSetSelect }>
+      | null,
+  ) {
+    return {
+      ...this.formatCatalogDetail(catalog),
+      workingManualQuestionSetSummary: workingManualQuestionSet
+        ? {
+            id: workingManualQuestionSet.id,
+            name: workingManualQuestionSet.name,
+            description: workingManualQuestionSet.description,
+            status: workingManualQuestionSet.status,
+            questionIds: workingManualQuestionSet.items.map((item) => item.question.id),
+            itemCount: workingManualQuestionSet.items.length,
+            items: workingManualQuestionSet.items.map((item) => ({
+              order: item.questionOrder,
+              question: {
+                id: item.question.id,
+                questionPreview: item.question.questionText.slice(0, 120),
+                category: item.question.category,
+                subCategory: item.question.subCategoryRef.name,
+                topicTag: item.question.topicTagRef.name,
+                difficulty: item.question.difficulty,
+                status: item.question.status,
+              },
+            })),
+            updatedAt: workingManualQuestionSet.updatedAt,
+          }
+        : null,
+      builderStatus: this.buildBuilderStatus(catalog, workingManualQuestionSet),
+    };
+  }
+
+  private async findWorkingManualQuestionSet(tryoutCatalogId: string) {
+    return await this.prisma.manualQuestionSet.findFirst({
+      where: {
+        tryoutCatalogId,
+        status: {
+          in: [ManualQuestionSetStatus.draft, ManualQuestionSetStatus.review],
+        },
+      },
+      select: manualSetSelect,
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+  }
+
+  private formatManualQuestionSetDetail(
+    set: Prisma.ManualQuestionSetGetPayload<{ select: typeof manualSetSelect }>,
+  ) {
+    return {
+      ...set,
+      questionIds: set.items.map((item) => item.question.id),
+      items: set.items.map((item) => ({
+        order: item.questionOrder,
+        question: {
+          id: item.question.id,
+          questionPreview: item.question.questionText.slice(0, 120),
+          category: item.question.category,
+          subCategory: item.question.subCategoryRef.name,
+          topicTag: item.question.topicTagRef.name,
+          difficulty: item.question.difficulty,
+          status: item.question.status,
+        },
+      })),
+    };
+  }
+
+  private buildBuilderStatus(
+    detail: Prisma.TryoutCatalogGetPayload<{ select: typeof catalogDetailSelect }>,
+    workingManualQuestionSet:
+      | Prisma.ManualQuestionSetGetPayload<{ select: typeof manualSetSelect }>
+      | null,
+  ): BuilderStatusSummary {
+    const missingParts: string[] = [];
+    const modeSpecificWarnings: string[] = [];
+    const sections = detail.generationRule?.sections ?? [];
+    const sectionTotal = sections.reduce((sum, section) => sum + section.questionCount, 0);
+    const workingCount = workingManualQuestionSet?.items.length ?? 0;
+    const workingCountsByCategory = workingManualQuestionSet
+      ? workingManualQuestionSet.items.reduce<Record<string, number>>((acc, item) => {
+          acc[item.question.category] = (acc[item.question.category] ?? 0) + 1;
+          return acc;
+        }, {})
+      : {};
+
+    switch (detail.tryoutType) {
+      case TryoutType.generated: {
+        if (!detail.generationRule) {
+          missingParts.push('Generation rule belum dibuat.');
+        } else if (sectionTotal !== detail.totalQuestions) {
+          missingParts.push('Total section generation rule harus sama dengan total soal.');
+        }
+        break;
+      }
+      case TryoutType.manual: {
+        if (!workingManualQuestionSet) {
+          missingParts.push('Manual question set draft belum dibuat.');
+        } else if (workingCount !== detail.totalQuestions) {
+          missingParts.push('Jumlah soal manual harus sama dengan total soal draft.');
+        }
+
+        if (!detail.manualQuestionSets.some((set) => set.status === ManualQuestionSetStatus.approved)) {
+          modeSpecificWarnings.push('Belum ada manual question set berstatus approved untuk publish.');
+        }
+        break;
+      }
+      case TryoutType.hybrid: {
+        const hybridConfig = this.readHybridRuleConfig(detail.generationRule?.rulesJson);
+        if (!detail.generationRule) {
+          missingParts.push('Generation rule hybrid belum dibuat.');
+        } else if (sectionTotal !== detail.totalQuestions) {
+          missingParts.push('Total section generation rule hybrid harus sama dengan total soal.');
+        }
+
+        if (!workingManualQuestionSet) {
+          missingParts.push('Manual question set draft untuk hybrid belum dibuat.');
+        } else {
+          if (workingCount <= 0) {
+            missingParts.push('Hybrid membutuhkan minimal satu soal manual.');
+          }
+
+          if (workingCount >= detail.totalQuestions) {
+            missingParts.push('Jumlah soal manual hybrid harus lebih kecil dari total soal.');
+          }
+
+          if (detail.generationRule) {
+            for (const section of detail.generationRule.sections) {
+              const manualCount = workingCountsByCategory[section.category] ?? 0;
+              if (manualCount > section.questionCount) {
+                missingParts.push(
+                  `Soal manual kategori ${section.category} melebihi target section.`,
+                );
+              }
+            }
+          }
+        }
+
+        if (!hybridConfig) {
+          missingParts.push('Konfigurasi hybrid rulesJson harus menggunakan manualPlacement prepend.');
+        }
+
+        if (!detail.manualQuestionSets.some((set) => set.status === ManualQuestionSetStatus.approved)) {
+          modeSpecificWarnings.push('Hybrid belum memiliki manual question set approved untuk publish.');
+        }
+        break;
+      }
+      case TryoutType.adaptive: {
+        const adaptiveConfig = this.readAdaptiveRuleConfig(detail.generationRule?.rulesJson);
+        if (!detail.generationRule) {
+          missingParts.push('Generation rule adaptive belum dibuat.');
+        } else {
+          if (detail.generationRule.randomizationMode !== RandomizationMode.adaptive_weak_area) {
+            missingParts.push('Adaptive harus memakai randomization mode adaptive_weak_area.');
+          }
+
+          if (sectionTotal !== detail.totalQuestions) {
+            missingParts.push('Total section generation rule adaptive harus sama dengan total soal.');
+          }
+        }
+
+        if (!adaptiveConfig) {
+          missingParts.push('Konfigurasi adaptive pada rulesJson belum lengkap.');
+        } else {
+          modeSpecificWarnings.push(
+            'Adaptive menargetkan weak area saat runtime dan fallback ke generation rule bila history user belum cukup.',
+          );
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    return {
+      isStructurallyValid: missingParts.length === 0,
+      missingParts,
+      modeSpecificWarnings,
+    };
   }
 
   private assertAdminDraftStatus(status: TryoutStatus) {
     if (status !== TryoutStatus.draft && status !== TryoutStatus.review) {
       throw new BadRequestException('Admin drafts can only be saved as draft or review');
     }
+  }
+
+  private assertAdminManualSetStatus(status: ManualQuestionSetStatus) {
+    if (status !== ManualQuestionSetStatus.draft && status !== ManualQuestionSetStatus.review) {
+      throw new BadRequestException(
+        'Admin manual question set draft can only be saved as draft or review',
+      );
+    }
+  }
+
+  private readHybridRuleConfig(rawValue: Prisma.JsonValue | null | undefined) {
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return null;
+    }
+
+    const manualPlacement = (rawValue as Record<string, unknown>).manualPlacement;
+    if (manualPlacement === 'prepend') {
+      return { manualPlacement } satisfies HybridRuleConfig;
+    }
+
+    return null;
+  }
+
+  private readAdaptiveRuleConfig(rawValue: Prisma.JsonValue | null | undefined) {
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return null;
+    }
+
+    const value = rawValue as Record<string, unknown>;
+    const config: AdaptiveRuleConfig = {
+      strategy: value.strategy === 'latest_ai_recommendation' ? 'latest_ai_recommendation' : undefined,
+      fallbackStrategy:
+        value.fallbackStrategy === 'generation_rule' ? 'generation_rule' : undefined,
+      maxWeakAreas: typeof value.maxWeakAreas === 'number' ? value.maxWeakAreas : undefined,
+      perWeakAreaQuestionCap:
+        typeof value.perWeakAreaQuestionCap === 'number'
+          ? value.perWeakAreaQuestionCap
+          : undefined,
+      includeTrendBoost:
+        typeof value.includeTrendBoost === 'boolean' ? value.includeTrendBoost : undefined,
+    };
+
+    if (
+      config.strategy !== 'latest_ai_recommendation' ||
+      config.fallbackStrategy !== 'generation_rule' ||
+      typeof config.maxWeakAreas !== 'number' ||
+      config.maxWeakAreas < 1 ||
+      typeof config.perWeakAreaQuestionCap !== 'number' ||
+      config.perWeakAreaQuestionCap < 1 ||
+      typeof config.includeTrendBoost !== 'boolean'
+    ) {
+      return null;
+    }
+
+    return config;
   }
 
   private async ensurePassingGradeExists(passingGradeConfigId?: string) {

@@ -4,9 +4,8 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 
-import { serverApiFetch } from "@/server/api-client";
-
 import type { AdminActionState, CreateTryoutActionState } from "@/server/admin-action-state";
+import { serverApiFetch } from "@/server/api-client";
 
 function parseBoolean(value: FormDataEntryValue | null) {
   return value === "on" || value === "true" || value === "1";
@@ -49,10 +48,7 @@ function buildDefaultGenerationSections(totalQuestions: number) {
     return { easy, medium, hard };
   };
 
-  const buildTopicDistribution = (
-    questionCount: number,
-    topics: Array<{ topicTag: string; weight: number }>,
-  ) => {
+  const buildTopicDistribution = (questionCount: number, topics: Array<{ topicTag: string; weight: number }>) => {
     const counts = distributeByWeights(
       questionCount,
       topics.map((topic) => topic.weight),
@@ -145,10 +141,7 @@ export async function updateAiRecommendationSettingsAction(
   } catch (error) {
     return {
       status: "error",
-      message:
-        error instanceof Error
-          ? error.message
-          : "Gagal memperbarui konfigurasi AI recommendation.",
+      message: error instanceof Error ? error.message : "Gagal memperbarui konfigurasi AI recommendation.",
     };
   }
 }
@@ -167,7 +160,9 @@ export async function createAdminAccountAction(
       },
       body: JSON.stringify({
         fullName: String(formData.get("fullName") ?? "").trim(),
-        email: String(formData.get("email") ?? "").trim().toLowerCase(),
+        email: String(formData.get("email") ?? "")
+          .trim()
+          .toLowerCase(),
         ...(phone ? { phone } : {}),
       }),
     });
@@ -196,16 +191,13 @@ export async function deactivateAdminAccountAction(
     const adminId = String(formData.get("adminId") ?? "");
     const reason = String(formData.get("reason") ?? "").trim();
 
-    await serverApiFetch<{ success: true; message?: string }>(
-      `/api/v1/super-admin/admins/${adminId}/deactivate`,
-      {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ reason }),
+    await serverApiFetch<{ success: true; message?: string }>(`/api/v1/super-admin/admins/${adminId}/deactivate`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
       },
-    );
+      body: JSON.stringify({ reason }),
+    });
 
     revalidatePath("/super-admin/admin-accounts");
     revalidatePath("/super-admin/dashboard");
@@ -234,7 +226,9 @@ export async function createPlatformUserAction(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         fullName: String(formData.get("fullName") ?? "").trim(),
-        email: String(formData.get("email") ?? "").trim().toLowerCase(),
+        email: String(formData.get("email") ?? "")
+          .trim()
+          .toLowerCase(),
         ...(phone ? { phone } : {}),
       }),
     });
@@ -262,21 +256,17 @@ export async function updatePlatformUserStatusAction(
     const userId = String(formData.get("userId") ?? "");
     const status = String(formData.get("status") ?? "");
 
-    await serverApiFetch<{ success: true; message?: string }>(
-      `/api/v1/super-admin/users/${userId}/status`,
-      {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status }),
-      },
-    );
+    await serverApiFetch<{ success: true; message?: string }>(`/api/v1/super-admin/users/${userId}/status`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
 
     revalidatePath("/super-admin/users");
     revalidatePath(`/super-admin/users/${userId}`);
     revalidatePath("/super-admin/dashboard");
 
-    const label =
-      status === "active" ? "diaktifkan" : status === "suspended" ? "ditangguhkan" : "dinonaktifkan";
+    const label = status === "active" ? "diaktifkan" : status === "suspended" ? "ditangguhkan" : "dinonaktifkan";
 
     return {
       status: "success",
@@ -298,14 +288,11 @@ export async function deletePlatformUserAction(
     const userId = String(formData.get("userId") ?? "");
     const reason = String(formData.get("reason") ?? "").trim();
 
-    await serverApiFetch<{ success: true; message?: string }>(
-      `/api/v1/super-admin/users/${userId}`,
-      {
-        method: "DELETE",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(reason ? { reason } : {}),
-      },
-    );
+    await serverApiFetch<{ success: true; message?: string }>(`/api/v1/super-admin/users/${userId}`, {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(reason ? { reason } : {}),
+    });
 
     revalidatePath("/super-admin/users");
     revalidatePath("/super-admin/dashboard");
@@ -396,6 +383,120 @@ export async function createTryoutCatalogAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Gagal membuat tryout draft.",
+    };
+  }
+}
+
+export async function saveSubscriptionPlanAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const planId = String(formData.get("planId") ?? "").trim();
+    const tier = String(formData.get("tier") ?? "standard");
+    const payload = {
+      name: String(formData.get("name") ?? "").trim(),
+      description: String(formData.get("description") ?? "").trim() || null,
+      tier,
+      durationDays: parseNumber(formData.get("durationDays"), 30),
+      price: parseNumber(formData.get("price"), 0),
+      currency: String(formData.get("currency") ?? "IDR").trim() || "IDR",
+      isActive: parseBoolean(formData.get("isActive")),
+      ...(tier === "trial"
+        ? {
+            trialTryoutLimit: parseNumber(formData.get("trialTryoutLimit"), 0),
+            trialDayLimit: parseNumber(formData.get("trialDayLimit"), 7),
+          }
+        : {}),
+    };
+
+    await serverApiFetch<{ success: true; message?: string }>(
+      planId ? `/api/v1/super-admin/subscription-plans/${planId}` : "/api/v1/super-admin/subscription-plans",
+      {
+        method: planId ? "PATCH" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      },
+    );
+
+    revalidatePath("/super-admin/subscription-plans");
+    revalidatePath("/super-admin/users");
+
+    return {
+      status: "success",
+      message: planId ? "Subscription plan berhasil diperbarui." : "Subscription plan berhasil dibuat.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal menyimpan subscription plan.",
+    };
+  }
+}
+
+export async function grantUserAccessOverrideAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const userId = String(formData.get("userId") ?? "").trim();
+    await serverApiFetch<{ success: true; message?: string }>(`/api/v1/super-admin/users/${userId}/access-overrides`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        tier: String(formData.get("tier") ?? "premium"),
+        startsAt: new Date(String(formData.get("startsAt") ?? new Date().toISOString())).toISOString(),
+        expiresAt: new Date(
+          String(formData.get("expiresAt") ?? new Date(Date.now() + 86400000).toISOString()),
+        ).toISOString(),
+        reason: String(formData.get("reason") ?? "").trim(),
+      }),
+    });
+
+    revalidatePath(`/super-admin/users/${userId}`);
+    revalidatePath("/super-admin/users");
+
+    return {
+      status: "success",
+      message: "Override akses berhasil diberikan.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal memberikan override akses.",
+    };
+  }
+}
+
+export async function revokeUserAccessOverrideAction(
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  try {
+    const overrideId = String(formData.get("overrideId") ?? "").trim();
+    const userId = String(formData.get("userId") ?? "").trim();
+    await serverApiFetch<{ success: true; message?: string }>(
+      `/api/v1/super-admin/access-overrides/${overrideId}/revoke`,
+      {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          reason: String(formData.get("reason") ?? "").trim() || undefined,
+        }),
+      },
+    );
+
+    revalidatePath(`/super-admin/users/${userId}`);
+    revalidatePath("/super-admin/users");
+
+    return {
+      status: "success",
+      message: "Override akses berhasil dicabut.",
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal mencabut override akses.",
     };
   }
 }

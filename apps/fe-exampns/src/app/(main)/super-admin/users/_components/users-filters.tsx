@@ -51,6 +51,8 @@ function UsersFiltersInner() {
           <SelectItem value="all">Semua Subscription</SelectItem>
           <SelectItem value="active">Active</SelectItem>
           <SelectItem value="trial">Trial</SelectItem>
+          <SelectItem value="standard">Standard</SelectItem>
+          <SelectItem value="premium">Premium</SelectItem>
           <SelectItem value="expired">Expired</SelectItem>
         </SelectContent>
       </Select>

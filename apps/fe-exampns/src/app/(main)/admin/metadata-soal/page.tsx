@@ -1,10 +1,12 @@
 import { PageHeader, SectionCard } from "@/app/(main)/_components/page-shell";
 import {
   getAdminQuestionMetadataOptions,
+  getAdminQuestionMetadataSummary,
   getAdminQuestionSubCategories,
   getAdminQuestionTopicTags,
 } from "@/server/admin-content-data";
 
+import { MetadataGuideDialog } from "./_components/metadata-guide-dialog";
 import { MetadataSoalClient } from "./_components/metadata-soal-client";
 
 function readParam(value: string | string[] | undefined) {
@@ -30,7 +32,7 @@ export default async function MetadataSoalPage({
   const categoryFilter = category && category !== "all" ? category : undefined;
   const subCategoryFilter = subCategoryId && subCategoryId !== "all" ? subCategoryId : undefined;
 
-  const [subCategories, topicTags, metadataOptions] = await Promise.all([
+  const [subCategories, topicTags, metadataOptions, summary] = await Promise.all([
     getAdminQuestionSubCategories({
       category: categoryFilter,
       includeInactive: true,
@@ -47,13 +49,17 @@ export default async function MetadataSoalPage({
     getAdminQuestionMetadataOptions({
       category: categoryFilter,
     }),
+    getAdminQuestionMetadataSummary({
+      category: categoryFilter,
+    }),
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
       <PageHeader
         title="Metadata Soal"
         description="Kelola master sub-kategori dan topik tag untuk dipakai di bank soal dan tinjau parsing."
+        actions={<MetadataGuideDialog />}
       />
 
       <MetadataSoalClient
@@ -62,6 +68,7 @@ export default async function MetadataSoalPage({
         initialSubCategories={subCategories}
         initialTopicTags={topicTags}
         initialMetadataOptions={metadataOptions}
+        initialSummary={summary}
       />
     </div>
   );

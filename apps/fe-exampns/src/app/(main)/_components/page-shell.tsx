@@ -125,26 +125,42 @@ export function StatusBadge({
 export function SectionCard({
   title,
   description,
+  icon: Icon,
   trailing,
   children,
   className,
+  contentClassName,
 }: {
   readonly title: string;
   readonly description?: string;
+  readonly icon?: LucideIcon;
   readonly trailing?: React.ReactNode;
   readonly children: React.ReactNode;
   readonly className?: string;
+  readonly contentClassName?: string;
 }) {
   return (
     <Card className={cn("border-slate-200/80 shadow-sm", className)}>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
-        <div className="space-y-1">
-          <CardTitle className="text-slate-950 text-xl">{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
+      <CardHeader
+        className={cn(
+          "flex flex-row items-start justify-between gap-4",
+          trailing ? "pb-2" : undefined,
+        )}
+      >
+        <div className="flex min-w-0 items-start gap-3">
+          {Icon ? (
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+              <Icon className="size-5" />
+            </div>
+          ) : null}
+          <div className="min-w-0 space-y-1">
+            <CardTitle className="text-slate-950 text-xl">{title}</CardTitle>
+            {description ? <CardDescription>{description}</CardDescription> : null}
+          </div>
         </div>
         {trailing}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={cn("min-w-0", contentClassName)}>{children}</CardContent>
     </Card>
   );
 }

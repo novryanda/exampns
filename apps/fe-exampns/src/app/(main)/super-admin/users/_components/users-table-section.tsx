@@ -24,6 +24,8 @@ function formatDateTime(value: string | null) {
 
 function toStatusBadgeTone(status: string) {
   if (status === "active") return "success";
+  if (status === "standard") return "brand";
+  if (status === "premium") return "success";
   if (status === "trial" || status === "inactive") return "warning";
   if (status === "suspended" || status === "expired") return "danger";
   return "neutral";
@@ -95,9 +97,12 @@ export async function UsersTableSection({
                   <StatusBadge tone={toStatusBadgeTone(user.status)}>{toLabel(user.status)}</StatusBadge>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge tone={toStatusBadgeTone(user.subscriptionStatus)}>
-                    {toLabel(user.subscriptionStatus)}
-                  </StatusBadge>
+                  <div className="space-y-1">
+                    <StatusBadge tone={toStatusBadgeTone(user.effectiveAccessLevel)}>
+                      {toLabel(user.effectiveAccessLevel)}
+                    </StatusBadge>
+                    <div className="text-slate-400 text-xs">{toLabel(user.effectiveAccessSource)}</div>
+                  </div>
                 </TableCell>
                 <TableCell>{user.totalExams}</TableCell>
                 <TableCell>{formatDateTime(user.lastActiveAt)}</TableCell>

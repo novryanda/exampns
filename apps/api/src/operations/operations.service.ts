@@ -11,6 +11,7 @@ import {
   PaymentStatus,
   QuestionStatus,
   SubscriptionStatus,
+  SubscriptionTier,
   UserRole,
   UserStatus,
   type AIRecommendationStatus,
@@ -18,6 +19,8 @@ import {
 } from '../../generated/prisma/client.js';
 import { auth } from '../auth/auth.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AccessResolverService } from '../common/access-resolver.service.js';
+import { getSubscriptionTierSnapshot } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -28,10 +31,12 @@ import {
   createAdminSchema,
   createPlatformUserSchema,
   createSubscriptionPlanSchema,
+  createUserAccessOverrideSchema,
   deactivateAdminSchema,
   deletePlatformUserSchema,
   updatePlatformUserStatusSchema,
   manualSubscriptionActivationSchema,
+  revokeUserAccessOverrideSchema,
   updateAiRecommendationSettingsSchema,
   updatePassingGradeSchema,
   updateSubscriptionPlanSchema,
@@ -42,11 +47,13 @@ import {
 export class OperationsService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly accessResolverService: AccessResolverService,
     private readonly validationService: ValidationService,
   ) {}
 
   async getUserDashboardSummary(actor: AuthenticatedUser) {
-    const [subscription, lastResult] = await Promise.all([
+    const [accessResolution, subscription, lastResult] = await Promise.all([
+      this.accessResolverService.resolveEffectiveAccessLevel(actor.id),
       this.prisma.userSubscription.findFirst({
         where: {
           userId: actor.id,
@@ -89,7 +96,6 @@ export class OperationsService {
     });
 
     const greetingName = actor.name.split(' ')[0] || actor.name;
-    const accessType = subscription?.isTrial ? 'trial' : 'paid';
     const tryoutRemaining =
       subscription?.tryoutLimit === null || subscription?.tryoutLimit === undefined
         ? null
@@ -103,18 +109,22 @@ export class OperationsService {
       greetingName,
       accessStatus: subscription
         ? {
-            type: accessType,
+            type: accessResolution.effectiveAccessLevel,
+            source: accessResolution.effectiveAccessSource,
             status: subscription.status,
             tryoutRemaining,
             daysRemaining,
             endDate: subscription.endDate,
+            tier: getSubscriptionTierSnapshot(subscription),
           }
         : {
-            type: 'none',
+            type: 'expired',
+            source: 'none',
             status: 'inactive',
             tryoutRemaining: null,
             daysRemaining: 0,
             endDate: null,
+            tier: null,
           },
       lastResult: lastResult
         ? {
@@ -290,26 +300,46 @@ export class OperationsService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const filtered = users.filter((user) => {
-      const latestSubscription = user.userSubscriptions[0] ?? null;
-      const derivedStatus = this.deriveSubscriptionStatus(latestSubscription);
-      return query.subscriptionStatus ? derivedStatus === query.subscriptionStatus : true;
+    const usersWithAccess = await Promise.all(
+      users.map(async (user) => ({
+        user,
+        accessResolution: await this.accessResolverService.resolveEffectiveAccessLevel(user.id),
+      })),
+    );
+
+    const filtered = usersWithAccess.filter(({ user, accessResolution }) => {
+      if (!query.subscriptionStatus) {
+        return true;
+      }
+
+      if (
+        query.subscriptionStatus === 'trial' ||
+        query.subscriptionStatus === 'standard' ||
+        query.subscriptionStatus === 'premium'
+      ) {
+        return accessResolution.effectiveAccessLevel === query.subscriptionStatus;
+      }
+
+      return this.deriveSubscriptionStatus(user.userSubscriptions[0] ?? null) === query.subscriptionStatus;
     });
 
     const skip = (query.page - 1) * query.limit;
     const items = filtered.slice(skip, skip + query.limit);
+    const enrichedItems = items.map(({ user, accessResolution }) => ({
+      id: user.id,
+      fullName: user.name,
+      email: user.email,
+      image: user.image,
+      status: user.status,
+      subscriptionStatus: this.deriveSubscriptionStatus(user.userSubscriptions[0] ?? null),
+      effectiveAccessLevel: accessResolution.effectiveAccessLevel,
+      effectiveAccessSource: accessResolution.effectiveAccessSource,
+      totalExams: user._count.examResults,
+      lastActiveAt: user.lastLoginAt,
+    }));
 
     return {
-      data: items.map((user) => ({
-        id: user.id,
-        fullName: user.name,
-        email: user.email,
-        image: user.image,
-        status: user.status,
-        subscriptionStatus: this.deriveSubscriptionStatus(user.userSubscriptions[0] ?? null),
-        totalExams: user._count.examResults,
-        lastActiveAt: user.lastLoginAt,
-      })),
+      data: enrichedItems,
       meta: {
         page: query.page,
         limit: query.limit,
@@ -328,7 +358,24 @@ export class OperationsService {
             subscriptionPlan: true,
           },
           orderBy: { endDate: 'desc' },
-          take: 1,
+          take: 5,
+        },
+        accessOverrides: {
+          include: {
+            grantedByUser: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            revokedByUser: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
         },
         examResults: {
           orderBy: { generatedAt: 'desc' },
@@ -345,6 +392,7 @@ export class OperationsService {
     }
 
     const latestSubscription = user.userSubscriptions[0] ?? null;
+    const accessResolution = await this.accessResolverService.resolveEffectiveAccessLevel(user.id);
     const totalExams = user.examResults.length;
     const averageScore =
       totalExams === 0
@@ -359,14 +407,28 @@ export class OperationsService {
       email: user.email,
       phone: user.phone,
       status: user.status,
+      effectiveAccessLevel: accessResolution.effectiveAccessLevel,
+      effectiveAccessSource: accessResolution.effectiveAccessSource,
       subscription: latestSubscription
         ? {
             status: this.deriveSubscriptionStatus(latestSubscription),
+            tier: getSubscriptionTierSnapshot(latestSubscription),
+            planName: latestSubscription.subscriptionPlan.name,
             endDate: latestSubscription.endDate,
             tryoutUsed: latestSubscription.tryoutUsed,
             tryoutLimit: latestSubscription.tryoutLimit,
           }
         : null,
+      accessOverrides: user.accessOverrides.map((override) => ({
+        id: override.id,
+        tier: override.tier,
+        startsAt: override.startsAt,
+        expiresAt: override.expiresAt,
+        reason: override.reason,
+        revokedAt: override.revokedAt,
+        grantedBy: override.grantedByUser.name,
+        revokedBy: override.revokedByUser?.name ?? null,
+      })),
       examSummary: {
         totalExams,
         averageScore,
@@ -771,18 +833,50 @@ export class OperationsService {
     });
   }
 
+  async listSubscriptionPlansForAdmin() {
+    const plans = await this.prisma.subscriptionPlan.findMany({
+      orderBy: [
+        { isTrial: 'desc' },
+        { tier: 'asc' },
+        { price: 'asc' },
+        { createdAt: 'asc' },
+      ],
+    });
+
+    return plans.map((plan) => ({
+      id: plan.id,
+      name: plan.name,
+      description: plan.description,
+      tier: plan.tier,
+      durationDays: plan.durationDays,
+      price: Number(plan.price),
+      currency: plan.currency,
+      isActive: plan.isActive,
+      isTrial: plan.isTrial,
+      trialTryoutLimit: plan.trialTryoutLimit,
+      trialDayLimit: plan.trialDayLimit,
+      createdAt: plan.createdAt,
+      updatedAt: plan.updatedAt,
+    }));
+  }
+
   async createSubscriptionPlan(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(createSubscriptionPlanSchema, rawBody);
+    this.assertPlanTierRules(payload);
 
     const created = await this.prisma.subscriptionPlan.create({
       data: {
         name: payload.name,
         description: payload.description ?? null,
+        tier: payload.tier,
         durationDays: payload.durationDays,
         price: payload.price,
         currency: payload.currency,
         isActive: payload.isActive,
-        isTrial: false,
+        isTrial: payload.tier === SubscriptionTier.trial,
+        trialTryoutLimit:
+          payload.tier === SubscriptionTier.trial ? payload.trialTryoutLimit ?? 0 : null,
+        trialDayLimit: payload.tier === SubscriptionTier.trial ? payload.trialDayLimit ?? null : null,
       },
     });
 
@@ -808,15 +902,41 @@ export class OperationsService {
       throw new NotFoundException('Subscription plan tidak ditemukan');
     }
 
+    this.assertPlanTierRules({
+      name: payload.name ?? existing.name,
+      description: payload.description ?? existing.description,
+      tier: payload.tier ?? existing.tier,
+      durationDays: payload.durationDays ?? existing.durationDays,
+      price: payload.price ?? Number(existing.price),
+      currency: payload.currency ?? existing.currency,
+      isActive: payload.isActive ?? existing.isActive,
+      trialTryoutLimit:
+        payload.trialTryoutLimit !== undefined ? payload.trialTryoutLimit : existing.trialTryoutLimit,
+      trialDayLimit: payload.trialDayLimit !== undefined ? payload.trialDayLimit : existing.trialDayLimit,
+    });
+
     await this.prisma.subscriptionPlan.update({
       where: { id: planId },
       data: {
         ...(payload.name !== undefined ? { name: payload.name } : {}),
         ...(payload.description !== undefined ? { description: payload.description } : {}),
+        ...(payload.tier !== undefined ? { tier: payload.tier } : {}),
         ...(payload.durationDays !== undefined ? { durationDays: payload.durationDays } : {}),
         ...(payload.price !== undefined ? { price: payload.price } : {}),
         ...(payload.currency !== undefined ? { currency: payload.currency } : {}),
         ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
+        ...(payload.tier !== undefined ? { isTrial: payload.tier === SubscriptionTier.trial } : {}),
+        ...(payload.tier === SubscriptionTier.trial || (payload.tier === undefined && existing.tier === SubscriptionTier.trial)
+          ? {
+              ...(payload.trialTryoutLimit !== undefined
+                ? { trialTryoutLimit: payload.trialTryoutLimit }
+                : {}),
+              ...(payload.trialDayLimit !== undefined ? { trialDayLimit: payload.trialDayLimit } : {}),
+            }
+          : {
+              trialTryoutLimit: null,
+              trialDayLimit: null,
+            }),
       },
     });
 
@@ -1106,7 +1226,7 @@ export class OperationsService {
       throw new NotFoundException('Subscription plan tidak ditemukan');
     }
 
-    if (plan.isTrial) {
+    if (plan.tier === SubscriptionTier.trial || plan.isTrial) {
       throw new ConflictException('Trial plan tidak dapat digunakan untuk manual activation');
     }
 
@@ -1115,23 +1235,42 @@ export class OperationsService {
       const activePaidSubscription = await tx.userSubscription.findFirst({
         where: {
           userId: payload.userId,
-          isTrial: false,
           status: SubscriptionStatus.active,
           endDate: {
             gt: now,
           },
+          tierSnapshot: {
+            in: [SubscriptionTier.standard, SubscriptionTier.premium],
+          },
         },
-        orderBy: { endDate: 'desc' },
+        orderBy: [{ tierSnapshot: 'desc' }, { endDate: 'desc' }],
       });
 
       if (activePaidSubscription) {
-        return tx.userSubscription.update({
+        if (
+          activePaidSubscription.tierSnapshot === SubscriptionTier.premium &&
+          plan.tier === SubscriptionTier.standard
+        ) {
+          throw new ConflictException('Tidak bisa menurunkan akses ke standard saat premium masih aktif');
+        }
+
+        if (activePaidSubscription.tierSnapshot === plan.tier) {
+          return tx.userSubscription.update({
+            where: { id: activePaidSubscription.id },
+            data: {
+              endDate: new Date(
+                activePaidSubscription.endDate.getTime() +
+                  payload.durationDays * 24 * 60 * 60 * 1000,
+              ),
+            },
+          });
+        }
+
+        await tx.userSubscription.update({
           where: { id: activePaidSubscription.id },
           data: {
-            endDate: new Date(
-              activePaidSubscription.endDate.getTime() +
-                payload.durationDays * 24 * 60 * 60 * 1000,
-            ),
+            status: SubscriptionStatus.cancelled,
+            endDate: now,
           },
         });
       }
@@ -1146,6 +1285,7 @@ export class OperationsService {
           tryoutLimit: null,
           tryoutUsed: 0,
           isTrial: false,
+          tierSnapshot: plan.tier,
           activationSource: ActivationSource.manual,
           activatedBy: actor.id,
         },
@@ -1165,6 +1305,136 @@ export class OperationsService {
       userSubscriptionId: subscription.id,
       status: subscription.status,
       endDate: subscription.endDate,
+    };
+  }
+
+  async grantUserAccessOverride(rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(createUserAccessOverrideSchema, rawBody);
+    const [user] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: payload.userId },
+      }),
+    ]);
+
+    if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    const startsAt = new Date(payload.startsAt);
+    const expiresAt = new Date(payload.expiresAt);
+
+    if (expiresAt <= startsAt) {
+      throw new ConflictException('Masa berlaku override harus setelah waktu mulai');
+    }
+
+    const created = await this.prisma.userAccessOverride.create({
+      data: {
+        userId: payload.userId,
+        tier: payload.tier,
+        startsAt,
+        expiresAt,
+        reason: payload.reason,
+        grantedBy: actor.id,
+      },
+    });
+
+    await this.createAuditLog({
+      actor,
+      action: 'GRANT_USER_ACCESS_OVERRIDE',
+      module: 'subscription',
+      targetType: 'user_access_override',
+      targetId: created.id,
+      metadata: payload,
+    });
+
+    return {
+      id: created.id,
+      tier: created.tier,
+      expiresAt: created.expiresAt,
+    };
+  }
+
+  async listUserAccessOverrides(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, deletedAt: true },
+    });
+
+    if (!user || user.deletedAt !== null || user.role !== UserRole.USER) {
+      throw new NotFoundException('User tidak ditemukan');
+    }
+
+    const overrides = await this.prisma.userAccessOverride.findMany({
+      where: { userId },
+      include: {
+        grantedByUser: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        revokedByUser: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return overrides.map((override) => ({
+      id: override.id,
+      tier: override.tier,
+      startsAt: override.startsAt,
+      expiresAt: override.expiresAt,
+      reason: override.reason,
+      revokedAt: override.revokedAt,
+      grantedBy: override.grantedByUser.name,
+      revokedBy: override.revokedByUser?.name ?? null,
+      createdAt: override.createdAt,
+    }));
+  }
+
+  async revokeUserAccessOverride(overrideId: string, rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(revokeUserAccessOverrideSchema, rawBody);
+    const existing = await this.prisma.userAccessOverride.findUnique({
+      where: { id: overrideId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Access override tidak ditemukan');
+    }
+
+    if (existing.revokedAt) {
+      return {
+        id: existing.id,
+        revokedAt: existing.revokedAt,
+      };
+    }
+
+    const revoked = await this.prisma.userAccessOverride.update({
+      where: { id: overrideId },
+      data: {
+        revokedAt: new Date(),
+        revokedBy: actor.id,
+      },
+    });
+
+    await this.createAuditLog({
+      actor,
+      action: 'REVOKE_USER_ACCESS_OVERRIDE',
+      module: 'subscription',
+      targetType: 'user_access_override',
+      targetId: overrideId,
+      metadata: {
+        reason: payload.reason ?? null,
+      },
+    });
+
+    return {
+      id: revoked.id,
+      revokedAt: revoked.revokedAt,
     };
   }
 
@@ -1266,6 +1536,8 @@ export class OperationsService {
           isTrial: boolean;
           status: SubscriptionStatus;
           endDate: Date;
+          tryoutLimit?: number | null;
+          tryoutUsed?: number;
         }
       | null,
   ) {
@@ -1273,7 +1545,14 @@ export class OperationsService {
       return 'expired';
     }
 
-    if (subscription.isTrial && subscription.status === SubscriptionStatus.active && subscription.endDate > new Date()) {
+    if (
+      subscription.isTrial &&
+      subscription.status === SubscriptionStatus.active &&
+      subscription.endDate > new Date() &&
+      (subscription.tryoutLimit === null ||
+        subscription.tryoutLimit === undefined ||
+        (subscription.tryoutUsed ?? 0) < subscription.tryoutLimit)
+    ) {
       return 'trial';
     }
 
@@ -1282,6 +1561,42 @@ export class OperationsService {
     }
 
     return 'expired';
+  }
+
+  private assertPlanTierRules(payload: {
+    name: string;
+    description?: string | null;
+    tier: SubscriptionTier;
+    durationDays?: number;
+    price: number;
+    currency?: string;
+    isActive?: boolean;
+    trialTryoutLimit?: number | null;
+    trialDayLimit?: number | null;
+  }) {
+    if (payload.tier === SubscriptionTier.trial) {
+      if (payload.price !== 0) {
+        throw new ConflictException('Trial plan wajib memiliki harga 0');
+      }
+
+      if (payload.trialTryoutLimit === undefined || payload.trialTryoutLimit === null) {
+        throw new ConflictException('Trial plan wajib memiliki trialTryoutLimit');
+      }
+
+      if (payload.trialDayLimit === undefined || payload.trialDayLimit === null) {
+        throw new ConflictException('Trial plan wajib memiliki trialDayLimit');
+      }
+
+      return;
+    }
+
+    if (payload.trialTryoutLimit !== null && payload.trialTryoutLimit !== undefined) {
+      throw new ConflictException('Plan standard atau premium tidak boleh memiliki trialTryoutLimit');
+    }
+
+    if (payload.trialDayLimit !== null && payload.trialDayLimit !== undefined) {
+      throw new ConflictException('Plan standard atau premium tidak boleh memiliki trialDayLimit');
+    }
   }
 
   private resolveAuditLogCreatedAtFilter(query: {

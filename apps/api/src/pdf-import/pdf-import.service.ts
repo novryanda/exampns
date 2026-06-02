@@ -3,10 +3,12 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ImportBatchStatus,
   ParsedQuestionStatus,
+  Prisma,
   QuestionCategory,
   QuestionStatus,
   SourceType,
@@ -16,20 +18,29 @@ import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { assertQuestionOptionRules } from '../question-bank/question-bank.rules.js';
+import { normalizeMetadataName, toMetadataSlug } from '../question-metadata/question-metadata.utils.js';
 import {
+  bulkApproveParsedQuestionsSchema,
   approveParsedQuestionSchema,
   listParsedQuestionsQuerySchema,
   listPdfImportBatchesQuerySchema,
+  pdfImportCallbackSchema,
   rejectParsedQuestionSchema,
   updateParsedQuestionSchema,
   uploadPdfMetadataSchema,
+} from './pdf-import.schemas.js';
+import type {
+  ApproveParsedQuestionInput,
+  BulkApproveParsedQuestionsInput,
 } from './pdf-import.schemas.js';
 import {
   assertPdfFile,
   buildQuestionPreview,
   deriveParsedQuestionStatusCounters,
+  getApiPublicBase,
   toInputJson,
   toQuestionOptionCreateMany,
+  type ParsedQuestionCallbackPayload,
   type ParsedQuestionOptionPayload,
   type UploadedPdfFile,
 } from './pdf-import.helpers.js';
@@ -213,6 +224,7 @@ export class PdfImportService {
       totalDetected: batch.totalDetected,
       validCount: batch.validCount,
       invalidCount: batch.invalidCount,
+      errorMessage: batch.errorMessage,
       parsedQuestions: batch.parsedQuestions.map((item) => ({
         id: item.id,
         questionPreview: buildQuestionPreview(item.questionText),
@@ -276,18 +288,58 @@ export class PdfImportService {
     };
   }
 
+  async handlePdfImportCallback(rawBody: unknown, apiKey: string | undefined) {
+    this.assertPdfImportCallbackSecret(apiKey);
+    const payload = this.validationService.validate(pdfImportCallbackSchema, rawBody);
+
+    if (payload.success) {
+      await this.finalizePdfImportSuccess(payload.batchId, payload.parsedQuestions ?? []);
+      return;
+    }
+
+    await this.markBatchFailedIfIncomplete(
+      payload.batchId,
+      payload.errorMessage ?? 'AI workflow failed',
+    );
+  }
+
   async updateParsedQuestion(
     parsedQuestionId: string,
     rawBody: unknown,
     actor: AuthenticatedUser,
   ) {
     const payload = this.validationService.validate(updateParsedQuestionSchema, rawBody);
-    assertQuestionOptionRules(payload.category, payload.options);
-    await this.assertResolvedMetadata(
+    assertQuestionOptionRules(
       payload.category,
-      payload.resolvedSubCategoryId,
-      payload.resolvedTopicTagId,
+      payload.options.map((option) => ({
+        label: option.label,
+        text: option.text,
+        isCorrect:
+          payload.category === QuestionCategory.TKP
+            ? undefined
+            : option.label === payload.detectedAnswer,
+        tkpWeight: payload.category === QuestionCategory.TKP ? option.tkpWeight ?? undefined : undefined,
+      })),
     );
+
+    let resolvedSubCategoryId = payload.resolvedSubCategoryId ?? null;
+    let resolvedTopicTagId = payload.resolvedTopicTagId ?? null;
+
+    if (!resolvedSubCategoryId || !resolvedTopicTagId) {
+      resolvedSubCategoryId = null;
+      resolvedTopicTagId = null;
+    } else {
+      try {
+        await this.assertResolvedMetadata(
+          payload.category,
+          resolvedSubCategoryId,
+          resolvedTopicTagId,
+        );
+      } catch {
+        resolvedSubCategoryId = null;
+        resolvedTopicTagId = null;
+      }
+    }
 
     const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
       where: { id: parsedQuestionId },
@@ -310,10 +362,11 @@ export class PdfImportService {
       data: {
         questionText: payload.questionText,
         optionsJson: toInputJson(payload.options),
-        detectedAnswer: payload.detectedAnswer ?? null,
+        detectedAnswer:
+          payload.category === QuestionCategory.TKP ? null : (payload.detectedAnswer ?? null),
         category: payload.category,
-        resolvedSubCategoryId: payload.resolvedSubCategoryId,
-        resolvedTopicTagId: payload.resolvedTopicTagId,
+        resolvedSubCategoryId,
+        resolvedTopicTagId,
         difficulty: payload.difficulty,
         status: ParsedQuestionStatus.pending_review,
         reviewNotes: null,
@@ -330,8 +383,8 @@ export class PdfImportService {
       targetId: parsedQuestionId,
       metadata: {
         category: payload.category,
-        resolvedSubCategoryId: payload.resolvedSubCategoryId,
-        resolvedTopicTagId: payload.resolvedTopicTagId,
+        resolvedSubCategoryId,
+        resolvedTopicTagId,
       },
     });
   }
@@ -342,6 +395,44 @@ export class PdfImportService {
     actor: AuthenticatedUser,
   ) {
     const payload = this.validationService.validate(approveParsedQuestionSchema, rawBody);
+    return this.approveParsedQuestionWithPayload(parsedQuestionId, payload, actor);
+  }
+
+  async bulkApproveParsedQuestions(rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(bulkApproveParsedQuestionsSchema, rawBody);
+    const parsedQuestionIds = [...new Set(payload.parsedQuestionIds)];
+    const approvedItems: Array<{ parsedQuestionId: string; questionId: string }> = [];
+    const failedItems: Array<{ parsedQuestionId: string; reason: string }> = [];
+
+    for (const parsedQuestionId of parsedQuestionIds) {
+      try {
+        const approved = await this.approveParsedQuestionWithPayload(parsedQuestionId, payload, actor);
+        approvedItems.push({
+          parsedQuestionId,
+          questionId: approved.questionId,
+        });
+      } catch (error) {
+        failedItems.push({
+          parsedQuestionId,
+          reason: error instanceof Error ? error.message : 'Parsed question gagal disetujui',
+        });
+      }
+    }
+
+    return {
+      totalRequested: parsedQuestionIds.length,
+      approvedCount: approvedItems.length,
+      failedCount: failedItems.length,
+      approvedItems,
+      failedItems,
+    };
+  }
+
+  private async approveParsedQuestionWithPayload(
+    parsedQuestionId: string,
+    payload: ApproveParsedQuestionInput | BulkApproveParsedQuestionsInput,
+    actor: AuthenticatedUser,
+  ) {
     const parsedQuestion = await this.prisma.parsedQuestionReview.findUnique({
       where: { id: parsedQuestionId },
     });
@@ -358,18 +449,6 @@ export class PdfImportService {
       throw new ConflictException('Parsed question belum lengkap untuk di-approve');
     }
 
-    if (!parsedQuestion.resolvedSubCategoryId || !parsedQuestion.resolvedTopicTagId) {
-      throw new ConflictException('Parsed question belum dipetakan ke metadata master');
-    }
-
-    await this.assertResolvedMetadata(
-      parsedQuestion.category,
-      parsedQuestion.resolvedSubCategoryId,
-      parsedQuestion.resolvedTopicTagId,
-    );
-    const resolvedSubCategoryId = parsedQuestion.resolvedSubCategoryId;
-    const resolvedTopicTagId = parsedQuestion.resolvedTopicTagId;
-
     const options = parsedQuestion.optionsJson as unknown as ParsedQuestionOptionPayload[];
     assertQuestionOptionRules(parsedQuestion.category, options.map((option) => ({
       label: option.label,
@@ -378,10 +457,14 @@ export class PdfImportService {
         parsedQuestion.category === QuestionCategory.TKP
           ? undefined
           : option.label === parsedQuestion.detectedAnswer,
-      tkpWeight: undefined,
+      tkpWeight:
+        parsedQuestion.category === QuestionCategory.TKP ? option.tkpWeight ?? undefined : undefined,
     })));
 
     const result = await this.prisma.$transaction(async (tx) => {
+      const { subCategoryId: resolvedSubCategoryId, topicTagId: resolvedTopicTagId } =
+        await this.resolveMetadataForApproval(tx, parsedQuestion);
+
       const question = await tx.question.create({
         data: {
           questionText: parsedQuestion.questionText,
@@ -420,7 +503,11 @@ export class PdfImportService {
         },
       });
 
-      return question;
+      return {
+        id: question.id,
+        resolvedSubCategoryId,
+        resolvedTopicTagId,
+      };
     });
 
     await this.refreshBatchCounters(parsedQuestion.batchId);
@@ -434,6 +521,8 @@ export class PdfImportService {
       metadata: {
         questionId: result.id,
         status: payload.status ?? QuestionStatus.active,
+        resolvedSubCategoryId: result.resolvedSubCategoryId,
+        resolvedTopicTagId: result.resolvedTopicTagId,
       },
     });
 
@@ -496,143 +585,199 @@ export class PdfImportService {
     categoryHint?: 'TWK' | 'TIU' | 'TKP' | 'auto',
   ) {
     const webhookUrl = process.env.PDF_IMPORT_WEBHOOK_URL?.trim();
-    if (!webhookUrl) {
-      await this.prisma.questionImportBatch.update({
-        where: { id: batchId },
-        data: {
-          status: ImportBatchStatus.failed,
-          errorMessage: 'AI workflow unavailable',
-          completedAt: new Date(),
-        },
-      });
+    const callbackSecret = this.resolvePdfImportCallbackSecret();
+
+    if (!webhookUrl || !callbackSecret) {
+      await this.markBatchFailedIfIncomplete(batchId, 'PDF import workflow belum dikonfigurasi');
       return;
     }
 
-    try {
-      const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
+    const requestPromise = fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        batchId,
+        fileName: file.originalname,
+        fileMimeType: file.mimetype,
+        fileContentBase64: file.buffer.toString('base64'),
+        categoryHint: categoryHint ?? 'auto',
+        callbackUrl: this.buildPdfImportCallbackUrl(),
+        callbackSecret,
+      }),
+    })
+      .then(async (response) => {
+        const responseJson = (await response.json().catch(() => null)) as
+          | {
+              parsedQuestions?: ParsedQuestionCallbackPayload[];
+              errorMessage?: string;
+              accepted?: boolean;
+            }
+          | null;
+
+        if (response.ok && responseJson?.parsedQuestions) {
+          await this.finalizePdfImportSuccess(batchId, responseJson.parsedQuestions);
+          return;
+        }
+
+        if (response.ok) {
+          return;
+        }
+
+        await this.markBatchFailedIfIncomplete(
           batchId,
-          fileName: file.originalname,
-          fileMimeType: file.mimetype,
-          fileContentBase64: file.buffer.toString('base64'),
-          categoryHint: categoryHint ?? 'auto',
-        }),
-      });
-
-      const responseJson = (await response.json().catch(() => null)) as
-        | {
-            parsedQuestions?: Array<{
-              questionText: string;
-              options: ParsedQuestionOptionPayload[];
-              detectedAnswer?: string | null;
-              category?: QuestionCategory | null;
-              subCategory?: string | null;
-              topicTag?: string | null;
-              difficulty?: 'easy' | 'medium' | 'hard' | null;
-              confidenceScore?: number | null;
-              rawAiOutput?: unknown;
-              status?: ParsedQuestionStatus;
-            }>;
-            errorMessage?: string;
-          }
-        | null;
-
-      if (!response.ok || !responseJson?.parsedQuestions) {
-        await this.prisma.questionImportBatch.update({
-          where: { id: batchId },
-          data: {
-            status: ImportBatchStatus.failed,
-            errorMessage: responseJson?.errorMessage ?? 'AI workflow unavailable',
-            completedAt: new Date(),
-          },
-        });
-        return;
-      }
-
-      const parsedQuestions = responseJson.parsedQuestions;
-
-      await this.prisma.$transaction(async (tx) => {
-        await tx.parsedQuestionReview.createMany({
-          data: parsedQuestions.map((item) => ({
-            batchId,
-            rawAiOutput: toInputJson(item.rawAiOutput ?? item),
-            questionText: item.questionText,
-            optionsJson: toInputJson(item.options),
-            detectedAnswer: item.detectedAnswer ?? null,
-            category: item.category ?? null,
-            subCategory: item.subCategory ?? null,
-            topicTag: item.topicTag ?? null,
-            resolvedSubCategoryId: null,
-            resolvedTopicTagId: null,
-            difficulty: item.difficulty ?? null,
-            confidenceScore: item.confidenceScore ?? null,
-            status: item.status ?? ParsedQuestionStatus.pending_review,
-          })),
-        });
-
-        await tx.$executeRawUnsafe(
-          `
-            UPDATE "parsed_question_reviews" p
-            SET
-              "resolved_sub_category_id" = qsc."id",
-              "resolved_topic_tag_id" = qtt."id"
-            FROM "question_sub_categories" qsc
-            JOIN "question_topic_tags" qtt
-              ON qtt."sub_category_id" = qsc."id"
-            WHERE p."batch_id" = $1
-              AND p."category" IS NOT NULL
-              AND p."sub_category" IS NOT NULL
-              AND p."topic_tag" IS NOT NULL
-              AND qsc."category" = p."category"
-              AND qsc."slug" = regexp_replace(
-                regexp_replace(lower(btrim(p."sub_category")), '\\s+', ' ', 'g'),
-                '[^a-z0-9]+',
-                '_',
-                'g'
-              )
-              AND qtt."slug" = regexp_replace(
-                regexp_replace(lower(btrim(p."topic_tag")), '\\s+', ' ', 'g'),
-                '[^a-z0-9]+',
-                '_',
-                'g'
-              )
-          `,
-          batchId,
+          responseJson?.errorMessage ?? `AI workflow merespons ${response.status}`,
         );
-
-        const createdRows = parsedQuestions.map((item) => ({
-          status: item.status ?? ParsedQuestionStatus.pending_review,
-        }));
-        const counters = deriveParsedQuestionStatusCounters(createdRows);
-        const nextStatus =
-          counters.invalidCount > 0 ? ImportBatchStatus.partial_failed : ImportBatchStatus.completed;
-
-        await tx.questionImportBatch.update({
-          where: { id: batchId },
-          data: {
-            status: nextStatus,
-            totalDetected: counters.totalDetected,
-            validCount: counters.validCount,
-            invalidCount: counters.invalidCount,
-            errorMessage: null,
-            completedAt: new Date(),
-          },
-        });
+      })
+      .catch(async (error: unknown) => {
+        const message =
+          error instanceof Error ? error.message : 'Terjadi kegagalan saat memanggil AI workflow';
+        await this.markBatchFailedIfIncomplete(batchId, message);
       });
-    } catch {
-      await this.prisma.questionImportBatch.update({
+
+    await Promise.race([requestPromise, this.delay(1500)]);
+  }
+
+  private async finalizePdfImportSuccess(
+    batchId: string,
+    parsedQuestions: ParsedQuestionCallbackPayload[],
+  ) {
+    const batch = await this.prisma.questionImportBatch.findUnique({
+      where: { id: batchId },
+      select: {
+        id: true,
+        status: true,
+        _count: {
+          select: {
+            parsedQuestions: true,
+          },
+        },
+      },
+    });
+
+    if (!batch) {
+      throw new NotFoundException('PDF import batch tidak ditemukan');
+    }
+
+    if (
+      batch._count.parsedQuestions > 0 ||
+      batch.status === ImportBatchStatus.completed ||
+      batch.status === ImportBatchStatus.partial_failed
+    ) {
+      return;
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.parsedQuestionReview.createMany({
+        data: parsedQuestions.map((item) => ({
+          batchId,
+          rawAiOutput: toInputJson(item.rawAiOutput ?? item),
+          questionText: item.questionText,
+          optionsJson: toInputJson(item.options),
+          detectedAnswer: item.detectedAnswer ?? null,
+          category: item.category ?? null,
+          subCategory: item.subCategory ?? null,
+          topicTag: item.topicTag ?? null,
+          resolvedSubCategoryId: null,
+          resolvedTopicTagId: null,
+          difficulty: item.difficulty ?? null,
+          confidenceScore: item.confidenceScore ?? null,
+          status: item.status ?? ParsedQuestionStatus.pending_review,
+        })),
+      });
+
+      await tx.$executeRawUnsafe(
+        `
+          UPDATE "parsed_question_reviews" p
+          SET
+            "resolved_sub_category_id" = qsc."id",
+            "resolved_topic_tag_id" = qtt."id"
+          FROM "question_sub_categories" qsc
+          JOIN "question_topic_tags" qtt
+            ON qtt."sub_category_id" = qsc."id"
+          WHERE p."batch_id" = $1
+            AND p."category" IS NOT NULL
+            AND p."sub_category" IS NOT NULL
+            AND p."topic_tag" IS NOT NULL
+            AND qsc."category" = p."category"
+            AND qsc."slug" = regexp_replace(
+              regexp_replace(lower(btrim(p."sub_category")), '\\s+', ' ', 'g'),
+              '[^a-z0-9]+',
+              '_',
+              'g'
+            )
+            AND qtt."slug" = regexp_replace(
+              regexp_replace(lower(btrim(p."topic_tag")), '\\s+', ' ', 'g'),
+              '[^a-z0-9]+',
+              '_',
+              'g'
+            )
+        `,
+        batchId,
+      );
+
+      const createdRows = parsedQuestions.map((item) => ({
+        status: item.status ?? ParsedQuestionStatus.pending_review,
+      }));
+      const counters = deriveParsedQuestionStatusCounters(createdRows);
+      const nextStatus =
+        counters.invalidCount > 0 ? ImportBatchStatus.partial_failed : ImportBatchStatus.completed;
+
+      await tx.questionImportBatch.update({
         where: { id: batchId },
         data: {
-          status: ImportBatchStatus.failed,
-          errorMessage: 'AI workflow unavailable',
+          status: nextStatus,
+          totalDetected: counters.totalDetected,
+          validCount: counters.validCount,
+          invalidCount: counters.invalidCount,
+          errorMessage: null,
           completedAt: new Date(),
         },
       });
+    });
+  }
+
+  private async markBatchFailedIfIncomplete(batchId: string, errorMessage: string) {
+    await this.prisma.questionImportBatch.updateMany({
+      where: {
+        id: batchId,
+        status: {
+          notIn: [ImportBatchStatus.completed, ImportBatchStatus.partial_failed],
+        },
+      },
+      data: {
+        status: ImportBatchStatus.failed,
+        errorMessage,
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  private buildPdfImportCallbackUrl() {
+    return `${getApiPublicBase()}/api/v1/internal/pdf-imports/callback`;
+  }
+
+  private resolvePdfImportCallbackSecret() {
+    return process.env.PDF_IMPORT_CALLBACK_SECRET?.trim() || process.env.N8N_WEBHOOK_SECRET?.trim() || null;
+  }
+
+  private assertPdfImportCallbackSecret(apiKey: string | undefined) {
+    const expected = this.resolvePdfImportCallbackSecret();
+
+    if (!expected) {
+      throw new UnauthorizedException('PDF import callback secret belum dikonfigurasi');
     }
+
+    if (!apiKey || apiKey !== expected) {
+      throw new UnauthorizedException('PDF import callback secret tidak valid');
+    }
+  }
+
+  private delay(ms: number) {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
   }
 
   private async refreshBatchCounters(batchId: string) {
@@ -669,9 +814,12 @@ export class PdfImportService {
     category: QuestionCategory,
     resolvedSubCategoryId: string,
     resolvedTopicTagId: string,
+    db:
+      | Pick<PrismaService, 'questionSubCategory' | 'questionTopicTag'>
+      | Prisma.TransactionClient = this.prisma,
   ) {
     const [subCategory, topicTag] = await Promise.all([
-      this.prisma.questionSubCategory.findUnique({
+      db.questionSubCategory.findUnique({
         where: { id: resolvedSubCategoryId },
         select: {
           id: true,
@@ -679,7 +827,7 @@ export class PdfImportService {
           isActive: true,
         },
       }),
-      this.prisma.questionTopicTag.findUnique({
+      db.questionTopicTag.findUnique({
         where: { id: resolvedTopicTagId },
         select: {
           id: true,
@@ -704,5 +852,131 @@ export class PdfImportService {
     if (!topicTag.isActive) {
       throw new BadRequestException('Resolved topic tag inactive tidak dapat dipakai');
     }
+  }
+
+  private async resolveMetadataForApproval(
+    tx: Prisma.TransactionClient,
+    parsedQuestion: {
+      category: QuestionCategory | null;
+      resolvedSubCategoryId: string | null;
+      resolvedTopicTagId: string | null;
+      subCategory: string | null;
+      topicTag: string | null;
+    },
+  ) {
+    if (!parsedQuestion.category) {
+      throw new ConflictException('Kategori parsed question belum lengkap');
+    }
+
+    if (parsedQuestion.resolvedSubCategoryId && parsedQuestion.resolvedTopicTagId) {
+      await this.assertResolvedMetadata(
+        parsedQuestion.category,
+        parsedQuestion.resolvedSubCategoryId,
+        parsedQuestion.resolvedTopicTagId,
+        tx,
+      );
+
+      return {
+        subCategoryId: parsedQuestion.resolvedSubCategoryId,
+        topicTagId: parsedQuestion.resolvedTopicTagId,
+      };
+    }
+
+    const detectedSubCategory = parsedQuestion.subCategory ? normalizeMetadataName(parsedQuestion.subCategory) : null;
+    const detectedTopicTag = parsedQuestion.topicTag ? normalizeMetadataName(parsedQuestion.topicTag) : null;
+
+    if (!detectedSubCategory || !detectedTopicTag) {
+      throw new ConflictException(
+        'Parsed question belum dipetakan ke metadata master dan deteksi AI belum cukup untuk membuat metadata baru',
+      );
+    }
+
+    const subCategorySlug = toMetadataSlug(detectedSubCategory);
+    const topicTagSlug = toMetadataSlug(detectedTopicTag);
+
+    let subCategoryId = parsedQuestion.resolvedSubCategoryId;
+    if (!subCategoryId) {
+      const existingSubCategory = await tx.questionSubCategory.findFirst({
+        where: {
+          category: parsedQuestion.category,
+          slug: subCategorySlug,
+        },
+        select: {
+          id: true,
+          isActive: true,
+        },
+      });
+
+      if (existingSubCategory) {
+        if (!existingSubCategory.isActive) {
+          throw new ConflictException('Sub-kategori hasil deteksi AI sudah ada tetapi nonaktif');
+        }
+        subCategoryId = existingSubCategory.id;
+      } else {
+        const latestSubCategory = await tx.questionSubCategory.findFirst({
+          where: { category: parsedQuestion.category },
+          orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
+          select: { sortOrder: true },
+        });
+
+        const createdSubCategory = await tx.questionSubCategory.create({
+          data: {
+            category: parsedQuestion.category,
+            name: detectedSubCategory,
+            slug: subCategorySlug,
+            sortOrder: (latestSubCategory?.sortOrder ?? -1) + 1,
+          },
+          select: { id: true },
+        });
+
+        subCategoryId = createdSubCategory.id;
+      }
+    }
+
+    let topicTagId = parsedQuestion.resolvedTopicTagId;
+    if (!topicTagId) {
+      const existingTopicTag = await tx.questionTopicTag.findFirst({
+        where: {
+          subCategoryId,
+          slug: topicTagSlug,
+        },
+        select: {
+          id: true,
+          isActive: true,
+        },
+      });
+
+      if (existingTopicTag) {
+        if (!existingTopicTag.isActive) {
+          throw new ConflictException('Topik tag hasil deteksi AI sudah ada tetapi nonaktif');
+        }
+        topicTagId = existingTopicTag.id;
+      } else {
+        const latestTopicTag = await tx.questionTopicTag.findFirst({
+          where: { subCategoryId },
+          orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
+          select: { sortOrder: true },
+        });
+
+        const createdTopicTag = await tx.questionTopicTag.create({
+          data: {
+            subCategoryId,
+            name: detectedTopicTag,
+            slug: topicTagSlug,
+            sortOrder: (latestTopicTag?.sortOrder ?? -1) + 1,
+          },
+          select: { id: true },
+        });
+
+        topicTagId = createdTopicTag.id;
+      }
+    }
+
+    await this.assertResolvedMetadata(parsedQuestion.category, subCategoryId, topicTagId, tx);
+
+    return {
+      subCategoryId,
+      topicTagId,
+    };
   }
 }

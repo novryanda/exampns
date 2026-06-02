@@ -43,13 +43,19 @@ export const updateQuestionSchema = createQuestionSchema
     message: 'At least one field must be provided',
   });
 
+export const questionOverviewQuerySchema = z.object({
+  statusPeriod: z.enum(['7d', 'all']).default('all'),
+});
+
 export const listQuestionsQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   category: z.preprocess(
     emptyToUndefined,
     z.nativeEnum(QuestionCategory).optional(),
   ),
+  subCategoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   subCategory: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
+  topicTagId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   topicTag: z.preprocess(emptyToUndefined, z.string().trim().max(150).optional()),
   difficulty: z.preprocess(
     emptyToUndefined,

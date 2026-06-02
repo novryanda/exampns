@@ -1,11 +1,11 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -46,6 +46,7 @@ async function getCurrentUserRole() {
 
 export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: string }) {
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -119,15 +120,27 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
               <FieldLabel htmlFor="login-password">Password</FieldLabel>
-              <Input
-                {...field}
-                id="login-password"
-                type="password"
-                placeholder="Masukkan password Anda"
-                autoComplete="current-password"
-                aria-invalid={fieldState.invalid}
-                disabled={isPending}
-              />
+              <div className="relative">
+                <Input
+                  {...field}
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Masukkan password Anda"
+                  autoComplete="current-password"
+                  aria-invalid={fieldState.invalid}
+                  disabled={isPending}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-slate-500"
+                  aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
+                  disabled={isPending}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
           )}

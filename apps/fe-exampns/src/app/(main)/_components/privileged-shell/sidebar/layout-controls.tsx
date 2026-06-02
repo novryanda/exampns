@@ -194,6 +194,11 @@ export function LayoutControls() {
 
             <div className="space-y-1">
               <Label className="font-medium text-xs">Navbar Behavior</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Pilih <span className="font-medium text-foreground">Tetap di Atas</span> agar navbar tidak hilang saat
+                scroll. <span className="font-medium text-foreground">Ikut Halaman</span> membuat navbar tenggelam
+                bersama konten.
+              </p>
               <ToggleGroup
                 size="sm"
                 variant="outline"
@@ -201,11 +206,11 @@ export function LayoutControls() {
                 value={navbarStyle}
                 onValueChange={onNavbarStyleChange}
               >
-                <ToggleGroupItem value="sticky" aria-label="Toggle sticky">
-                  Sticky
+                <ToggleGroupItem value="sticky" aria-label="Navbar tetap terlihat saat discroll">
+                  Tetap di Atas
                 </ToggleGroupItem>
-                <ToggleGroupItem value="scroll" aria-label="Toggle scroll">
-                  Scroll
+                <ToggleGroupItem value="scroll" aria-label="Navbar ikut bergerak saat halaman discroll">
+                  Ikut Halaman
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>

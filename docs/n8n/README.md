@@ -26,6 +26,10 @@ Default `OPENAI_BASE_URL` yang dipakai workflow:
 
 `https://api.openai.com/v1/chat/completions`
 
+Jika memakai Gemini via endpoint OpenAI-compatible, gunakan:
+
+`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`
+
 ### Workflow PDF Parse
 
 - `OPENAI_API_KEY`
@@ -59,14 +63,18 @@ dengan body JSON:
   "fileName": "soal.pdf",
   "fileMimeType": "application/pdf",
   "fileContentBase64": "...",
-  "categoryHint": "auto"
+  "categoryHint": "auto",
+  "callbackUrl": "http://localhost:3001/api/v1/internal/pdf-imports/callback",
+  "callbackSecret": "dev-pdf-import-callback-secret"
 }
 ```
 
 Catatan:
 
 - Backend PDF parser saat ini belum mengirim `x-api-key`.
-- Kalau Anda ingin workflow PDF juga diamankan pakai secret header, backend perlu dipatch agar ikut mengirim secret.
+- Backend sekarang tidak lagi menunggu hasil parsing sinkron.
+- Workflow n8n perlu mengirim callback sukses ke `callbackUrl` dengan header `x-api-key: <callbackSecret>`.
+- Jika workflow gagal sebelum callback, backend akan menandai batch gagal dari error/HTTP response workflow.
 
 ## Bentuk Response yang Diharapkan Backend
 
@@ -85,7 +93,7 @@ Workflow harus mengembalikan JSON langsung, tanpa wrapper `success`:
 
 ### PDF Parse
 
-Workflow harus mengembalikan:
+Backend masih kompatibel dengan response sinkron lama:
 
 ```json
 {
@@ -93,10 +101,32 @@ Workflow harus mengembalikan:
 }
 ```
 
-Field tambahan seperti `totalParsed`, `validCount`, dan `invalidCount` aman untuk disertakan.
+Namun mode yang direkomendasikan sekarang adalah callback async ke backend:
+
+```json
+{
+  "batchId": "uuid",
+  "success": true,
+  "parsedQuestions": [],
+  "totalParsed": 100,
+  "validCount": 100,
+  "invalidCount": 0
+}
+```
+
+Untuk gagal:
+
+```json
+{
+  "batchId": "uuid",
+  "success": false,
+  "errorMessage": "Pesan error dari workflow"
+}
+```
 
 ## Catatan Implementasi
 
 - Workflow AI recommendation sudah divalidasi agar tidak mengarang `topicTag` di luar `weakAreas`.
 - Workflow PDF parse memakai `Extract From File` untuk mengambil teks PDF, lalu satu panggilan LLM untuk mengubah teks menjadi array soal.
 - Workflow PDF parse ini cocok untuk PDF ukuran kecil sampai menengah. Kalau PDF Anda besar, sebaiknya nanti kita upgrade ke versi chunking per blok soal.
+- Untuk keamanan, API key LLM sebaiknya tetap disimpan di environment n8n dan tidak di-hardcode ke file workflow JSON.

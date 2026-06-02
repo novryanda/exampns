@@ -18,6 +18,8 @@ import {
   UserRole,
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { AccessResolverService } from '../common/access-resolver.service.js';
+import { canAccessTryout } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -32,7 +34,8 @@ import {
 } from './exam-engine.schemas.js';
 import {
   buildBreakdown,
-  ensureUserCanAccessTryout,
+  buildWeakAreaItems,
+  type BreakdownItem,
   formatAiRecommendationForResponse,
   formatResultBreakdownForResponse,
   isPrivilegedRole,
@@ -42,7 +45,6 @@ import {
   shuffle,
   toInputJson,
   toNullableInputJson,
-  tryoutUsesManualSet,
   type QuestionSnapshotOption,
   type QuestionSnapshotPayload,
 } from './exam-engine.helpers.js';
@@ -52,6 +54,7 @@ import { AiRecommendationService } from './ai-recommendation.service.js';
 export class ExamEngineService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly accessResolverService: AccessResolverService,
     private readonly validationService: ValidationService,
     private readonly aiRecommendationService: AiRecommendationService,
   ) {}
@@ -77,61 +80,56 @@ export class ExamEngineService {
       });
     }
 
-    const currentSubscription = await this.prisma.userSubscription.findFirst({
-      where: {
-        userId: actor.id,
-        status: 'active',
-        endDate: {
-          gt: new Date(),
-        },
-      },
-      orderBy: [{ isTrial: 'desc' }, { endDate: 'desc' }],
-      select: {
-        id: true,
-        isTrial: true,
-        endDate: true,
-      },
-    });
-
-    const catalog = await this.prisma.tryoutCatalog.findUnique({
-      where: { id: tryoutCatalogId },
-      include: {
-        generationRule: {
-          include: {
-            sections: {
-              orderBy: { sortOrder: 'asc' },
+    const [accessResolution, catalog] = await Promise.all([
+      this.accessResolverService.resolveEffectiveAccessLevel(actor.id),
+      this.prisma.tryoutCatalog.findUnique({
+        where: { id: tryoutCatalogId },
+        include: {
+          generationRule: {
+            include: {
+              sections: {
+                orderBy: { sortOrder: 'asc' },
+              },
             },
           },
-        },
-        manualQuestionSets: {
-          where: {
-            status: 'approved',
-          },
-          include: {
-            items: {
-              orderBy: { questionOrder: 'asc' },
+          manualQuestionSets: {
+            where: {
+              status: 'approved',
             },
+            include: {
+              items: {
+                orderBy: { questionOrder: 'asc' },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
           },
-          orderBy: { updatedAt: 'desc' },
         },
-      },
-    });
+      }),
+    ]);
 
     if (!catalog || catalog.status !== TryoutStatus.published || !catalog.isPublic) {
       throw new NotFoundException('Tryout catalog tidak tersedia');
     }
 
-    if (!ensureUserCanAccessTryout(catalog.accessType, currentSubscription)) {
+    if (!canAccessTryout(catalog.accessType, accessResolution.effectiveAccessLevel)) {
+      const message =
+        catalog.accessType === 'premium_only'
+          ? 'Tryout ini hanya tersedia untuk pengguna premium aktif'
+          : catalog.accessType === 'paid_only'
+            ? 'Tryout ini membutuhkan subscription berbayar yang aktif'
+            : catalog.accessType === 'trial_only'
+              ? 'Tryout ini hanya tersedia untuk akses trial aktif'
+              : 'Trial atau subscription Anda tidak aktif untuk tryout ini';
       throw new ForbiddenException({
-        code: 'ACCESS_EXPIRED',
-        message: 'Trial atau subscription Anda tidak aktif untuk tryout ini',
+        code: 'ACCESS_LEVEL_REQUIRED',
+        message,
       });
     }
 
     const selectedQuestions = await this.selectQuestionsForTryout(actor.id, catalog);
     if (selectedQuestions.length !== catalog.totalQuestions) {
       throw new ConflictException({
-        code: 'INSUFFICIENT_QUESTIONS',
+        code: 'TRYOUT_NOT_READY',
         message: 'Soal aktif untuk tryout ini belum mencukupi',
       });
     }
@@ -174,6 +172,34 @@ export class ExamEngineService {
           difficultySnapshot: question.difficultySnapshot,
         })),
       });
+
+      const meteredSubscription = accessResolution.activeSubscription;
+      if (meteredSubscription?.tryoutLimit !== null && meteredSubscription?.tryoutLimit !== undefined) {
+        const updated = await tx.userSubscription.updateMany({
+          where: {
+            id: meteredSubscription.id,
+            status: 'active',
+            endDate: {
+              gt: startedAt,
+            },
+            tryoutUsed: {
+              lt: meteredSubscription.tryoutLimit,
+            },
+          },
+          data: {
+            tryoutUsed: {
+              increment: 1,
+            },
+          },
+        });
+
+        if (updated.count === 0) {
+          throw new ConflictException({
+            code: 'ACCESS_EXPIRED',
+            message: 'Kuota tryout aktif Anda sudah habis.',
+          });
+        }
+      }
 
       return createdSession;
     });
@@ -1054,9 +1080,6 @@ export class ExamEngineService {
       };
     }>,
   ) {
-    const generationMode =
-      catalog.generationRule?.randomizationMode ?? RandomizationMode.manual_question_set;
-
     const excludedQuestionIds = await this.getExcludedQuestionIds(
       userId,
       catalog.generationRule?.avoidRecentQuestions ?? false,
@@ -1075,53 +1098,137 @@ export class ExamEngineService {
         difficultySnapshot: QuestionDifficulty;
       }
     >();
+    const approvedSet = catalog.manualQuestionSets[0] ?? null;
 
-    if (tryoutUsesManualSet(catalog.tryoutType, generationMode)) {
-      const approvedSet = catalog.manualQuestionSets[0];
-      if (!approvedSet) {
-        throw new ConflictException('Approved manual question set is missing');
-      }
-
-      const manualQuestions = await this.prisma.question.findMany({
-        where: {
-          id: {
-            in: approvedSet.items.map((item) => item.questionId),
-          },
-          status: QuestionStatus.active,
-          deletedAt: null,
-        },
-        include: {
-          subCategoryRef: {
-            select: {
-              name: true,
-            },
-          },
-          topicTagRef: {
-            select: {
-              name: true,
-            },
-          },
-          options: {
-            orderBy: { displayOrder: 'asc' },
-          },
-        },
-      });
-
-      const byId = new Map(manualQuestions.map((item) => [item.id, item]));
-      for (const item of approvedSet.items) {
-        const question = byId.get(item.questionId);
-        if (!question) {
-          continue;
+    switch (catalog.tryoutType) {
+      case TryoutType.manual: {
+        if (!approvedSet) {
+          throw new ConflictException('Approved manual question set is missing');
         }
-        selected.set(question.id, this.toExamSessionQuestionSnapshot(question));
+
+        await this.appendManualQuestionSet(selected, approvedSet);
+        return [...selected.values()].slice(0, catalog.totalQuestions);
+      }
+      case TryoutType.hybrid: {
+        if (!approvedSet) {
+          throw new ConflictException('Approved manual question set is missing');
+        }
+
+        if (!catalog.generationRule) {
+          throw new ConflictException('Generation rule is missing');
+        }
+
+        await this.appendManualQuestionSet(selected, approvedSet);
+        await this.appendQuestionsUsingGenerationSections(
+          selected,
+          catalog.generationRule.sections,
+          excludedQuestionIds,
+        );
+        return [...selected.values()].slice(0, catalog.totalQuestions);
+      }
+      case TryoutType.adaptive: {
+        if (!catalog.generationRule) {
+          throw new ConflictException('Generation rule is missing');
+        }
+
+        await this.appendAdaptiveQuestions(userId, selected, excludedQuestionIds, catalog);
+        await this.appendQuestionsUsingGenerationSections(
+          selected,
+          catalog.generationRule.sections,
+          excludedQuestionIds,
+        );
+        return [...selected.values()].slice(0, catalog.totalQuestions);
+      }
+      case TryoutType.generated:
+      default: {
+        if (!catalog.generationRule) {
+          throw new ConflictException('Generation rule is missing');
+        }
+
+        await this.appendQuestionsUsingGenerationSections(
+          selected,
+          catalog.generationRule.sections,
+          excludedQuestionIds,
+        );
+        return [...selected.values()].slice(0, catalog.totalQuestions);
       }
     }
+  }
 
-    if (catalog.tryoutType === TryoutType.manual) {
-      return [...selected.values()].slice(0, catalog.totalQuestions);
+  private async appendManualQuestionSet(
+    selected: Map<
+      string,
+      {
+        id: string;
+        questionSnapshot: QuestionSnapshotPayload;
+        optionsSnapshot: QuestionSnapshotOption[];
+        categorySnapshot: QuestionCategory;
+        subCategorySnapshot: string;
+        topicTagSnapshot: string;
+        difficultySnapshot: QuestionDifficulty;
+      }
+    >,
+    approvedSet: {
+      items: Array<{ questionId: string }>;
+    },
+  ) {
+    const manualQuestions = await this.prisma.question.findMany({
+      where: {
+        id: {
+          in: approvedSet.items.map((item) => item.questionId),
+        },
+        status: QuestionStatus.active,
+        deletedAt: null,
+      },
+      include: {
+        subCategoryRef: {
+          select: {
+            name: true,
+          },
+        },
+        topicTagRef: {
+          select: {
+            name: true,
+          },
+        },
+        options: {
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+
+    const byId = new Map(manualQuestions.map((item) => [item.id, item]));
+    for (const item of approvedSet.items) {
+      const question = byId.get(item.questionId);
+      if (!question) {
+        continue;
+      }
+
+      selected.set(question.id, this.toExamSessionQuestionSnapshot(question));
     }
+  }
 
-    const sections = catalog.generationRule?.sections ?? [];
+  private async appendQuestionsUsingGenerationSections(
+    selected: Map<
+      string,
+      {
+        id: string;
+        questionSnapshot: QuestionSnapshotPayload;
+        optionsSnapshot: QuestionSnapshotOption[];
+        categorySnapshot: QuestionCategory;
+        subCategorySnapshot: string;
+        topicTagSnapshot: string;
+        difficultySnapshot: QuestionDifficulty;
+      }
+    >,
+    sections: Array<{
+      category: QuestionCategory;
+      questionCount: number;
+      difficultyDistributionJson: Prisma.JsonValue | null;
+      topicDistributionJson: Prisma.JsonValue | null;
+    }>,
+    excludedQuestionIds: Set<string>,
+  ) {
     for (const section of sections) {
       const currentCategoryCount = [...selected.values()].filter(
         (item) => item.categorySnapshot === section.category,
@@ -1171,8 +1278,136 @@ export class ExamEngineService {
         });
       }
     }
+  }
 
-    return [...selected.values()].slice(0, catalog.totalQuestions);
+  private async appendAdaptiveQuestions(
+    userId: string,
+    selected: Map<
+      string,
+      {
+        id: string;
+        questionSnapshot: QuestionSnapshotPayload;
+        optionsSnapshot: QuestionSnapshotOption[];
+        categorySnapshot: QuestionCategory;
+        subCategorySnapshot: string;
+        topicTagSnapshot: string;
+        difficultySnapshot: QuestionDifficulty;
+      }
+    >,
+    excludedQuestionIds: Set<string>,
+    catalog: Prisma.TryoutCatalogGetPayload<{
+      include: {
+        generationRule: { include: { sections: true } };
+        manualQuestionSets: { include: { items: true } };
+      };
+    }>,
+  ) {
+    const config = this.readAdaptiveConfig(catalog.generationRule?.rulesJson);
+    if (!config) {
+      return;
+    }
+
+    const weakAreas = await this.getAdaptiveWeakAreas(userId, config.maxWeakAreas);
+    for (const weakArea of weakAreas) {
+      await this.appendQuestions(selected, {
+        category: weakArea.category,
+        topicTag: weakArea.topicTag,
+        take: config.perWeakAreaQuestionCap,
+        excludedQuestionIds,
+      });
+    }
+  }
+
+  private async getAdaptiveWeakAreas(userId: string, maxWeakAreas: number) {
+    const latestRecommendation = await this.prisma.aIRecommendation.findFirst({
+      where: {
+        status: {
+          in: [AIRecommendationStatus.completed, AIRecommendationStatus.fallback],
+        },
+        examResult: {
+          userId,
+        },
+      },
+      include: {
+        items: {
+          orderBy: [{ priorityOrder: 'asc' }],
+        },
+      },
+      orderBy: [{ generatedAt: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    if (latestRecommendation && latestRecommendation.items.length > 0) {
+      return latestRecommendation.items.slice(0, maxWeakAreas).map((item) => ({
+        category: item.category,
+        topicTag: item.topicTag,
+      }));
+    }
+
+    const recentResults = await this.prisma.examResult.findMany({
+      where: { userId },
+      orderBy: { generatedAt: 'desc' },
+      take: 6,
+      select: {
+        breakdownJson: true,
+        twkPassed: true,
+        tiuPassed: true,
+        tkpPassed: true,
+      },
+    });
+
+    const latestResult = recentResults[0];
+    if (!latestResult) {
+      return [];
+    }
+
+    const weakAreas = buildWeakAreaItems(
+      latestResult.breakdownJson as unknown as BreakdownItem[],
+      {
+        [QuestionCategory.TWK]: latestResult.twkPassed,
+        [QuestionCategory.TIU]: latestResult.tiuPassed,
+        [QuestionCategory.TKP]: latestResult.tkpPassed,
+      },
+      recentResults
+        .slice(1)
+        .map((item) => item.breakdownJson as unknown as BreakdownItem[]),
+    );
+
+    return weakAreas.slice(0, maxWeakAreas).map((item) => ({
+      category: item.category,
+      topicTag: item.topicTag,
+    }));
+  }
+
+  private readAdaptiveConfig(rawValue: Prisma.JsonValue | null | undefined) {
+    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
+      return null;
+    }
+
+    const value = rawValue as Record<string, unknown>;
+    const strategy =
+      value.strategy === 'latest_ai_recommendation' ? 'latest_ai_recommendation' : null;
+    const fallbackStrategy =
+      value.fallbackStrategy === 'generation_rule' ? 'generation_rule' : null;
+    const maxWeakAreas =
+      typeof value.maxWeakAreas === 'number' && value.maxWeakAreas > 0
+        ? value.maxWeakAreas
+        : null;
+    const perWeakAreaQuestionCap =
+      typeof value.perWeakAreaQuestionCap === 'number' && value.perWeakAreaQuestionCap > 0
+        ? value.perWeakAreaQuestionCap
+        : null;
+
+    if (!strategy || !fallbackStrategy || !maxWeakAreas || !perWeakAreaQuestionCap) {
+      return null;
+    }
+
+    return {
+      strategy,
+      fallbackStrategy,
+      maxWeakAreas,
+      perWeakAreaQuestionCap,
+      includeTrendBoost: value.includeTrendBoost === true,
+    };
   }
 
   private async appendQuestions(

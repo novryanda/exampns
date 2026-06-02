@@ -9,6 +9,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { cn } from "@/lib/utils";
 
 function buildPageHref(
   basePath: string,
@@ -64,6 +65,8 @@ export function ServerPagination({
   pageParam = "page",
   basePath,
   onPageChange,
+  showPageSummary = true,
+  className,
 }: {
   readonly page: number;
   readonly totalPages: number;
@@ -71,6 +74,8 @@ export function ServerPagination({
   readonly pageParam?: string;
   readonly basePath: string;
   readonly onPageChange?: (page: number) => void;
+  readonly showPageSummary?: boolean;
+  readonly className?: string;
 }) {
   if (totalPages <= 1) {
     return null;
@@ -89,10 +94,19 @@ export function ServerPagination({
   };
 
   return (
-    <div className="flex flex-col gap-3 border-slate-100 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm text-slate-500">
-        Halaman {page} dari {totalPages}
-      </p>
+    <div
+      className={cn(
+        "flex flex-col gap-3 border-slate-100 border-t pt-4 sm:flex-row sm:items-center sm:justify-between",
+        className,
+      )}
+    >
+      {showPageSummary ? (
+        <p className="text-sm text-slate-500">
+          Halaman {page} dari {totalPages}
+        </p>
+      ) : (
+        <div className="hidden sm:block" />
+      )}
       <Pagination className="mx-0 w-auto justify-start sm:justify-end">
         <PaginationContent>
           <PaginationItem>

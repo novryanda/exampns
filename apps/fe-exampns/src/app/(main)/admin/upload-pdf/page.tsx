@@ -1,10 +1,19 @@
 import Link from "next/link";
 
 import { PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
+import { ServerPagination } from "@/components/server-pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getAdminPdfImportBatches } from "@/server/admin-content-data";
 
 import { UploadPdfForm } from "./_components/upload-pdf-form";
+
+const batchStatusOptions = [
+  { value: "all", label: "Semua" },
+  { value: "processing", label: "Diproses" },
+  { value: "completed", label: "Selesai" },
+  { value: "partial_failed", label: "Sebagian Gagal" },
+  { value: "failed", label: "Gagal" },
+] as const;
 
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("id-ID", {
@@ -14,14 +23,56 @@ function formatDateTime(value: string) {
 }
 
 function toLabel(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
+  const labels: Record<string, string> = {
+    processing: "Diproses",
+    completed: "Selesai",
+    partial_failed: "Sebagian Gagal",
+    failed: "Gagal",
+  };
+
+  return labels[value] ?? value;
 }
 
-export default async function UploadPdfPage() {
-  const batches = await getAdminPdfImportBatches({ limit: 10 });
+function readParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
+}
+
+function readPageParam(value: string | string[] | undefined) {
+  const text = readParam(value);
+  const parsed = Number(text);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+function readStatusParam(value: string | string[] | undefined) {
+  const status = readParam(value);
+
+  if (batchStatusOptions.some((option) => option.value === status && option.value !== "all")) {
+    return status as "processing" | "completed" | "partial_failed" | "failed";
+  }
+
+  return undefined;
+}
+
+function buildUploadPdfHref(status?: string) {
+  const searchParams = new URLSearchParams();
+
+  if (status) {
+    searchParams.set("status", status);
+  }
+
+  const query = searchParams.toString();
+  return query ? `/admin/upload-pdf?${query}` : "/admin/upload-pdf";
+}
+
+export default async function UploadPdfPage({
+  searchParams,
+}: {
+  readonly searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const page = readPageParam(params.page);
+  const status = readStatusParam(params.status);
+  const batches = await getAdminPdfImportBatches({ page, limit: 10, status });
 
   return (
     <div className="flex flex-col gap-6">
@@ -35,6 +86,23 @@ export default async function UploadPdfPage() {
       </SectionCard>
 
       <SectionCard title="Batch Upload Terbaru" description="Pantau status batch upload terakhir.">
+        <div className="mb-4 flex flex-wrap gap-2">
+          {batchStatusOptions.map((option) => {
+            const isActive = (option.value === "all" && !status) || option.value === status;
+
+            return (
+              <Link
+                key={option.value}
+                href={buildUploadPdfHref(option.value === "all" ? undefined : option.value)}
+                className={`rounded-full px-4 py-2 text-sm transition-colors ${
+                  isActive ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                }`}
+              >
+                {option.label}
+              </Link>
+            );
+          })}
+        </div>
         <Table>
           <TableHeader>
             <TableRow>
@@ -84,6 +152,12 @@ export default async function UploadPdfPage() {
             )}
           </TableBody>
         </Table>
+        <ServerPagination
+          page={batches.meta.page}
+          totalPages={batches.meta.totalPages}
+          params={{ status }}
+          basePath="/admin/upload-pdf"
+        />
       </SectionCard>
     </div>
   );

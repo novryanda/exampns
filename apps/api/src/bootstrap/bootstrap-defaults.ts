@@ -1,6 +1,7 @@
 import type { PrismaClient } from '../../generated/prisma/client.js';
 import {
   ActivationSource,
+  SubscriptionTier,
   SubscriptionStatus,
   UserRole,
   UserStatus,
@@ -38,6 +39,7 @@ const defaultPlans = [
     currency: 'IDR',
     isActive: true,
     isTrial: true,
+    tier: SubscriptionTier.trial,
     trialTryoutLimit: 3,
     trialDayLimit: 7,
   },
@@ -49,6 +51,7 @@ const defaultPlans = [
     currency: 'IDR',
     isActive: true,
     isTrial: false,
+    tier: SubscriptionTier.standard,
     trialTryoutLimit: null,
     trialDayLimit: null,
   },
@@ -60,6 +63,7 @@ const defaultPlans = [
     currency: 'IDR',
     isActive: true,
     isTrial: false,
+    tier: SubscriptionTier.standard,
     trialTryoutLimit: null,
     trialDayLimit: null,
   },

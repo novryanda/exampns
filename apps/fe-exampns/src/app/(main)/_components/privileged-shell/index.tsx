@@ -70,18 +70,11 @@ export async function PrivilegedShell({
           role: currentUser.role,
         }}
       />
-      <SidebarInset
-        className={cn(
-          "[html[data-content-layout=centered]_&>*]:mx-auto",
-          "[html[data-content-layout=centered]_&>*]:w-full",
-          "[html[data-content-layout=centered]_&>*]:max-w-screen-2xl",
-          "peer-data-[variant=inset]:border",
-        )}
-      >
+      <SidebarInset className="flex min-w-0 flex-1 flex-col">
         <header
           className={cn(
-            "flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
-            "[html[data-navbar-style=sticky]_&]:sticky [html[data-navbar-style=sticky]_&]:top-0 [html[data-navbar-style=sticky]_&]:z-50 [html[data-navbar-style=sticky]_&]:overflow-hidden [html[data-navbar-style=sticky]_&]:rounded-t-[inherit] [html[data-navbar-style=sticky]_&]:bg-background/50 [html[data-navbar-style=sticky]_&]:backdrop-blur-md",
+            "flex h-12 shrink-0 items-center gap-2 border-b bg-background/80 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12",
+            "[html[data-navbar-style=sticky]_&]:sticky [html[data-navbar-style=sticky]_&]:top-0 [html[data-navbar-style=sticky]_&]:z-50 [html[data-navbar-style=sticky]_&]:bg-background/80 [html[data-navbar-style=sticky]_&]:backdrop-blur-md",
           )}
         >
           <div className="flex w-full items-center justify-between px-4 lg:px-6">
@@ -110,7 +103,16 @@ export async function PrivilegedShell({
             </div>
           </div>
         </header>
-        <div className="h-full p-4 md:p-6">{children}</div>
+        <div
+          className={cn(
+            "min-w-0 p-4 md:p-6",
+            "[html[data-content-layout=centered]_&]:mx-auto",
+            "[html[data-content-layout=centered]_&]:w-full",
+            "[html[data-content-layout=centered]_&]:max-w-screen-2xl",
+          )}
+        >
+          {children}
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

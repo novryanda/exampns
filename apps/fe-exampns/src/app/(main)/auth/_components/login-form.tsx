@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { signIn } from "@/lib/auth/auth-client";
+import { useAsyncFormSubmit } from "@/hooks/use-async-form-submit";
 import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,7 +49,7 @@ async function getCurrentUserRole() {
 export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: string }) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const { isSubmitting, run } = useAsyncFormSubmit();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -58,37 +60,34 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(() => {
-      void (async () => {
-        const { data, error } = await signIn.email({
-          email: values.email.trim().toLowerCase(),
-          password: values.password,
-          rememberMe: values.remember ?? true,
-        });
+    void run(async () => {
+      const { error } = await signIn.email({
+        email: values.email.trim().toLowerCase(),
+        password: values.password,
+        rememberMe: values.remember ?? true,
+      });
 
-        if (error) {
-          const message = error.message ?? "Login gagal. Periksa kembali email dan password Anda.";
-          const normalized = message.toLowerCase();
+      if (error) {
+        const message = error.message ?? "Login gagal. Periksa kembali email dan password Anda.";
+        const normalized = message.toLowerCase();
 
-          if (normalized.includes("verify") || normalized.includes("verif")) {
-            toast.error("Email belum diverifikasi. Cek inbox atau kirim ulang link verifikasi.");
-          } else {
-            toast.error(message);
-          }
-
-          return;
+        if (normalized.includes("verify") || normalized.includes("verif")) {
+          toast.error("Email belum diverifikasi. Cek inbox atau kirim ulang link verifikasi.");
+        } else {
+          toast.error(message);
         }
 
-        const role = await getCurrentUserRole();
-        const redirectPath = getPostAuthRedirectPath(role);
-        toast.success(
-          redirectPath === "/admin/dashboard" || redirectPath === "/super-admin/dashboard"
-            ? "Login berhasil. Mengarahkan ke dashboard..."
-            : "Login berhasil. Selamat datang di ExamCPNS.",
-        );
-        router.replace(redirectPath);
-        router.refresh();
-      })();
+        return;
+      }
+
+      const role = await getCurrentUserRole();
+      const redirectPath = getPostAuthRedirectPath(role);
+      toast.success(
+        redirectPath === "/admin/dashboard" || redirectPath === "/super-admin/dashboard"
+          ? "Login berhasil. Mengarahkan ke dashboard..."
+          : "Login berhasil. Selamat datang di ExamCPNS.",
+      );
+      router.replace(redirectPath);
     });
   };
 
@@ -108,7 +107,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
                 placeholder="admin@examcpns.id"
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -119,7 +118,16 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           name="password"
           render={({ field, fieldState }) => (
             <Field className="gap-1.5" data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="login-password">Password</FieldLabel>
+              <div className="flex items-center justify-between gap-2">
+                <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                <Link
+                  prefetch={false}
+                  href="/auth/forgot-password"
+                  className="text-muted-foreground text-xs underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  Lupa password?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   {...field}
@@ -128,7 +136,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
                   placeholder="Masukkan password Anda"
                   autoComplete="current-password"
                   aria-invalid={fieldState.invalid}
-                  disabled={isPending}
+                  disabled={isSubmitting}
                   className="pr-10"
                 />
                 <button
@@ -136,7 +144,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-slate-500"
                   aria-label={showPassword ? "Sembunyikan password" : "Tampilkan password"}
-                  disabled={isPending}
+                  disabled={isSubmitting}
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -156,7 +164,7 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
                 checked={field.value}
                 onCheckedChange={(checked) => field.onChange(Boolean(checked))}
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               <FieldContent>
                 <FieldLabel htmlFor="login-remember" className="font-normal">
@@ -168,9 +176,9 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
           )}
         />
       </FieldGroup>
-      <Button className="w-full" type="submit" disabled={isPending}>
-        {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-        {isPending ? "Memproses..." : "Masuk"}
+      <Button className="w-full" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+        {isSubmitting ? "Memproses..." : "Masuk"}
       </Button>
     </form>
   );

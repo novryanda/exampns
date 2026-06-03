@@ -19,7 +19,7 @@ function UsersFiltersInner() {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-80 flex-1">
+      <div className="relative min-w-0 w-full flex-1 sm:min-w-[12rem]">
         <Search className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-slate-400" />
         <Input
           className="rounded-xl border-slate-200 pl-9"

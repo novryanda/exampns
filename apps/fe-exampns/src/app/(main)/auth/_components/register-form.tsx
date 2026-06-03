@@ -1,7 +1,5 @@
 "use client";
 
-import { useTransition } from "react";
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
@@ -11,6 +9,7 @@ import { z } from "zod";
 
 import { passwordPolicySchema, phonePolicySchema } from "@/lib/auth/password-policy";
 import { RegisterApiError, registerUser } from "@/lib/auth/register-api";
+import { useAsyncFormSubmit } from "@/hooks/use-async-form-submit";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -30,7 +29,7 @@ const formSchema = z
 
 export function RegisterForm() {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { isSubmitting, run } = useAsyncFormSubmit();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -43,46 +42,42 @@ export function RegisterForm() {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(() => {
-      void (async () => {
-        try {
-          await registerUser({
-            fullName: values.fullName,
-            email: values.email.trim().toLowerCase(),
-            phone: values.phone.trim(),
-            password: values.password,
-          });
+    void run(async () => {
+      try {
+        await registerUser({
+          fullName: values.fullName,
+          email: values.email.trim().toLowerCase(),
+          phone: values.phone.trim(),
+          password: values.password,
+        });
 
-          const email = values.email.trim().toLowerCase();
-          toast.success("Registrasi berhasil. Cek email verifikasi, lalu login.");
-          router.replace(`/auth/login?pending=1&email=${encodeURIComponent(email)}`);
-          router.refresh();
-        } catch (error) {
-          if (error instanceof RegisterApiError) {
-            if (error.code === "EMAIL_ALREADY_REGISTERED") {
-              toast.error("Email sudah terdaftar. Silakan login atau gunakan email lain.");
-              form.setError("email", { message: "Email sudah terdaftar." });
-              return;
-            }
+        const email = values.email.trim().toLowerCase();
+        router.replace(`/auth/login?pending=1&email=${encodeURIComponent(email)}`);
+      } catch (error) {
+        if (error instanceof RegisterApiError) {
+          if (error.code === "EMAIL_ALREADY_REGISTERED") {
+            toast.error("Email sudah terdaftar. Silakan login atau gunakan email lain.");
+            form.setError("email", { message: "Email sudah terdaftar." });
+            return;
+          }
 
-            if (error.code === "WEAK_PASSWORD" || error.code === "VALIDATION_ERROR") {
-              for (const detail of error.details ?? []) {
-                const fieldName = detail.field as keyof z.infer<typeof formSchema>;
-                if (fieldName in form.getValues()) {
-                  form.setError(fieldName, { message: detail.message });
-                }
+          if (error.code === "WEAK_PASSWORD" || error.code === "VALIDATION_ERROR") {
+            for (const detail of error.details ?? []) {
+              const fieldName = detail.field as keyof z.infer<typeof formSchema>;
+              if (fieldName in form.getValues()) {
+                form.setError(fieldName, { message: detail.message });
               }
-              toast.error(error.message);
-              return;
             }
-
             toast.error(error.message);
             return;
           }
 
-          toast.error("Pendaftaran gagal. Silakan coba lagi.");
+          toast.error(error.message);
+          return;
         }
-      })();
+
+        toast.error("Pendaftaran gagal. Silakan coba lagi.");
+      }
     });
   };
 
@@ -102,7 +97,7 @@ export function RegisterForm() {
                 placeholder="Rina Pratiwi"
                 autoComplete="name"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -121,7 +116,7 @@ export function RegisterForm() {
                 placeholder="rina@example.com"
                 autoComplete="email"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -140,7 +135,7 @@ export function RegisterForm() {
                 placeholder="081234567890"
                 autoComplete="tel"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -159,7 +154,7 @@ export function RegisterForm() {
                 placeholder="Password123!"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -178,7 +173,7 @@ export function RegisterForm() {
                 placeholder="Ulangi password"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -188,9 +183,9 @@ export function RegisterForm() {
       <p className="text-muted-foreground text-xs">
         Password minimal 8 karakter, mengandung huruf besar, huruf kecil, dan angka.
       </p>
-      <Button className="w-full" type="submit" disabled={isPending}>
-        {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-        {isPending ? "Memproses..." : "Daftar"}
+      <Button className="w-full" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+        {isSubmitting ? "Memproses..." : "Daftar"}
       </Button>
     </form>
   );

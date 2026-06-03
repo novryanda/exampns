@@ -4,7 +4,12 @@ import { getSessionCookie } from "better-auth/cookies";
 import { BACKEND_API_URL } from "@/lib/auth/config";
 import { AUTH_COOKIE_PREFIX } from "@/lib/auth/config";
 
-const guestOnlyAuthRoutes = new Set(["/auth/login", "/auth/register"]);
+const guestOnlyAuthRoutes = new Set([
+  "/auth/login",
+  "/auth/register",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+]);
 
 interface ProxySessionPayload {
   user?: {

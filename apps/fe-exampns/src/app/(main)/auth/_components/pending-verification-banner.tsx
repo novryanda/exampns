@@ -1,16 +1,4 @@
-"use client";
-
-import { useEffect } from "react";
-
-import { toast } from "sonner";
-
 export function PendingVerificationBanner({ show }: { readonly show: boolean }) {
-  useEffect(() => {
-    if (show) {
-      toast.info("Registrasi berhasil. Verifikasi email Anda terlebih dahulu sebelum login.");
-    }
-  }, [show]);
-
   if (!show) {
     return null;
   }

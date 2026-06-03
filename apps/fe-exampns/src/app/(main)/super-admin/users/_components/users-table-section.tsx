@@ -57,10 +57,12 @@ export async function UsersTableSection({
 
   return (
     <SectionCard
+      className="min-w-0"
+      contentClassName="min-w-0 space-y-4"
       title="Daftar Users"
       description={`Menampilkan ${allUsers.data.length} dari ${allUsers.meta.totalItems.toLocaleString("id-ID")} user`}
     >
-      <Table>
+      <Table className="min-w-[720px]">
         <TableHeader>
           <TableRow>
             <TableHead className="w-14">No</TableHead>
@@ -86,13 +88,17 @@ export async function UsersTableSection({
                 <TableCell className="text-slate-500 tabular-nums">
                   {(allUsers.meta.page - 1) * listParams.limit + index + 1}
                 </TableCell>
-                <TableCell className="font-medium text-slate-950">
-                  <span className="inline-flex items-center gap-3">
+                <TableCell className="max-w-[12rem] font-medium text-slate-950">
+                  <span className="inline-flex min-w-0 items-center gap-3">
                     <UserListAvatar name={user.fullName} imageUrl={user.image} />
-                    {user.fullName}
+                    <span className="truncate" title={user.fullName}>
+                      {user.fullName}
+                    </span>
                   </span>
                 </TableCell>
-                <TableCell>{user.email}</TableCell>
+                <TableCell className="max-w-[14rem] truncate" title={user.email}>
+                  {user.email}
+                </TableCell>
                 <TableCell>
                   <StatusBadge tone={toStatusBadgeTone(user.status)}>{toLabel(user.status)}</StatusBadge>
                 </TableCell>

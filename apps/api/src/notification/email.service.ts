@@ -131,23 +131,45 @@ export const sendEmail = async (message: EmailMessage) => {
   await sendWithSmtp(message);
 };
 
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const buildAuthEmailButton = (label: string, url: string) => {
+  const safeUrl = escapeHtml(url);
+  const safeLabel = escapeHtml(label);
+
+  return `<a href="${safeUrl}" style="display:inline-block;padding:12px 28px;background-color:#16a34a;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px;line-height:1.2;">${safeLabel}</a>`;
+};
+
 const buildAuthEmailContent = (
   type: AuthEmailType,
   url: string,
   appName: string,
 ) => {
+  const safeUrl = escapeHtml(url);
+  const safeAppName = escapeHtml(appName);
+
   if (type === 'verify-email') {
+    const button = buildAuthEmailButton('Verifikasi', url);
+
     return {
       subject: `Verifikasi email — ${appName}`,
-      text: `Halo,\n\nTerima kasih telah mendaftar di ${appName}. Klik link berikut untuk memverifikasi email Anda:\n\n${url}\n\nLink berlaku 24 jam. Jika Anda tidak mendaftar, abaikan email ini.`,
-      html: `<p>Halo,</p><p>Terima kasih telah mendaftar di <strong>${appName}</strong>.</p><p><a href="${url}">Klik di sini untuk verifikasi email</a></p><p>Atau salin link ini ke browser:<br/><a href="${url}">${url}</a></p><p>Link berlaku 24 jam.</p>`,
+      text: `Halo,\n\nTerima kasih telah mendaftar di ${appName}. Buka link berikut untuk memverifikasi email Anda:\n\n${url}\n\nLink berlaku 24 jam. Jika Anda tidak mendaftar, abaikan email ini.`,
+      html: `<p>Halo,</p><p>Terima kasih telah mendaftar di <strong>${safeAppName}</strong>.</p><p style="margin:24px 0;">${button}</p><p>Atau salin link ini ke browser:<br/><a href="${safeUrl}">${safeUrl}</a></p><p>Link berlaku 24 jam.</p>`,
     };
   }
 
+  const button = buildAuthEmailButton('Reset password', url);
+
   return {
-    subject: `Atur password — ${appName}`,
-    text: `Halo,\n\nKlik link berikut untuk mengatur password akun ${appName} Anda:\n\n${url}\n\nLink berlaku 1 jam. Jika Anda tidak meminta ini, abaikan email ini.`,
-    html: `<p>Halo,</p><p>Klik link berikut untuk <strong>mengatur password</strong> akun ${appName} Anda:</p><p><a href="${url}">Atur password sekarang</a></p><p>Atau salin link ini ke browser:<br/><a href="${url}">${url}</a></p><p>Link berlaku 1 jam.</p>`,
+    subject: `Reset password — ${appName}`,
+    text: `Halo,\n\nKami menerima permintaan reset password untuk akun ${appName} Anda. Buka link berikut untuk membuat password baru:\n\n${url}\n\nLink berlaku 1 jam. Jika Anda tidak meminta ini, abaikan email ini.`,
+    html: `<p>Halo,</p><p>Kami menerima permintaan <strong>reset password</strong> untuk akun ${safeAppName} Anda.</p><p style="margin:24px 0;">${button}</p><p>Atau salin link ini ke browser:<br/><a href="${safeUrl}">${safeUrl}</a></p><p>Link berlaku 1 jam.</p>`,
   };
 };
 

@@ -1,16 +1,4 @@
-"use client";
-
-import { useEffect } from "react";
-
-import { toast } from "sonner";
-
 export function VerifiedEmailBanner({ show }: { readonly show: boolean }) {
-  useEffect(() => {
-    if (show) {
-      toast.success("Email berhasil diverifikasi. Silakan login.");
-    }
-  }, [show]);
-
   if (!show) {
     return null;
   }

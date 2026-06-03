@@ -1,6 +1,5 @@
 "use client";
 
-import { useTransition } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
@@ -10,6 +9,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { resetPassword } from "@/lib/auth/auth-client";
+import { useAsyncFormSubmit } from "@/hooks/use-async-form-submit";
 import { passwordPolicySchema } from "@/lib/auth/password-policy";
 import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -27,7 +27,7 @@ const formSchema = z
 
 export function ResetPasswordForm({ token }: { readonly token: string }) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { isSubmitting, run } = useAsyncFormSubmit();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -37,23 +37,20 @@ export function ResetPasswordForm({ token }: { readonly token: string }) {
   });
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(() => {
-      void (async () => {
-        const { error } = await resetPassword({
-          newPassword: values.password,
-          token,
-        });
+    void run(async () => {
+      const { error } = await resetPassword({
+        newPassword: values.password,
+        token,
+      });
 
-        if (error) {
-          const message = error.message ?? "Gagal mengatur password. Coba minta link baru.";
-          toast.error(message);
-          return;
-        }
+      if (error) {
+        const message = error.message ?? "Gagal mengatur password. Coba minta link baru.";
+        toast.error(message);
+        return;
+      }
 
-        toast.success("Password berhasil diatur. Silakan masuk.");
-        router.replace("/auth/login");
-        router.refresh();
-      })();
+      toast.success("Password berhasil direset. Silakan masuk.");
+      router.replace("/auth/login");
     });
   };
 
@@ -73,7 +70,7 @@ export function ResetPasswordForm({ token }: { readonly token: string }) {
                 placeholder="Minimal 8 karakter"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
@@ -92,16 +89,16 @@ export function ResetPasswordForm({ token }: { readonly token: string }) {
                 placeholder="Ulangi password baru"
                 autoComplete="new-password"
                 aria-invalid={fieldState.invalid}
-                disabled={isPending}
+                disabled={isSubmitting}
               />
               {fieldState.invalid ? <FieldError errors={[fieldState.error]} /> : null}
             </Field>
           )}
         />
       </FieldGroup>
-      <Button className="w-full" type="submit" disabled={isPending}>
-        {isPending ? <Loader2 className="size-4 animate-spin" /> : null}
-        {isPending ? "Menyimpan..." : "Simpan password"}
+      <Button className="w-full" type="submit" disabled={isSubmitting}>
+        {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
+        {isSubmitting ? "Menyimpan..." : "Simpan password"}
       </Button>
     </form>
   );

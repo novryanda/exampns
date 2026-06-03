@@ -4,11 +4,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import {
-  QuestionCategory,
   QuestionDifficulty,
   QuestionStatus,
   SourceType,
   Prisma,
+  type QuestionAnswerMode,
 } from '../../generated/prisma/client.js';
 import { AuditLogService } from '../common/audit-log.service.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -31,7 +31,14 @@ import {
 const listSelect = {
   id: true,
   questionText: true,
-  category: true,
+  categoryId: true,
+  categoryRef: {
+    select: {
+      code: true,
+      name: true,
+      answerMode: true,
+    },
+  },
   subCategoryId: true,
   topicTagId: true,
   subCategoryRef: {
@@ -53,14 +60,27 @@ const listSelect = {
 const detailSelect = {
   id: true,
   questionText: true,
-  category: true,
+  categoryId: true,
+  categoryRef: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      answerMode: true,
+      isActive: true,
+    },
+  },
   subCategoryId: true,
   topicTagId: true,
   subCategoryRef: {
     select: {
       id: true,
       name: true,
-      category: true,
+      categoryRef: {
+        select: {
+          code: true,
+        },
+      },
       isActive: true,
     },
   },
@@ -85,7 +105,7 @@ const detailSelect = {
       label: true,
       optionText: true,
       isCorrect: true,
-      tkpWeight: true,
+      optionWeight: true,
       displayOrder: true,
     },
     orderBy: {
@@ -151,7 +171,7 @@ export class QuestionBankService {
       this.prisma.questionSubCategory.count(),
       this.prisma.questionTopicTag.count(),
       this.prisma.question.groupBy({
-        by: ['category'],
+        by: ['categoryId'],
         where: baseWhere,
         _count: {
           _all: true,
@@ -205,7 +225,11 @@ export class QuestionBankService {
             subCategory: {
               select: {
                 name: true,
-                category: true,
+                categoryRef: {
+                  select: {
+                    code: true,
+                  },
+                },
               },
             },
           },
@@ -226,11 +250,25 @@ export class QuestionBankService {
         percentage: total > 0 ? Number(((row.count / total) * 100).toFixed(1)) : 0,
       }));
 
+    const categories = categoryRows.length
+      ? await this.prisma.questionCategory.findMany({
+          where: {
+            id: {
+              in: categoryRows.map((row) => row.categoryId),
+            },
+          },
+          select: {
+            id: true,
+            code: true,
+          },
+        })
+      : [];
+    const categoryCodeMap = new Map(categories.map((item) => [item.id, item.code]));
+
     const categoryDistribution = toDistribution(
-      ['TWK', 'TIU', 'TKP'].map((category) => ({
-        key: category,
-        count:
-          categoryRows.find((row) => row.category === category)?._count._all ?? 0,
+      categoryRows.map((row) => ({
+        key: categoryCodeMap.get(row.categoryId) ?? row.categoryId,
+        count: row._count._all,
       })),
       totalQuestions,
     );
@@ -273,7 +311,7 @@ export class QuestionBankService {
           return {
             id: detail.id,
             name: detail.name,
-            category: detail.subCategory.category,
+            category: detail.subCategory.categoryRef.code,
             subCategory: detail.subCategory.name,
             questionCount: topTopicTagCountMap.get(topicTagId) ?? 0,
           };
@@ -304,7 +342,9 @@ export class QuestionBankService {
       data: items.map((item) => ({
         id: item.id,
         questionPreview: buildQuestionPreview(item.questionText),
-        category: item.category,
+        category: item.categoryRef.code,
+        categoryName: item.categoryRef.name,
+        answerMode: item.categoryRef.answerMode,
         subCategoryId: item.subCategoryId,
         topicTagId: item.topicTagId,
         subCategory: item.subCategoryRef.name,
@@ -325,15 +365,16 @@ export class QuestionBankService {
 
   async createQuestion(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(createQuestionSchema, rawBody);
-    assertQuestionOptionRules(payload.category, payload.options);
-    await this.assertQuestionMetadata(payload.category, payload.subCategoryId, payload.topicTagId);
+    const category = await this.getCategoryByCode(payload.categoryCode);
+    assertQuestionOptionRules(category.answerMode, payload.options);
+    await this.assertQuestionMetadata(category.id, payload.subCategoryId, payload.topicTagId);
 
     const tags = normalizeTags(payload.tags);
 
     const created = await this.prisma.question.create({
       data: {
         questionText: payload.questionText,
-        category: payload.category,
+        categoryId: category.id,
         subCategoryId: payload.subCategoryId,
         topicTagId: payload.topicTagId,
         competencyArea: payload.competencyArea,
@@ -348,8 +389,8 @@ export class QuestionBankService {
           create: payload.options.map((option, index) => ({
             label: option.label,
             optionText: option.text,
-            isCorrect: payload.category === QuestionCategory.TKP ? false : option.isCorrect === true,
-            tkpWeight: payload.category === QuestionCategory.TKP ? option.tkpWeight : null,
+            isCorrect: category.answerMode === 'weighted_options' ? false : option.isCorrect === true,
+            optionWeight: category.answerMode === 'weighted_options' ? option.optionWeight ?? null : null,
             displayOrder: index + 1,
           })),
         },
@@ -374,7 +415,7 @@ export class QuestionBankService {
       targetType: 'question',
       targetId: created.id,
       metadata: {
-        category: payload.category,
+        categoryCode: category.code,
         difficulty: payload.difficulty,
         status: payload.status,
       },
@@ -396,7 +437,9 @@ export class QuestionBankService {
     return {
       id: question.id,
       questionText: question.questionText,
-      category: question.category,
+      category: question.categoryRef.code,
+      categoryName: question.categoryRef.name,
+      answerMode: question.categoryRef.answerMode,
       subCategoryId: question.subCategoryId,
       topicTagId: question.topicTagId,
       subCategory: question.subCategoryRef.name,
@@ -411,7 +454,7 @@ export class QuestionBankService {
         label: option.label,
         text: option.optionText,
         isCorrect: option.isCorrect,
-        tkpWeight: option.tkpWeight,
+        optionWeight: option.optionWeight,
       })),
       tags: question.tags.map((tag) => tag.tag),
       createdAt: question.createdAt,
@@ -425,7 +468,7 @@ export class QuestionBankService {
       where: { id: questionId },
       select: {
         id: true,
-        category: true,
+        categoryId: true,
         subCategoryId: true,
         topicTagId: true,
       },
@@ -435,21 +478,23 @@ export class QuestionBankService {
       throw new NotFoundException('Question not found');
     }
 
-    const nextCategory = payload.category ?? existing.category;
+    const nextCategory = payload.categoryCode
+      ? await this.getCategoryByCode(payload.categoryCode)
+      : await this.getCategoryById(existing.categoryId);
     const nextSubCategoryId = payload.subCategoryId ?? existing.subCategoryId;
     const nextTopicTagId = payload.topicTagId ?? existing.topicTagId;
     const tags = normalizeTags(payload.tags);
 
     if (payload.options) {
-      assertQuestionOptionRules(nextCategory, payload.options);
+      assertQuestionOptionRules(nextCategory.answerMode, payload.options);
     }
 
     if (
-      payload.category !== undefined ||
+      payload.categoryCode !== undefined ||
       payload.subCategoryId !== undefined ||
       payload.topicTagId !== undefined
     ) {
-      await this.assertQuestionMetadata(nextCategory, nextSubCategoryId, nextTopicTagId);
+      await this.assertQuestionMetadata(nextCategory.id, nextSubCategoryId, nextTopicTagId);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -458,7 +503,7 @@ export class QuestionBankService {
         where: { id: questionId },
         data: {
           ...(payload.questionText !== undefined ? { questionText: payload.questionText } : {}),
-          ...(payload.category !== undefined ? { category: payload.category } : {}),
+          ...(payload.categoryCode !== undefined ? { categoryId: nextCategory.id } : {}),
           ...(payload.subCategoryId !== undefined ? { subCategoryId: payload.subCategoryId } : {}),
           ...(payload.topicTagId !== undefined ? { topicTagId: payload.topicTagId } : {}),
           ...(payload.competencyArea !== undefined
@@ -484,8 +529,8 @@ export class QuestionBankService {
             questionId,
             label: option.label,
             optionText: option.text,
-            isCorrect: nextCategory === QuestionCategory.TKP ? false : option.isCorrect === true,
-            tkpWeight: nextCategory === QuestionCategory.TKP ? option.tkpWeight ?? null : null,
+            isCorrect: nextCategory.answerMode === 'weighted_options' ? false : option.isCorrect === true,
+            optionWeight: nextCategory.answerMode === 'weighted_options' ? option.optionWeight ?? null : null,
             displayOrder: index + 1,
           })),
         });
@@ -514,7 +559,7 @@ export class QuestionBankService {
       targetType: 'question',
       targetId: questionId,
       metadata: {
-        category: nextCategory,
+        categoryCode: nextCategory.code,
         status: payload.status,
       },
     });
@@ -639,7 +684,15 @@ export class QuestionBankService {
             ],
           }
         : {}),
-      ...(query.category ? { category: query.category } : {}),
+      ...(query.category
+        ? {
+            categoryRef: {
+              is: {
+                code: query.category,
+              },
+            },
+          }
+        : {}),
       ...(query.subCategoryId ? { subCategoryId: query.subCategoryId } : {}),
       ...(query.subCategory
         ? {
@@ -673,7 +726,7 @@ export class QuestionBankService {
   }
 
   private async assertQuestionMetadata(
-    category: QuestionCategory,
+    categoryId: string,
     subCategoryId: string,
     topicTagId: string,
   ) {
@@ -682,7 +735,7 @@ export class QuestionBankService {
         where: { id: subCategoryId },
         select: {
           id: true,
-          category: true,
+          categoryId: true,
           isActive: true,
         },
       }),
@@ -696,7 +749,7 @@ export class QuestionBankService {
       }),
     ]);
 
-    if (!subCategory || subCategory.category !== category) {
+    if (!subCategory || subCategory.categoryId !== categoryId) {
       throw new BadRequestException('Sub-category tidak valid untuk category yang dipilih');
     }
 
@@ -711,5 +764,47 @@ export class QuestionBankService {
     if (!topicTag.isActive) {
       throw new BadRequestException('Topic tag inactive tidak dapat dipakai untuk soal baru');
     }
+  }
+
+  private async getCategoryByCode(categoryCode: string) {
+    const category = await this.prisma.questionCategory.findUnique({
+      where: { code: categoryCode },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        isActive: true,
+      },
+    });
+
+    if (!category) {
+      throw new BadRequestException('Category tidak ditemukan');
+    }
+
+    if (!category.isActive) {
+      throw new BadRequestException('Category inactive tidak dapat dipakai');
+    }
+
+    return category;
+  }
+
+  private async getCategoryById(categoryId: string) {
+    const category = await this.prisma.questionCategory.findUnique({
+      where: { id: categoryId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        isActive: true,
+      },
+    });
+
+    if (!category) {
+      throw new BadRequestException('Category tidak ditemukan');
+    }
+
+    return category;
   }
 }

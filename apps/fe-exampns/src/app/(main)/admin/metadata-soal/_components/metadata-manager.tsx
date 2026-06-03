@@ -32,7 +32,11 @@ import {
   updateQuestionSubCategoryAction,
   updateQuestionTopicTagAction,
 } from "@/server/admin-content-actions";
-import type { QuestionSubCategoryItem, QuestionTopicTagItem } from "@/server/admin-content-data";
+import type {
+  QuestionCategorySummary,
+  QuestionSubCategoryItem,
+  QuestionTopicTagItem,
+} from "@/server/admin-content-data";
 
 import { MetadataTablePagination } from "./metadata-table-pagination";
 import { TopicTagQuestionsSheet } from "./topic-tag-questions-sheet";
@@ -146,7 +150,7 @@ function TopicTagStatusButton({
   );
 }
 
-function CreateSubCategoryDialog() {
+function CreateSubCategoryDialog({ categories }: { readonly categories: QuestionCategorySummary[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const handleSuccess = useCallback(() => {
@@ -172,7 +176,7 @@ function CreateSubCategoryDialog() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Tambah sub-kategori</DialogTitle>
-          <DialogDescription>Buat area materi baru di dalam kategori TWK, TIU, atau TKP.</DialogDescription>
+          <DialogDescription>Buat area materi baru di dalam kategori yang aktif.</DialogDescription>
         </DialogHeader>
         <form action={formAction} className="grid gap-4">
           <div className="grid gap-2">
@@ -181,11 +185,13 @@ function CreateSubCategoryDialog() {
               id="create-sub-category-category"
               name="category"
               className="w-full rounded-xl border-slate-200 bg-white"
-              defaultValue="TWK"
+              defaultValue={categories[0]?.code ?? ""}
             >
-              <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-              <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-              <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+              {categories.map((category) => (
+                <NativeSelectOption key={category.code} value={category.code}>
+                  {category.name}
+                </NativeSelectOption>
+              ))}
             </NativeSelect>
           </div>
           <div className="grid gap-2">
@@ -489,6 +495,7 @@ function TopicTagRow({
 }
 
 export function MetadataManager({
+  categories,
   subCategories,
   allSubCategories,
   topicTags,
@@ -500,6 +507,7 @@ export function MetadataManager({
   topicTagTotalItems,
   paginationParams,
 }: {
+  readonly categories: QuestionCategorySummary[];
   readonly subCategories: QuestionSubCategoryItem[];
   readonly allSubCategories: QuestionSubCategoryItem[];
   readonly topicTags: QuestionTopicTagItem[];
@@ -743,8 +751,8 @@ export function MetadataManager({
     <div className="grid gap-6">
       <SectionCard
         title="Master Metadata (Sub-kategori)"
-        description="Kelola sub-kategori per kategori TWK, TIU, dan TKP."
-        trailing={<CreateSubCategoryDialog />}
+        description="Kelola sub-kategori per kategori yang tersedia."
+        trailing={<CreateSubCategoryDialog categories={categories} />}
         contentClassName="space-y-4"
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -758,9 +766,11 @@ export function MetadataManager({
             className="w-36 rounded-xl border-slate-200 bg-white"
           >
             <NativeSelectOption value="all">Semua</NativeSelectOption>
-            <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-            <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-            <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+            {categories.map((category) => (
+              <NativeSelectOption key={category.code} value={category.code}>
+                {category.name}
+              </NativeSelectOption>
+            ))}
           </NativeSelect>
           <div className="relative min-w-[14rem] flex-1">
             <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />

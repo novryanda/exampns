@@ -2,7 +2,7 @@ import {
   BadRequestException,
   ConflictException,
 } from '@nestjs/common';
-import { QuestionCategory } from '../../generated/prisma/client.js';
+import type { QuestionAnswerMode } from '../../generated/prisma/client.js';
 import type { QuestionOptionInput } from './question-bank.schemas.js';
 
 const expectedLabels = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -22,7 +22,7 @@ const assertUniqueLabels = (options: QuestionOptionInput[]) => {
 };
 
 export const assertQuestionOptionRules = (
-  category: QuestionCategory,
+  answerMode: QuestionAnswerMode,
   options: QuestionOptionInput[],
 ) => {
   if (options.length !== 5) {
@@ -31,14 +31,14 @@ export const assertQuestionOptionRules = (
 
   assertUniqueLabels(options);
 
-  if (category === QuestionCategory.TKP) {
+  if (answerMode === 'weighted_options') {
     for (const option of options) {
-      if (option.tkpWeight === undefined) {
-        throw new BadRequestException('TKP question options must include tkpWeight');
+      if (option.optionWeight === undefined) {
+        throw new BadRequestException('Weighted-option questions must include optionWeight for every option');
       }
 
       if (option.isCorrect === true) {
-        throw new BadRequestException('TKP question options must not use isCorrect');
+        throw new BadRequestException('Weighted-option questions must not use isCorrect');
       }
     }
 
@@ -48,12 +48,12 @@ export const assertQuestionOptionRules = (
   const correctOptions = options.filter((option) => option.isCorrect === true);
 
   if (correctOptions.length !== 1) {
-    throw new BadRequestException('TWK/TIU questions must have exactly one correct option');
+    throw new BadRequestException('Single-correct questions must have exactly one correct option');
   }
 
   for (const option of options) {
-    if (option.tkpWeight !== undefined) {
-      throw new BadRequestException('TWK/TIU question options must not include tkpWeight');
+    if (option.optionWeight !== undefined) {
+      throw new BadRequestException('Single-correct questions must not include optionWeight');
     }
   }
 };

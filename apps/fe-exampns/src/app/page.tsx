@@ -12,9 +12,7 @@ export default async function HomePage() {
 
   if (session?.user) {
     const landingPath = getPostAuthRedirectPath(session.user.role);
-    if (landingPath !== "/") {
-      redirect(landingPath);
-    }
+    redirect(landingPath);
   }
 
   const isLoggedInUser = session?.user?.role === "USER";

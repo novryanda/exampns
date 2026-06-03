@@ -18,7 +18,7 @@ export default async function EditSuperAdminTryoutPage({
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Builder Tryout"
-        description="Kelola metadata, strategi, bank soal, validasi, dan finalisasi publish dalam satu alur."
+        description="Kelola metadata, strategi, bank soal, dan finalisasi publish dalam satu alur."
       />
       <TryoutDraftBuilder draft={draft} metadataOptions={metadataOptions} scope="super-admin" />
     </div>

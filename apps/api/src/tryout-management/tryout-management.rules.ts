@@ -28,7 +28,7 @@ export const assertGenerationRuleRules = (
   catalog: { totalQuestions: number; tryoutType: TryoutType },
   input: GenerationRuleInput,
 ) => {
-  const categories = new Set(input.sections.map((section) => section.category));
+  const categories = new Set(input.sections.map((section) => section.categoryCode));
   if (categories.size !== input.sections.length) {
     throw new ConflictException('Generation rule sections must use unique categories');
   }
@@ -69,7 +69,7 @@ export const assertGenerationRuleRules = (
 
     if (difficultyTotal !== undefined && difficultyTotal !== section.questionCount) {
       throw new BadRequestException(
-        `Difficulty distribution total for category ${section.category} must equal questionCount`,
+        `Difficulty distribution total for category ${section.categoryCode} must equal questionCount`,
       );
     }
 
@@ -79,7 +79,7 @@ export const assertGenerationRuleRules = (
 
     if (topicTotal !== undefined && topicTotal > section.questionCount) {
       throw new BadRequestException(
-        `Topic distribution total for category ${section.category} cannot exceed questionCount`,
+        `Topic distribution total for category ${section.categoryCode} cannot exceed questionCount`,
       );
     }
   }

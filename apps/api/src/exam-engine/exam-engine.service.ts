@@ -9,7 +9,7 @@ import {
   AIRecommendationStatus,
   ExamSessionStatus,
   Prisma,
-  QuestionCategory,
+  QuestionAnswerMode,
   QuestionDifficulty,
   QuestionStatus,
   RandomizationMode,
@@ -50,6 +50,14 @@ import {
 } from './exam-engine.helpers.js';
 import { AiRecommendationService } from './ai-recommendation.service.js';
 
+interface DynamicCategoryScore {
+  categoryCode: string;
+  categoryName: string;
+  score: number;
+  minScore: number;
+  passed: boolean;
+}
+
 @Injectable()
 export class ExamEngineService {
   constructor(
@@ -88,6 +96,9 @@ export class ExamEngineService {
           generationRule: {
             include: {
               sections: {
+                include: {
+                  categoryRef: true,
+                },
                 orderBy: { sortOrder: 'asc' },
               },
             },
@@ -167,6 +178,8 @@ export class ExamEngineService {
           questionSnapshot: toInputJson(question.questionSnapshot),
           optionsSnapshot: toInputJson(question.optionsSnapshot),
           categorySnapshot: question.categorySnapshot,
+          categoryNameSnapshot: question.categoryNameSnapshot,
+          answerModeSnapshot: question.answerModeSnapshot,
           subCategorySnapshot: question.subCategorySnapshot,
           topicTagSnapshot: question.topicTagSnapshot,
           difficultySnapshot: question.difficultySnapshot,
@@ -254,6 +267,10 @@ export class ExamEngineService {
 
   async getExamSessionDetail(examSessionId: string, actor: AuthenticatedUser) {
     const session = await this.getOwnedExamSession(examSessionId, actor.id);
+
+    if (session.result && session.status !== ExamSessionStatus.in_progress) {
+      return this.toSubmitResponse(session.result, session.id, session.status);
+    }
 
     if (session.status === ExamSessionStatus.in_progress && session.expiresAt <= new Date()) {
       await this.submitExam(examSessionId, actor, { submitType: 'auto' });
@@ -438,7 +455,13 @@ export class ExamEngineService {
         where: { id: examSessionId },
         include: {
           tryoutCatalog: true,
-          result: true,
+          result: {
+            include: {
+              categoryScores: {
+                orderBy: { categoryCode: 'asc' },
+              },
+            },
+          },
           questions: {
             orderBy: { questionOrder: 'asc' },
             include: {
@@ -465,19 +488,52 @@ export class ExamEngineService {
       const passingGrade = session.tryoutCatalog.passingGradeConfigId
         ? await tx.passingGradeConfig.findUnique({
             where: { id: session.tryoutCatalog.passingGradeConfigId },
+            include: {
+              items: {
+                include: {
+                  categoryRef: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
           })
         : await tx.passingGradeConfig.findFirst({
             where: { isActive: true },
             orderBy: { effectiveFrom: 'desc' },
+            include: {
+              items: {
+                include: {
+                  categoryRef: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
           });
 
       if (!passingGrade) {
         throw new ConflictException('Active passing grade configuration is required');
       }
 
-      let twkScore = 0;
-      let tiuScore = 0;
-      let tkpScore = 0;
+      const passingGradeByCategory = new Map(
+        passingGrade.items.map((item) => [
+          item.categoryRef.code,
+          {
+            minScore: item.minScore,
+            categoryName: item.categoryRef.name,
+          },
+        ]),
+      );
+      const categoryScoreMap = new Map<string, DynamicCategoryScore>();
 
       const answerUpdates: Array<{
         id?: string;
@@ -491,7 +547,9 @@ export class ExamEngineService {
       }> = [];
 
       const breakdownRows: Array<{
-        category: QuestionCategory;
+        category: string;
+        categoryName: string;
+        answerMode: QuestionAnswerMode;
         subCategory: string;
         topicTag: string;
         difficulty: QuestionDifficulty;
@@ -508,35 +566,47 @@ export class ExamEngineService {
         const selectedOption = currentAnswer?.selectedLabel
           ? options.find((option) => option.label === currentAnswer.selectedLabel)
           : null;
+        const categoryCode = question.categorySnapshot;
+        const categoryName =
+          passingGradeByCategory.get(categoryCode)?.categoryName ?? question.categoryNameSnapshot;
+        const maxScore =
+          question.answerModeSnapshot === QuestionAnswerMode.weighted_options
+            ? Math.max(0, ...options.map((option) => option.optionWeight ?? 0))
+            : 5;
 
         let scoreAwarded = 0;
         let isCorrect: boolean | null = null;
 
-        if (snapshot.category === QuestionCategory.TKP) {
-          scoreAwarded = selectedOption?.tkpWeight ?? 0;
-          isCorrect = null;
-          tkpScore += scoreAwarded;
+        if (question.answerModeSnapshot === QuestionAnswerMode.weighted_options) {
+          scoreAwarded = selectedOption?.optionWeight ?? 0;
+          isCorrect = selectedOption ? scoreAwarded >= maxScore : null;
         } else {
           const correctOption = options.find((option) => option.isCorrect === true);
           isCorrect = Boolean(selectedOption && correctOption && selectedOption.label === correctOption.label);
           scoreAwarded = isCorrect ? 5 : 0;
-
-          if (snapshot.category === QuestionCategory.TWK) {
-            twkScore += scoreAwarded;
-          } else if (snapshot.category === QuestionCategory.TIU) {
-            tiuScore += scoreAwarded;
-          }
         }
 
+        const currentCategoryScore = categoryScoreMap.get(categoryCode) ?? {
+          categoryCode,
+          categoryName,
+          score: 0,
+          minScore: passingGradeByCategory.get(categoryCode)?.minScore ?? 0,
+          passed: false,
+        };
+        currentCategoryScore.score += scoreAwarded;
+        categoryScoreMap.set(categoryCode, currentCategoryScore);
+
         breakdownRows.push({
-          category: snapshot.category,
+          category: categoryCode,
+          categoryName,
+          answerMode: question.answerModeSnapshot,
           subCategory: snapshot.subCategory,
           topicTag: snapshot.topicTag,
           difficulty: snapshot.difficulty,
           isCorrect,
           selectedLabel: currentAnswer?.selectedLabel ?? null,
           scoreAwarded,
-          maxScore: 5,
+          maxScore,
         });
 
         answerUpdates.push({
@@ -567,12 +637,16 @@ export class ExamEngineService {
         }
       }
 
-      const totalScore = twkScore + tiuScore + tkpScore;
-      const twkPassed = twkScore >= passingGrade.twkMinScore;
-      const tiuPassed = tiuScore >= passingGrade.tiuMinScore;
-      const tkpPassed = tkpScore >= passingGrade.tkpMinScore;
+      const categoryScores = [...categoryScoreMap.values()]
+        .map((item) => ({
+          ...item,
+          passed: item.score >= item.minScore,
+        }))
+        .sort((left, right) => left.categoryCode.localeCompare(right.categoryCode));
+
+      const totalScore = categoryScores.reduce((sum, item) => sum + item.score, 0);
       const totalPassed = totalScore >= passingGrade.totalMinScore;
-      const overallPassed = twkPassed && tiuPassed && tkpPassed && totalPassed;
+      const overallPassed = totalPassed && categoryScores.every((item) => item.passed);
       const breakdown = buildBreakdown(breakdownRows);
 
       const updatedSession = await tx.examSession.update({
@@ -595,17 +669,19 @@ export class ExamEngineService {
           examSessionId: session.id,
           userId: session.userId,
           passingGradeConfigId: passingGrade.id,
-          twkScore,
-          tiuScore,
-          tkpScore,
           totalScore,
-          twkPassed,
-          tiuPassed,
-          tkpPassed,
           totalPassed,
           overallPassed,
           breakdownJson: toInputJson(breakdown),
           generatedAt: new Date(),
+          categoryScores: {
+            create: categoryScores,
+          },
+        },
+        include: {
+          categoryScores: {
+            orderBy: { categoryCode: 'asc' },
+          },
         },
       });
 
@@ -660,7 +736,28 @@ export class ExamEngineService {
       where: { id: examResultId },
       include: {
         examSession: true,
-        passingGradeConfig: true,
+        passingGradeConfig: {
+          include: {
+            items: {
+              include: {
+                categoryRef: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+              orderBy: {
+                categoryRef: {
+                  sortOrder: 'asc',
+                },
+              },
+            },
+          },
+        },
+        categoryScores: {
+          orderBy: { categoryCode: 'asc' },
+        },
         aiRecommendations: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -678,7 +775,9 @@ export class ExamEngineService {
     this.assertResultAccess(result.userId, actor);
 
     const breakdown = formatResultBreakdownForResponse(result.breakdownJson as unknown as Array<{
-      category: QuestionCategory;
+      category: string;
+      categoryName: string;
+      answerMode: QuestionAnswerMode;
       subCategory: string;
       topicTag: string;
       difficulty: QuestionDifficulty;
@@ -693,23 +792,31 @@ export class ExamEngineService {
       examSessionId: result.examSessionId,
       examDate: result.examSession.startedAt,
       score: {
-        twk: result.twkScore,
-        tiu: result.tiuScore,
-        tkp: result.tkpScore,
         total: result.totalScore,
+        categories: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+          minScore: item.minScore,
+          passed: item.passed,
+        })),
       },
       passingGrade: {
-        twkMinScore: result.passingGradeConfig.twkMinScore,
-        tiuMinScore: result.passingGradeConfig.tiuMinScore,
-        tkpMinScore: result.passingGradeConfig.tkpMinScore,
         totalMinScore: result.passingGradeConfig.totalMinScore,
+        categoryMinimums: result.passingGradeConfig.items.map((item) => ({
+          categoryCode: item.categoryRef.code,
+          categoryName: item.categoryRef.name,
+          minScore: item.minScore,
+        })),
       },
       passingStatus: {
-        twkPassed: result.twkPassed,
-        tiuPassed: result.tiuPassed,
-        tkpPassed: result.tkpPassed,
         totalPassed: result.totalPassed,
         overallPassed: result.overallPassed,
+        categories: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          passed: item.passed,
+        })),
       },
       breakdown,
       aiRecommendationStatus:
@@ -752,6 +859,7 @@ export class ExamEngineService {
         return {
           number: question.questionOrder,
           category: question.categorySnapshot,
+          categoryName: question.categoryNameSnapshot,
           subCategory: question.subCategorySnapshot,
           topicTag: question.topicTagSnapshot,
           difficulty: question.difficultySnapshot,
@@ -761,7 +869,10 @@ export class ExamEngineService {
             text: option.text,
           })),
           selectedLabel: answer?.selectedLabel ?? null,
-          correctLabel: question.categorySnapshot === QuestionCategory.TKP ? null : correctOption?.label ?? null,
+          correctLabel:
+            question.answerModeSnapshot === QuestionAnswerMode.weighted_options
+              ? null
+              : correctOption?.label ?? null,
           isCorrect,
           scoreAwarded: answer?.scoreAwarded ?? 0,
           explanation: snapshot.explanation ?? null,
@@ -908,6 +1019,9 @@ export class ExamEngineService {
         where,
         include: {
           examSession: true,
+          categoryScores: {
+            orderBy: { categoryCode: 'asc' },
+          },
           aiRecommendations: {
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -931,10 +1045,14 @@ export class ExamEngineService {
         examResultId: result.id,
         examSessionId: result.examSessionId,
         examDate: result.examSession.startedAt,
-        twkScore: result.twkScore,
-        tiuScore: result.tiuScore,
-        tkpScore: result.tkpScore,
         totalScore: result.totalScore,
+        categoryScores: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+          minScore: item.minScore,
+          passed: item.passed,
+        })),
         overallPassed: result.overallPassed,
         weakestTopic: result.aiRecommendations[0]?.items[0]?.topicTag ?? null,
       })),
@@ -993,7 +1111,13 @@ export class ExamEngineService {
     const session = await this.prisma.examSession.findUnique({
       where: { id: examSessionId },
       include: {
-        result: true,
+        result: {
+          include: {
+            categoryScores: {
+              orderBy: { categoryCode: 'asc' },
+            },
+          },
+        },
         questions: {
           orderBy: { questionOrder: 'asc' },
           include: {
@@ -1024,7 +1148,15 @@ export class ExamEngineService {
   private async getSubmittedExamView(examSessionId: string, userId: string) {
     const session = await this.prisma.examSession.findUnique({
       where: { id: examSessionId },
-      include: { result: true },
+      include: {
+        result: {
+          include: {
+            categoryScores: {
+              orderBy: { categoryCode: 'asc' },
+            },
+          },
+        },
+      },
     });
 
     if (!session || session.userId !== userId || !session.result) {
@@ -1037,15 +1169,10 @@ export class ExamEngineService {
   private toSubmitResponse(
     result: {
       id: string;
-      twkScore: number;
-      tiuScore: number;
-      tkpScore: number;
       totalScore: number;
-      twkPassed: boolean;
-      tiuPassed: boolean;
-      tkpPassed: boolean;
       totalPassed: boolean;
       overallPassed: boolean;
+      categoryScores: DynamicCategoryScore[];
     },
     examSessionId: string,
     status: string,
@@ -1055,17 +1182,23 @@ export class ExamEngineService {
       examResultId: result.id,
       status,
       score: {
-        twk: result.twkScore,
-        tiu: result.tiuScore,
-        tkp: result.tkpScore,
         total: result.totalScore,
+        categories: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+          minScore: item.minScore,
+          passed: item.passed,
+        })),
       },
       passingStatus: {
-        twkPassed: result.twkPassed,
-        tiuPassed: result.tiuPassed,
-        tkpPassed: result.tkpPassed,
         totalPassed: result.totalPassed,
         overallPassed: result.overallPassed,
+        categories: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          passed: item.passed,
+        })),
       },
       aiRecommendationStatus: AIRecommendationStatus.processing,
     };
@@ -1075,7 +1208,7 @@ export class ExamEngineService {
     userId: string,
     catalog: Prisma.TryoutCatalogGetPayload<{
       include: {
-        generationRule: { include: { sections: true } };
+        generationRule: { include: { sections: { include: { categoryRef: true } } } };
         manualQuestionSets: { include: { items: true } };
       };
     }>,
@@ -1092,7 +1225,9 @@ export class ExamEngineService {
         id: string;
         questionSnapshot: QuestionSnapshotPayload;
         optionsSnapshot: QuestionSnapshotOption[];
-        categorySnapshot: QuestionCategory;
+        categorySnapshot: string;
+        categoryNameSnapshot: string;
+        answerModeSnapshot: QuestionAnswerMode;
         subCategorySnapshot: string;
         topicTagSnapshot: string;
         difficultySnapshot: QuestionDifficulty;
@@ -1162,7 +1297,9 @@ export class ExamEngineService {
         id: string;
         questionSnapshot: QuestionSnapshotPayload;
         optionsSnapshot: QuestionSnapshotOption[];
-        categorySnapshot: QuestionCategory;
+        categorySnapshot: string;
+        categoryNameSnapshot: string;
+        answerModeSnapshot: QuestionAnswerMode;
         subCategorySnapshot: string;
         topicTagSnapshot: string;
         difficultySnapshot: QuestionDifficulty;
@@ -1181,6 +1318,13 @@ export class ExamEngineService {
         deletedAt: null,
       },
       include: {
+        categoryRef: {
+          select: {
+            code: true,
+            name: true,
+            answerMode: true,
+          },
+        },
         subCategoryRef: {
           select: {
             name: true,
@@ -1215,23 +1359,30 @@ export class ExamEngineService {
         id: string;
         questionSnapshot: QuestionSnapshotPayload;
         optionsSnapshot: QuestionSnapshotOption[];
-        categorySnapshot: QuestionCategory;
+        categorySnapshot: string;
+        categoryNameSnapshot: string;
+        answerModeSnapshot: QuestionAnswerMode;
         subCategorySnapshot: string;
         topicTagSnapshot: string;
         difficultySnapshot: QuestionDifficulty;
       }
     >,
     sections: Array<{
-      category: QuestionCategory;
+      categoryId: string;
       questionCount: number;
       difficultyDistributionJson: Prisma.JsonValue | null;
       topicDistributionJson: Prisma.JsonValue | null;
+      categoryRef: {
+        code: string;
+        name: string;
+        answerMode: QuestionAnswerMode;
+      };
     }>,
     excludedQuestionIds: Set<string>,
   ) {
     for (const section of sections) {
       const currentCategoryCount = [...selected.values()].filter(
-        (item) => item.categorySnapshot === section.category,
+        (item) => item.categorySnapshot === section.categoryRef.code,
       ).length;
       const requiredForCategory = Math.max(0, section.questionCount - currentCategoryCount);
 
@@ -1249,7 +1400,7 @@ export class ExamEngineService {
       if (difficultyDistribution) {
         for (const [difficulty, count] of Object.entries(difficultyDistribution)) {
           await this.appendQuestions(selected, {
-            category: section.category,
+            categoryCode: section.categoryRef.code,
             difficulty,
             take: count,
             excludedQuestionIds,
@@ -1258,7 +1409,7 @@ export class ExamEngineService {
       } else if (topicDistribution) {
         for (const topic of topicDistribution) {
           await this.appendQuestions(selected, {
-            category: section.category,
+            categoryCode: section.categoryRef.code,
             topicTag: topic.topicTag,
             take: topic.questionCount,
             excludedQuestionIds,
@@ -1267,12 +1418,12 @@ export class ExamEngineService {
       }
 
       const stillNeeded = section.questionCount - [...selected.values()].filter(
-        (item) => item.categorySnapshot === section.category,
+        (item) => item.categorySnapshot === section.categoryRef.code,
       ).length;
 
       if (stillNeeded > 0) {
         await this.appendQuestions(selected, {
-          category: section.category,
+          categoryCode: section.categoryRef.code,
           take: stillNeeded,
           excludedQuestionIds,
         });
@@ -1288,7 +1439,9 @@ export class ExamEngineService {
         id: string;
         questionSnapshot: QuestionSnapshotPayload;
         optionsSnapshot: QuestionSnapshotOption[];
-        categorySnapshot: QuestionCategory;
+        categorySnapshot: string;
+        categoryNameSnapshot: string;
+        answerModeSnapshot: QuestionAnswerMode;
         subCategorySnapshot: string;
         topicTagSnapshot: string;
         difficultySnapshot: QuestionDifficulty;
@@ -1297,7 +1450,7 @@ export class ExamEngineService {
     excludedQuestionIds: Set<string>,
     catalog: Prisma.TryoutCatalogGetPayload<{
       include: {
-        generationRule: { include: { sections: true } };
+        generationRule: { include: { sections: { include: { categoryRef: true } } } };
         manualQuestionSets: { include: { items: true } };
       };
     }>,
@@ -1310,7 +1463,7 @@ export class ExamEngineService {
     const weakAreas = await this.getAdaptiveWeakAreas(userId, config.maxWeakAreas);
     for (const weakArea of weakAreas) {
       await this.appendQuestions(selected, {
-        category: weakArea.category,
+        categoryCode: weakArea.categoryCode,
         topicTag: weakArea.topicTag,
         take: config.perWeakAreaQuestionCap,
         excludedQuestionIds,
@@ -1338,7 +1491,7 @@ export class ExamEngineService {
 
     if (latestRecommendation && latestRecommendation.items.length > 0) {
       return latestRecommendation.items.slice(0, maxWeakAreas).map((item) => ({
-        category: item.category,
+        categoryCode: item.category,
         topicTag: item.topicTag,
       }));
     }
@@ -1349,9 +1502,12 @@ export class ExamEngineService {
       take: 6,
       select: {
         breakdownJson: true,
-        twkPassed: true,
-        tiuPassed: true,
-        tkpPassed: true,
+        categoryScores: {
+          select: {
+            categoryCode: true,
+            passed: true,
+          },
+        },
       },
     });
 
@@ -1362,18 +1518,14 @@ export class ExamEngineService {
 
     const weakAreas = buildWeakAreaItems(
       latestResult.breakdownJson as unknown as BreakdownItem[],
-      {
-        [QuestionCategory.TWK]: latestResult.twkPassed,
-        [QuestionCategory.TIU]: latestResult.tiuPassed,
-        [QuestionCategory.TKP]: latestResult.tkpPassed,
-      },
+      Object.fromEntries(latestResult.categoryScores.map((item) => [item.categoryCode, item.passed])),
       recentResults
         .slice(1)
         .map((item) => item.breakdownJson as unknown as BreakdownItem[]),
     );
 
     return weakAreas.slice(0, maxWeakAreas).map((item) => ({
-      category: item.category,
+      categoryCode: item.category,
       topicTag: item.topicTag,
     }));
   }
@@ -1417,14 +1569,16 @@ export class ExamEngineService {
         id: string;
         questionSnapshot: QuestionSnapshotPayload;
         optionsSnapshot: QuestionSnapshotOption[];
-        categorySnapshot: QuestionCategory;
+        categorySnapshot: string;
+        categoryNameSnapshot: string;
+        answerModeSnapshot: QuestionAnswerMode;
         subCategorySnapshot: string;
         topicTagSnapshot: string;
         difficultySnapshot: QuestionDifficulty;
       }
     >,
     input: {
-      category: QuestionCategory;
+      categoryCode: string;
       difficulty?: string;
       topicTag?: string;
       take: number;
@@ -1439,7 +1593,11 @@ export class ExamEngineService {
       where: {
         status: QuestionStatus.active,
         deletedAt: null,
-        category: input.category,
+        categoryRef: {
+          is: {
+            code: input.categoryCode,
+          },
+        },
         ...(input.difficulty ? { difficulty: input.difficulty as never } : {}),
         ...(input.topicTag
           ? {
@@ -1455,6 +1613,13 @@ export class ExamEngineService {
         },
       },
       include: {
+        categoryRef: {
+          select: {
+            code: true,
+            name: true,
+            answerMode: true,
+          },
+        },
         subCategoryRef: {
           select: {
             name: true,
@@ -1518,7 +1683,11 @@ export class ExamEngineService {
   private toExamSessionQuestionSnapshot(question: {
     id: string;
     questionText: string;
-    category: QuestionCategory;
+    categoryRef: {
+      code: string;
+      name: string;
+      answerMode: QuestionAnswerMode;
+    };
     subCategoryRef: {
       name: string;
     };
@@ -1532,7 +1701,7 @@ export class ExamEngineService {
       label: string;
       optionText: string;
       isCorrect: boolean;
-      tkpWeight: number | null;
+      optionWeight: number | null;
     }>;
   }) {
     return {
@@ -1540,7 +1709,9 @@ export class ExamEngineService {
       questionSnapshot: {
         id: question.id,
         questionText: question.questionText,
-        category: question.category,
+        category: question.categoryRef.code,
+        categoryName: question.categoryRef.name,
+        answerMode: question.categoryRef.answerMode,
         subCategory: question.subCategoryRef.name,
         topicTag: question.topicTagRef.name,
         competencyArea: question.competencyArea,
@@ -1551,9 +1722,11 @@ export class ExamEngineService {
         label: option.label,
         text: option.optionText,
         isCorrect: option.isCorrect,
-        tkpWeight: option.tkpWeight,
+        optionWeight: option.optionWeight,
       })),
-      categorySnapshot: question.category,
+      categorySnapshot: question.categoryRef.code,
+      categoryNameSnapshot: question.categoryRef.name,
+      answerModeSnapshot: question.categoryRef.answerMode,
       subCategorySnapshot: question.subCategoryRef.name,
       topicTagSnapshot: question.topicTagRef.name,
       difficultySnapshot: question.difficulty,

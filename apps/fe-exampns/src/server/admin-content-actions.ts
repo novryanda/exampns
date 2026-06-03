@@ -26,17 +26,20 @@ function optionalString(value: FormDataEntryValue | null) {
 }
 
 function buildParsedQuestionUpdatePayload(formData: FormData) {
-  const category = String(formData.get("category") ?? "TWK");
+  const categoryCode = String(formData.get("category") ?? "");
+  const answerMode = String(formData.get("answerMode") ?? "single_correct");
 
   return {
     questionText: String(formData.get("questionText") ?? "").trim(),
     options: optionLabels.map((label) => ({
       label,
       text: String(formData.get(`optionText${label}`) ?? "").trim(),
-      ...(category === "TKP" ? { tkpWeight: parseNumber(formData.get(`optionWeight${label}`), 1) } : {}),
+      ...(answerMode === "weighted_options"
+        ? { optionWeight: parseNumber(formData.get(`optionWeight${label}`), 1) }
+        : {}),
     })),
-    detectedAnswer: category === "TKP" ? null : String(formData.get("detectedAnswer") ?? "A"),
-    category,
+    detectedAnswer: answerMode === "weighted_options" ? null : String(formData.get("detectedAnswer") ?? "A"),
+    categoryCode,
     resolvedSubCategoryId: String(formData.get("resolvedSubCategoryId") ?? "").trim() || undefined,
     resolvedTopicTagId: String(formData.get("resolvedTopicTagId") ?? "").trim() || undefined,
     difficulty: String(formData.get("difficulty") ?? "medium"),
@@ -44,12 +47,13 @@ function buildParsedQuestionUpdatePayload(formData: FormData) {
 }
 
 function buildQuestionPayload(formData: FormData) {
-  const category = String(formData.get("category") ?? "TWK") as "TWK" | "TIU" | "TKP";
+  const categoryCode = String(formData.get("category") ?? "");
+  const answerMode = String(formData.get("answerMode") ?? "single_correct");
   const correctAnswer = String(formData.get("correctAnswer") ?? "A");
 
   return {
     questionText: String(formData.get("questionText") ?? "").trim(),
-    category,
+    categoryCode,
     subCategoryId: String(formData.get("subCategoryId") ?? "").trim(),
     topicTagId: String(formData.get("topicTagId") ?? "").trim(),
     competencyArea: optionalString(formData.get("competencyArea")) ?? "",
@@ -59,8 +63,8 @@ function buildQuestionPayload(formData: FormData) {
     options: optionLabels.map((label) => ({
       label,
       text: String(formData.get(`optionText${label}`) ?? "").trim(),
-      ...(category === "TKP"
-        ? { tkpWeight: parseNumber(formData.get(`optionWeight${label}`), 1) }
+      ...(answerMode === "weighted_options"
+        ? { optionWeight: parseNumber(formData.get(`optionWeight${label}`), 1) }
         : { isCorrect: correctAnswer === label }),
     })),
   };
@@ -118,7 +122,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
   const randomizationMode = String(formData.get("randomizationMode") ?? "random_by_category");
   const rawSections = parseJsonField<
     Array<{
-      category: "TWK" | "TIU" | "TKP";
+      category: string;
       questionCount: number;
       difficultyDistribution?: Partial<Record<"easy" | "medium" | "hard", number>>;
       topicDistribution?: Array<{ topicTag: string; questionCount: number }>;
@@ -134,7 +138,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
 
     if (randomizationMode === "random_by_category") {
       return {
-        category: section.category,
+        categoryCode: section.category,
         questionCount: section.questionCount,
         sortOrder: section.sortOrder,
       };
@@ -142,7 +146,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
 
     if (randomizationMode === "random_by_topic_distribution") {
       return {
-        category: section.category,
+        categoryCode: section.category,
         questionCount: section.questionCount,
         topicDistribution,
         sortOrder: section.sortOrder,
@@ -150,7 +154,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
     }
 
     return {
-      category: section.category,
+      categoryCode: section.category,
       questionCount: section.questionCount,
       ...(difficultyDistribution ? { difficultyDistribution } : {}),
       ...(topicDistribution.length > 0 ? { topicDistribution } : {}),
@@ -215,6 +219,11 @@ function revalidateAdminContentPaths() {
   for (const path of paths) {
     revalidatePath(path);
   }
+}
+
+function revalidateSuperAdminQuestionCategoryPaths() {
+  revalidatePath("/super-admin/dashboard");
+  revalidatePath("/super-admin/question-categories");
 }
 
 function revalidateTryoutBuilderPaths(scope: "admin" | "super-admin", tryoutId?: string) {
@@ -761,7 +770,7 @@ export async function createQuestionSubCategoryAction(
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          category: String(formData.get("category") ?? "TWK"),
+          categoryCode: String(formData.get("category") ?? ""),
           name: String(formData.get("name") ?? "").trim(),
         }),
       },
@@ -858,6 +867,115 @@ export async function toggleQuestionSubCategoryStatusAction(
     return {
       status: "error",
       message: error instanceof Error ? error.message : "Gagal mengubah status sub-kategori.",
+    };
+  }
+}
+
+export async function createQuestionCategoryAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<{ id: string }>>("/api/v1/super-admin/question-categories", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        code: String(formData.get("code") ?? "").trim(),
+        name: String(formData.get("name") ?? "").trim(),
+        answerMode: String(formData.get("answerMode") ?? "single_correct"),
+        sortOrder: parseNumber(formData.get("sortOrder"), 0),
+      }),
+    });
+
+    revalidateSuperAdminQuestionCategoryPaths();
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Kategori soal berhasil dibuat.",
+      resourceId: response.data.id,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal membuat kategori soal.",
+    };
+  }
+}
+
+export async function updateQuestionCategoryAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const categoryId = String(formData.get("categoryId") ?? "");
+    const sortOrder = formData.get("sortOrder");
+    const isActive = formData.get("isActive");
+
+    await serverApiFetch<ApiSuccessResponse<{ id: string }>>(`/api/v1/super-admin/question-categories/${categoryId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: String(formData.get("name") ?? "").trim(),
+        answerMode: String(formData.get("answerMode") ?? "single_correct"),
+        ...(sortOrder !== null ? { sortOrder: parseNumber(sortOrder, 0) } : {}),
+        ...(isActive !== null ? { isActive: parseBoolean(isActive) } : {}),
+      }),
+    });
+
+    revalidateSuperAdminQuestionCategoryPaths();
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: "Kategori soal berhasil diperbarui.",
+      resourceId: categoryId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal memperbarui kategori soal.",
+    };
+  }
+}
+
+export async function toggleQuestionCategoryStatusAction(
+  _previousState: ResourceActionState,
+  formData: FormData,
+): Promise<ResourceActionState> {
+  try {
+    const categoryId = String(formData.get("categoryId") ?? "");
+    const nextActiveState = parseBoolean(formData.get("isActive"));
+
+    if (nextActiveState) {
+      await serverApiFetch<ApiSuccessResponse<{ id: string }>>(`/api/v1/super-admin/question-categories/${categoryId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          isActive: true,
+        }),
+      });
+    } else {
+      await serverApiFetch<{ success: true; message?: string }>(
+        `/api/v1/super-admin/question-categories/${categoryId}/archive`,
+        {
+          method: "PATCH",
+        },
+      );
+    }
+
+    revalidateSuperAdminQuestionCategoryPaths();
+    revalidateAdminContentPaths();
+
+    return {
+      status: "success",
+      message: nextActiveState ? "Kategori soal berhasil diaktifkan." : "Kategori soal berhasil diarsipkan.",
+      resourceId: categoryId,
+    };
+  } catch (error) {
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : "Gagal mengubah status kategori soal.",
     };
   }
 }

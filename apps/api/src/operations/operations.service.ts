@@ -20,7 +20,10 @@ import {
 import { auth } from '../auth/auth.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AccessResolverService } from '../common/access-resolver.service.js';
-import { getSubscriptionTierSnapshot } from '../common/access-control.helpers.js';
+import {
+  canAccessTryout,
+  getSubscriptionTierSnapshot,
+} from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -69,6 +72,9 @@ export class OperationsService {
         },
         include: {
           examSession: true,
+          categoryScores: {
+            orderBy: { categoryCode: 'asc' },
+          },
           aiRecommendations: {
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -130,10 +136,14 @@ export class OperationsService {
         ? {
             examResultId: lastResult.id,
             examDate: lastResult.examSession.startedAt,
-            twkScore: lastResult.twkScore,
-            tiuScore: lastResult.tiuScore,
-            tkpScore: lastResult.tkpScore,
             totalScore: lastResult.totalScore,
+            categoryScores: lastResult.categoryScores.map((item) => ({
+              categoryCode: item.categoryCode,
+              categoryName: item.categoryName,
+              score: item.score,
+              minScore: item.minScore,
+              passed: item.passed,
+            })),
             overallPassed: lastResult.overallPassed,
           }
         : null,
@@ -157,6 +167,54 @@ export class OperationsService {
         overallPassed: result.overallPassed,
       })),
     };
+  }
+
+  async listAccessibleTryouts(actor: AuthenticatedUser) {
+    const accessResolution = await this.accessResolverService.resolveEffectiveAccessLevel(actor.id);
+    const tryouts = await this.prisma.tryoutCatalog.findMany({
+      where: {
+        status: 'published',
+        isPublic: true,
+        archivedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        tryoutType: true,
+        accessType: true,
+        isFeatured: true,
+        durationMinutes: true,
+        totalQuestions: true,
+        showResultImmediately: true,
+        showAnswerReview: true,
+        publishedAt: true,
+      },
+      orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { publishedAt: 'desc' }],
+    });
+
+    return tryouts.map((tryout) => {
+      const canStart = canAccessTryout(
+        tryout.accessType,
+        accessResolution.effectiveAccessLevel,
+      );
+
+      const lockedReason = canStart
+        ? null
+        : tryout.accessType === 'premium_only'
+          ? 'Butuh plan premium aktif'
+          : tryout.accessType === 'paid_only'
+            ? 'Butuh subscription berbayar aktif'
+            : tryout.accessType === 'trial_only'
+              ? 'Khusus user trial aktif'
+              : 'Akses subscription tidak aktif';
+
+      return {
+        ...tryout,
+        canStart,
+        lockedReason,
+      };
+    });
   }
 
   async getAdminDashboardSummary(actor: AuthenticatedUser) {
@@ -208,15 +266,25 @@ export class OperationsService {
         orderBy: { createdAt: 'desc' },
         take: 5,
       }),
-      this.prisma.question.groupBy({
-        by: ['category'],
-        _count: {
-          _all: true,
-        },
+      this.prisma.questionCategory.findMany({
         where: {
-          status: QuestionStatus.active,
-          deletedAt: null,
+          isActive: true,
         },
+        select: {
+          code: true,
+          name: true,
+          _count: {
+            select: {
+              questions: {
+                where: {
+                  status: QuestionStatus.active,
+                  deletedAt: null,
+                },
+              },
+            },
+          },
+        },
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
       }),
       this.prisma.auditLog.findMany({
         where: {
@@ -244,10 +312,10 @@ export class OperationsService {
       draftTryouts,
       submittedReviewTryouts,
       failedPdfBatches,
-      questionDistribution: ['TWK', 'TIU', 'TKP'].map((category) => ({
-        category,
-        activeCount:
-          questionDistributionRows.find((row) => row.category === category)?._count._all ?? 0,
+      questionDistribution: questionDistributionRows.map((row) => ({
+        category: row.code,
+        categoryName: row.name,
+        activeCount: row._count.questions,
       })),
       recentImportBatches: recentImportBatches.map((batch) => ({
         batchId: batch.id,
@@ -954,17 +1022,66 @@ export class OperationsService {
     const config = await this.prisma.passingGradeConfig.findFirst({
       where: { isActive: true },
       orderBy: { effectiveFrom: 'desc' },
+      include: {
+        items: {
+          include: {
+            categoryRef: {
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            categoryRef: {
+              sortOrder: 'asc',
+            },
+          },
+        },
+      },
     });
 
     if (!config) {
       throw new NotFoundException('Passing grade config tidak ditemukan');
     }
 
-    return config;
+    return {
+      id: config.id,
+      name: config.name,
+      totalMinScore: config.totalMinScore,
+      isActive: config.isActive,
+      effectiveFrom: config.effectiveFrom,
+      categoryMinimums: config.items.map((item) => ({
+        categoryCode: item.categoryRef.code,
+        categoryName: item.categoryRef.name,
+        minScore: item.minScore,
+      })),
+    };
   }
 
   async updatePassingGrade(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(updatePassingGradeSchema, rawBody);
+    const categories = await this.prisma.questionCategory.findMany({
+      where: {
+        code: {
+          in: payload.categoryMinimums.map((item) => item.categoryCode),
+        },
+      },
+      select: {
+        id: true,
+        code: true,
+      },
+    });
+    const categoryIdByCode = new Map(categories.map((item) => [item.code, item.id]));
+    const missingCategoryCodes = payload.categoryMinimums
+      .map((item) => item.categoryCode)
+      .filter((code) => !categoryIdByCode.has(code));
+
+    if (missingCategoryCodes.length > 0) {
+      throw new NotFoundException(
+        `Kategori tidak ditemukan: ${missingCategoryCodes.join(', ')}`,
+      );
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.passingGradeConfig.updateMany({
@@ -974,9 +1091,16 @@ export class OperationsService {
 
       await tx.passingGradeConfig.create({
         data: {
-          ...payload,
+          name: payload.name,
+          totalMinScore: payload.totalMinScore,
           effectiveFrom: new Date(payload.effectiveFrom),
           isActive: true,
+          items: {
+            create: payload.categoryMinimums.map((item) => ({
+              categoryId: categoryIdByCode.get(item.categoryCode)!,
+              minScore: item.minScore,
+            })),
+          },
         },
       });
     });

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { ServerPagination } from "@/components/server-pagination";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAdminPdfImportBatches } from "@/server/admin-content-data";
+import { getAdminPdfImportBatches, getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
 
 import { UploadPdfForm } from "./_components/upload-pdf-form";
 
@@ -72,7 +72,10 @@ export default async function UploadPdfPage({
   const params = await searchParams;
   const page = readPageParam(params.page);
   const status = readStatusParam(params.status);
-  const batches = await getAdminPdfImportBatches({ page, limit: 10, status });
+  const [batches, metadataOptions] = await Promise.all([
+    getAdminPdfImportBatches({ page, limit: 10, status }),
+    getAdminQuestionMetadataOptions(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -82,7 +85,7 @@ export default async function UploadPdfPage({
         title="Unggah File"
         description="Maksimum default 20MB. PDF teks lebih direkomendasikan daripada scan gambar."
       >
-        <UploadPdfForm />
+        <UploadPdfForm categories={metadataOptions.categories} />
       </SectionCard>
 
       <SectionCard title="Batch Upload Terbaru" description="Pantau status batch upload terakhir.">

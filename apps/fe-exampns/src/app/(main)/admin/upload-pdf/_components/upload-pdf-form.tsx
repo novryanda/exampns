@@ -14,10 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { initialResourceActionState } from "@/server/admin-action-state";
 import { uploadPdfAction } from "@/server/admin-content-actions";
+import type { QuestionCategorySummary } from "@/server/admin-content-data";
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
 
-export function UploadPdfForm() {
+export function UploadPdfForm({ categories }: { readonly categories: QuestionCategorySummary[] }) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(uploadPdfAction, initialResourceActionState);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -143,9 +144,11 @@ export function UploadPdfForm() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="auto">Otomatis</SelectItem>
-            <SelectItem value="TWK">TWK</SelectItem>
-            <SelectItem value="TIU">TIU</SelectItem>
-            <SelectItem value="TKP">TKP</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.code} value={category.code}>
+                {category.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>

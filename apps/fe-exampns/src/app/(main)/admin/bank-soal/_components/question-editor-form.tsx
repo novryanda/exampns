@@ -53,12 +53,12 @@ export function QuestionEditorForm({
   const router = useRouter();
   const action = question ? updateQuestionAction : createQuestionAction;
   const [state, formAction, isPending] = useActionState(action, initialResourceActionState);
-  const initialCategory = question?.category ?? "TWK";
+  const initialCategory = question?.category ?? metadataOptions.categories[0]?.code ?? "";
   const initialSubCategories = metadataOptions.subCategories.filter((item) => item.category === initialCategory);
   const initialSubCategoryId = question?.subCategoryId ?? initialSubCategories[0]?.id ?? "";
   const initialTopicTags = metadataOptions.topicTags.filter((item) => item.subCategoryId === initialSubCategoryId);
   const initialTopicTagId = question?.topicTagId ?? initialTopicTags[0]?.id ?? "";
-  const [category, setCategory] = useState<"TWK" | "TIU" | "TKP">(initialCategory);
+  const [category, setCategory] = useState(initialCategory);
   const [subCategoryId, setSubCategoryId] = useState(initialSubCategoryId);
   const [topicTagId, setTopicTagId] = useState(initialTopicTagId);
   const initialCorrectAnswer =
@@ -66,7 +66,12 @@ export function QuestionEditorForm({
   const [correctAnswer, setCorrectAnswer] = useState<(typeof optionLabels)[number]>(initialCorrectAnswer);
   const availableSubCategories = metadataOptions.subCategories.filter((item) => item.category === category);
   const availableTopicTags = metadataOptions.topicTags.filter((item) => item.subCategoryId === subCategoryId);
-  const isTkp = category === "TKP";
+  const selectedCategory =
+    metadataOptions.categories.find((item) => item.code === category) ??
+    metadataOptions.categories[0] ??
+    null;
+  const answerMode = selectedCategory?.answerMode ?? question?.answerMode ?? "single_correct";
+  const isWeightedCategory = answerMode === "weighted_options";
 
   useEffect(() => {
     if (state.status === "success") {
@@ -100,6 +105,7 @@ export function QuestionEditorForm({
   return (
     <form action={formAction} className="space-y-8">
       {question ? <input type="hidden" name="questionId" value={question.id} /> : null}
+      <input type="hidden" name="answerMode" value={answerMode} />
 
       <FormSection title="Teks Soal">
         <Textarea
@@ -119,12 +125,14 @@ export function QuestionEditorForm({
               id="category"
               name="category"
               value={category}
-              onChange={(event) => setCategory(event.target.value as "TWK" | "TIU" | "TKP")}
+              onChange={(event) => setCategory(event.target.value)}
               className="w-full rounded-xl border-slate-200 bg-white"
             >
-              <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-              <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-              <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+              {metadataOptions.categories.map((item) => (
+                <NativeSelectOption key={item.code} value={item.code}>
+                  {item.name}
+                </NativeSelectOption>
+              ))}
             </NativeSelect>
           </div>
           <div className="grid gap-2">
@@ -209,11 +217,15 @@ export function QuestionEditorForm({
 
       <FormSection
         title="Pilihan Jawaban"
-        hint={isTkp ? "Isi jawaban dan nilai TKP untuk setiap opsi." : "Isi jawaban dan pilih jawaban benar untuk TWK/TIU."}
+        hint={
+          isWeightedCategory
+            ? "Isi jawaban dan bobot nilai 1-5 untuk setiap opsi."
+            : "Isi jawaban dan pilih satu jawaban benar."
+        }
       >
-        {!isTkp ? (
+        {!isWeightedCategory ? (
           <div className="grid max-w-xs gap-2">
-            <Label htmlFor="correctAnswer">Jawaban Benar (untuk TWK/TIU)</Label>
+            <Label htmlFor="correctAnswer">Jawaban Benar</Label>
             <Select
               name="correctAnswer"
               value={correctAnswer}
@@ -234,17 +246,17 @@ export function QuestionEditorForm({
         ) : null}
 
         <div className="space-y-3">
-          {isTkp ? (
+          {isWeightedCategory ? (
             <div className="hidden gap-3 sm:grid sm:grid-cols-[3rem_minmax(0,1fr)_7.5rem] sm:items-center">
               <span />
               <span />
-              <span className="text-right font-medium text-slate-600 text-sm">Nilai TKP</span>
+              <span className="text-right font-medium text-slate-600 text-sm">Bobot Nilai</span>
             </div>
           ) : null}
 
           {optionLabels.map((label, index) => {
             const option = question?.options[index];
-            const isCorrectOption = !isTkp && correctAnswer === label;
+            const isCorrectOption = !isWeightedCategory && correctAnswer === label;
 
             return (
               <div
@@ -252,7 +264,7 @@ export function QuestionEditorForm({
                 className={cn(
                   "rounded-xl transition-colors",
                   isCorrectOption && "border border-emerald-200 bg-emerald-50/80 p-3",
-                  isTkp
+                  isWeightedCategory
                     ? "grid grid-cols-1 items-center gap-3 sm:grid-cols-[3rem_minmax(0,1fr)_7.5rem]"
                     : "grid grid-cols-1 items-center gap-3 sm:grid-cols-[3rem_minmax(0,1fr)]",
                 )}
@@ -277,18 +289,18 @@ export function QuestionEditorForm({
                   placeholder={`Opsi ${label}`}
                   required
                 />
-                {isTkp ? (
+                {isWeightedCategory ? (
                   <Input
                     id={`optionWeight${label}`}
                     name={`optionWeight${label}`}
                     type="number"
                     min={1}
                     max={5}
-                    defaultValue={option?.tkpWeight ?? 1}
+                    defaultValue={option?.optionWeight ?? 1}
                     className="rounded-xl border-slate-200 bg-white sm:text-right"
                     placeholder="1-5"
                     required
-                    aria-label={`Nilai TKP opsi ${label}`}
+                    aria-label={`Bobot nilai opsi ${label}`}
                   />
                 ) : null}
               </div>

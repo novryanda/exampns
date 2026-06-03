@@ -2,7 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AIRecommendationStatus,
-  QuestionCategory,
   type Prisma,
 } from '../../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -19,17 +18,18 @@ import {
 interface RecommendationContext {
   examResult: {
     id: string;
-    twkScore: number;
-    tiuScore: number;
-    tkpScore: number;
     totalScore: number;
-    twkPassed: boolean;
-    tiuPassed: boolean;
-    tkpPassed: boolean;
     totalPassed: boolean;
     overallPassed: boolean;
     breakdownJson: Prisma.JsonValue;
     userId: string;
+    categoryScores: Array<{
+      categoryCode: string;
+      categoryName: string;
+      score: number;
+      minScore: number;
+      passed: boolean;
+    }>;
   };
   historyBreakdowns: BreakdownItem[][];
 }
@@ -67,11 +67,9 @@ export class AiRecommendationService {
     }
 
     const context = await this.getRecommendationContext(examResultId);
-    const categoryPassing = {
-      [QuestionCategory.TWK]: context.examResult.twkPassed,
-      [QuestionCategory.TIU]: context.examResult.tiuPassed,
-      [QuestionCategory.TKP]: context.examResult.tkpPassed,
-    };
+    const categoryPassing = Object.fromEntries(
+      context.examResult.categoryScores.map((item) => [item.categoryCode, item.passed]),
+    );
     const currentBreakdown = context.examResult.breakdownJson as unknown as BreakdownItem[];
     const weakAreas = buildWeakAreaItems(
       currentBreakdown,
@@ -81,17 +79,25 @@ export class AiRecommendationService {
     const payload = buildRecommendationPayload({
       examResultId: context.examResult.id,
       score: {
-        twk: context.examResult.twkScore,
-        tiu: context.examResult.tiuScore,
-        tkp: context.examResult.tkpScore,
         total: context.examResult.totalScore,
+        categories: context.examResult.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+          minScore: item.minScore,
+          passed: item.passed,
+        })),
       },
       passingStatus: {
-        twkPassed: context.examResult.twkPassed,
-        tiuPassed: context.examResult.tiuPassed,
-        tkpPassed: context.examResult.tkpPassed,
         totalPassed: context.examResult.totalPassed,
         overallPassed: context.examResult.overallPassed,
+        categories: context.examResult.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+          minScore: item.minScore,
+          passed: item.passed,
+        })),
       },
       breakdown: currentBreakdown,
       weakAreas,
@@ -191,16 +197,20 @@ export class AiRecommendationService {
       select: {
         id: true,
         userId: true,
-        twkScore: true,
-        tiuScore: true,
-        tkpScore: true,
         totalScore: true,
-        twkPassed: true,
-        tiuPassed: true,
-        tkpPassed: true,
         totalPassed: true,
         overallPassed: true,
         breakdownJson: true,
+        categoryScores: {
+          select: {
+            categoryCode: true,
+            categoryName: true,
+            score: true,
+            minScore: true,
+            passed: true,
+          },
+          orderBy: { categoryCode: 'asc' },
+        },
       },
     });
 

@@ -220,9 +220,11 @@ export function BankSoalManager({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Kategori</SelectItem>
-            <SelectItem value="TWK">TWK</SelectItem>
-            <SelectItem value="TIU">TIU</SelectItem>
-            <SelectItem value="TKP">TKP</SelectItem>
+            {initialMetadataOptions.categories.map((category) => (
+              <SelectItem key={category.code} value={category.code}>
+                {category.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <div className="w-56 min-w-[12rem]">
@@ -276,7 +278,7 @@ export function BankSoalManager({
 
       <BankSoalKpiCards overview={initialOverview} />
 
-      <BankSoalOverviewPanel initialOverview={initialOverview} />
+      <BankSoalOverviewPanel initialOverview={initialOverview} categories={initialMetadataOptions.categories} />
 
       <QuestionsTable initialResponse={response} filters={appliedFilters} onResponseChange={setResponse} />
     </div>

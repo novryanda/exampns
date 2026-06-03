@@ -1,3 +1,4 @@
+import { questionAnswerModeSchema, questionCategoryCodeSchema } from '../common/question-category.js';
 import { PaymentStatus, SubscriptionTier, UserStatus } from '../../generated/prisma/client.js';
 import { z } from 'zod';
 
@@ -50,12 +51,33 @@ export const updateSubscriptionPlanSchema = createSubscriptionPlanSchema.partial
 
 export const updatePassingGradeSchema = z.object({
   name: z.string().min(3).max(100),
-  twkMinScore: z.coerce.number().int().min(0).max(1000),
-  tiuMinScore: z.coerce.number().int().min(0).max(1000),
-  tkpMinScore: z.coerce.number().int().min(0).max(1000),
+  categoryMinimums: z.array(
+    z.object({
+      categoryCode: questionCategoryCodeSchema,
+      minScore: z.coerce.number().int().min(0).max(1000),
+    }),
+  ),
   totalMinScore: z.coerce.number().int().min(0).max(5000),
   effectiveFrom: z.string().datetime(),
 });
+
+export const createQuestionCategoryConfigSchema = z.object({
+  code: questionCategoryCodeSchema,
+  name: z.string().trim().min(1).max(100),
+  answerMode: questionAnswerModeSchema,
+  sortOrder: z.coerce.number().int().min(0).optional(),
+});
+
+export const updateQuestionCategoryConfigSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    answerMode: questionAnswerModeSchema.optional(),
+    sortOrder: z.coerce.number().int().min(0).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field is required',
+  });
 
 export const updateTrialConfigSchema = z.object({
   freeTryoutCount: z.coerce.number().int().min(0).max(1000),

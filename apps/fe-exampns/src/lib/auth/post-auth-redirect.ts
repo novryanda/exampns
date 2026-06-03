@@ -9,5 +9,5 @@ export function getPostAuthRedirectPath(role?: AuthUserRole | string | null) {
     return "/admin/dashboard";
   }
 
-  return "/";
+  return "/dashboard";
 }

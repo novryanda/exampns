@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { BookCopy, Bot, ShieldUser, Users, WalletCards } from "lucide-react";
+import { BookCopy, Bot, Settings2, ShieldUser, Users, WalletCards } from "lucide-react";
 
 import { MetricCard, PageHeader, SectionCard } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ export default async function SuperAdminDashboardPage() {
       </div>
 
       <SectionCard title="Quick Access" description="Shortcut ke area super admin yang paling sering dipakai.">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {[
             {
               title: "Users",
@@ -98,6 +98,12 @@ export default async function SuperAdminDashboardPage() {
               href: "/super-admin/tryout-catalog",
               icon: BookCopy,
               description: "Kelola publish flow tryout",
+            },
+            {
+              title: "Question Categories",
+              href: "/super-admin/question-categories",
+              icon: Settings2,
+              description: "Atur kategori global dan mode penilaian",
             },
             {
               title: "AI Settings",

@@ -1,7 +1,6 @@
 import {
   AccessType,
   ManualQuestionSetStatus,
-  QuestionCategory,
   QuestionDifficulty,
   QuestionStatus,
   QuestionType,
@@ -10,6 +9,7 @@ import {
   TryoutStatus,
   TryoutType,
 } from '../../generated/prisma/client.js';
+import { questionCategoryCodeSchema } from '../common/question-category.js';
 import { z } from 'zod';
 
 const emptyToUndefined = (value: unknown) => {
@@ -37,7 +37,7 @@ const topicDistributionItemSchema = z.object({
 });
 
 const tryoutRuleSectionSchema = z.object({
-  category: z.nativeEnum(QuestionCategory),
+  categoryCode: questionCategoryCodeSchema,
   questionCount: z.number().int().min(1),
   difficultyDistribution: difficultyDistributionSchema,
   topicDistribution: z.array(topicDistributionItemSchema).optional(),

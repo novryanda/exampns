@@ -4,12 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, QuestionCategory } from '../../generated/prisma/client.js';
+import { Prisma } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AuditLogService } from '../common/audit-log.service.js';
+import { normalizeQuestionCategoryCode, type QuestionCategoryCode } from '../common/question-category.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
+  createQuestionCategorySchema,
   createSubCategorySchema,
   createTopicTagSchema,
   listSubCategoriesQuerySchema,
@@ -17,6 +19,7 @@ import {
   listTopicTagsQuerySchema,
   metadataOptionsQuerySchema,
   metadataSummaryQuerySchema,
+  updateQuestionCategorySchema,
   updateSubCategorySchema,
   updateTopicTagSchema,
 } from './question-metadata.schemas.js';
@@ -38,16 +41,42 @@ export class QuestionMetadataService {
   async getOptions(rawQuery: unknown) {
     const query = this.validationService.validate(metadataOptionsQuerySchema, rawQuery);
 
-    const [subCategories, topicTags] = await Promise.all([
+    const [categories, subCategories, topicTags] = await Promise.all([
+      this.prisma.questionCategory.findMany({
+        where: {
+          ...(query.category ? { code: query.category } : {}),
+          isActive: true,
+        },
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+        select: {
+          code: true,
+          name: true,
+          answerMode: true,
+          isActive: true,
+          sortOrder: true,
+        },
+      }),
       this.prisma.questionSubCategory.findMany({
         where: {
           isActive: true,
-          ...(query.category ? { category: query.category } : {}),
+          ...(query.category
+            ? {
+                categoryRef: {
+                  is: {
+                    code: query.category,
+                  },
+                },
+              }
+            : {}),
         },
         orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
         select: {
           id: true,
-          category: true,
+          categoryRef: {
+            select: {
+              code: true,
+            },
+          },
           name: true,
         },
       }),
@@ -59,7 +88,11 @@ export class QuestionMetadataService {
             ? {
                 subCategory: {
                   is: {
-                    category: query.category,
+                    categoryRef: {
+                      is: {
+                        code: query.category,
+                      },
+                    },
                   },
                 },
               }
@@ -75,7 +108,12 @@ export class QuestionMetadataService {
     ]);
 
     return {
-      subCategories,
+      categories,
+      subCategories: subCategories.map((item) => ({
+        id: item.id,
+        category: item.categoryRef.code,
+        name: item.name,
+      })),
       topicTags,
     };
   }
@@ -83,14 +121,26 @@ export class QuestionMetadataService {
   async getSummary(rawQuery: unknown) {
     const query = this.validationService.validate(metadataSummaryQuerySchema, rawQuery);
     const subCategoryWhere = {
-      ...(query.category ? { category: query.category } : {}),
+      ...(query.category
+        ? {
+            categoryRef: {
+              is: {
+                code: query.category,
+              },
+            },
+          }
+        : {}),
     };
     const topicTagWhere = {
       ...(query.category
         ? {
             subCategory: {
               is: {
-                category: query.category,
+                categoryRef: {
+                  is: {
+                    code: query.category,
+                  },
+                },
               },
             },
           }
@@ -127,7 +177,15 @@ export class QuestionMetadataService {
   async listSubCategories(rawQuery: unknown) {
     const query = this.validationService.validate(listSubCategoriesQuerySchema, rawQuery);
     const where = {
-      ...(query.category ? { category: query.category } : {}),
+      ...(query.category
+        ? {
+            categoryRef: {
+              is: {
+                code: query.category,
+              },
+            },
+          }
+        : {}),
       ...(query.search
         ? {
             name: {
@@ -142,10 +200,14 @@ export class QuestionMetadataService {
     const [items, totalItems] = await Promise.all([
       this.prisma.questionSubCategory.findMany({
         where,
-        orderBy: [{ category: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
+        orderBy: [{ categoryRef: { sortOrder: 'asc' } }, { sortOrder: 'asc' }, { name: 'asc' }],
         select: {
           id: true,
-          category: true,
+          categoryRef: {
+            select: {
+              code: true,
+            },
+          },
           name: true,
           slug: true,
           isActive: true,
@@ -166,7 +228,7 @@ export class QuestionMetadataService {
     return {
       data: items.map((item) => ({
         id: item.id,
-        category: item.category,
+        category: item.categoryRef.code,
         name: item.name,
         slug: item.slug,
         isActive: item.isActive,
@@ -185,22 +247,27 @@ export class QuestionMetadataService {
 
   async createSubCategory(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(createSubCategorySchema, rawBody);
+    const category = await this.getCategoryByCode(payload.categoryCode);
     const name = normalizeMetadataName(payload.name);
     const slug = toMetadataSlug(name);
 
-    await this.assertSubCategorySlugAvailable(payload.category, slug);
-    const sortOrder = payload.sortOrder ?? (await this.getNextSubCategorySortOrder(payload.category));
+    await this.assertSubCategorySlugAvailable(category.id, slug);
+    const sortOrder = payload.sortOrder ?? (await this.getNextSubCategorySortOrder(category.id));
 
     const created = await this.prisma.questionSubCategory.create({
       data: {
-        category: payload.category,
+        categoryId: category.id,
         name,
         slug,
         sortOrder,
       },
       select: {
         id: true,
-        category: true,
+        categoryRef: {
+          select: {
+            code: true,
+          },
+        },
         name: true,
         isActive: true,
         sortOrder: true,
@@ -216,7 +283,10 @@ export class QuestionMetadataService {
       metadata: created,
     });
 
-    return created;
+    return {
+      ...created,
+      category: created.categoryRef.code,
+    };
   }
 
   async updateSubCategory(subCategoryId: string, rawBody: unknown, actor: AuthenticatedUser) {
@@ -225,7 +295,12 @@ export class QuestionMetadataService {
       where: { id: subCategoryId },
       select: {
         id: true,
-        category: true,
+        categoryId: true,
+        categoryRef: {
+          select: {
+            code: true,
+          },
+        },
         name: true,
         slug: true,
       },
@@ -239,7 +314,7 @@ export class QuestionMetadataService {
     const nextSlug = payload.name ? toMetadataSlug(nextName) : existing.slug;
 
     if (nextSlug !== existing.slug) {
-      await this.assertSubCategorySlugAvailable(existing.category, nextSlug, subCategoryId);
+      await this.assertSubCategorySlugAvailable(existing.categoryId, nextSlug, subCategoryId);
     }
 
     const updated = await this.prisma.questionSubCategory.update({
@@ -251,7 +326,11 @@ export class QuestionMetadataService {
       },
       select: {
         id: true,
-        category: true,
+        categoryRef: {
+          select: {
+            code: true,
+          },
+        },
         name: true,
         isActive: true,
         sortOrder: true,
@@ -267,7 +346,10 @@ export class QuestionMetadataService {
       metadata: payload,
     });
 
-    return updated;
+    return {
+      ...updated,
+      category: updated.categoryRef.code,
+    };
   }
 
   async archiveSubCategory(subCategoryId: string, actor: AuthenticatedUser) {
@@ -302,7 +384,11 @@ export class QuestionMetadataService {
         ? {
             subCategory: {
               is: {
-                category: query.category,
+                categoryRef: {
+                  is: {
+                    code: query.category,
+                  },
+                },
               },
             },
           }
@@ -322,7 +408,7 @@ export class QuestionMetadataService {
       this.prisma.questionTopicTag.findMany({
         where,
         orderBy: [
-          { subCategory: { category: 'asc' } },
+          { subCategory: { categoryRef: { sortOrder: 'asc' } } },
           { subCategory: { name: 'asc' } },
           { sortOrder: 'asc' },
           { name: 'asc' },
@@ -336,7 +422,11 @@ export class QuestionMetadataService {
           subCategoryId: true,
           subCategory: {
             select: {
-              category: true,
+              categoryRef: {
+                select: {
+                  code: true,
+                },
+              },
               name: true,
             },
           },
@@ -361,7 +451,7 @@ export class QuestionMetadataService {
         sortOrder: item.sortOrder,
         subCategoryId: item.subCategoryId,
         subCategory: item.subCategory.name,
-        category: item.subCategory.category,
+        category: item.subCategory.categoryRef.code,
         questionCount: item._count.questions,
       })),
       meta: {
@@ -434,7 +524,11 @@ export class QuestionMetadataService {
         select: {
           id: true,
           questionText: true,
-          category: true,
+          categoryRef: {
+            select: {
+              code: true,
+            },
+          },
           subCategoryId: true,
           topicTagId: true,
           subCategoryRef: {
@@ -462,7 +556,7 @@ export class QuestionMetadataService {
       data: items.map((item) => ({
         id: item.id,
         questionPreview: buildQuestionPreview(item.questionText),
-        category: item.category,
+        category: item.categoryRef.code,
         subCategoryId: item.subCategoryId,
         topicTagId: item.topicTagId,
         subCategory: item.subCategoryRef.name,
@@ -514,7 +608,7 @@ export class QuestionMetadataService {
       targetId: created.id,
       metadata: {
         ...created,
-        category: subCategory.category,
+        category: subCategory.categoryRef.code,
       },
     });
 
@@ -600,14 +694,159 @@ export class QuestionMetadataService {
     });
   }
 
+  async listCategories(includeInactive = true) {
+    return this.prisma.questionCategory.findMany({
+      where: includeInactive ? undefined : { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        isActive: true,
+        sortOrder: true,
+      },
+    });
+  }
+
+  async createCategory(rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(createQuestionCategorySchema, rawBody);
+    const code = normalizeQuestionCategoryCode(payload.code);
+    const name = normalizeMetadataName(payload.name);
+
+    const existing = await this.prisma.questionCategory.findUnique({
+      where: { code },
+      select: { id: true },
+    });
+
+    if (existing) {
+      throw new ConflictException('Category code sudah digunakan');
+    }
+
+    const sortOrder = payload.sortOrder ?? (await this.getNextCategorySortOrder());
+
+    const activePassingGrade = await this.prisma.passingGradeConfig.findFirst({
+      where: { isActive: true },
+      select: { id: true },
+      orderBy: { effectiveFrom: 'desc' },
+    });
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const category = await tx.questionCategory.create({
+        data: {
+          code,
+          name,
+          answerMode: payload.answerMode,
+          sortOrder,
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          answerMode: true,
+          isActive: true,
+          sortOrder: true,
+        },
+      });
+
+      if (activePassingGrade) {
+        await tx.passingGradeConfigItem.create({
+          data: {
+            passingGradeConfigId: activePassingGrade.id,
+            categoryId: category.id,
+            minScore: 0,
+          },
+        });
+      }
+
+      return category;
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'CREATE_QUESTION_CATEGORY',
+      module: 'question_metadata',
+      targetType: 'question_category',
+      targetId: created.id,
+      metadata: created,
+    });
+
+    return created;
+  }
+
+  async updateCategory(categoryId: string, rawBody: unknown, actor: AuthenticatedUser) {
+    const payload = this.validationService.validate(updateQuestionCategorySchema, rawBody);
+    const existing = await this.prisma.questionCategory.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Question category not found');
+    }
+
+    const updated = await this.prisma.questionCategory.update({
+      where: { id: categoryId },
+      data: {
+        ...(payload.name !== undefined ? { name: normalizeMetadataName(payload.name) } : {}),
+        ...(payload.answerMode !== undefined ? { answerMode: payload.answerMode } : {}),
+        ...(payload.sortOrder !== undefined ? { sortOrder: payload.sortOrder } : {}),
+        ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        isActive: true,
+        sortOrder: true,
+      },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'UPDATE_QUESTION_CATEGORY',
+      module: 'question_metadata',
+      targetType: 'question_category',
+      targetId: categoryId,
+      metadata: payload,
+    });
+
+    return updated;
+  }
+
+  async archiveCategory(categoryId: string, actor: AuthenticatedUser) {
+    const existing = await this.prisma.questionCategory.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Question category not found');
+    }
+
+    await this.prisma.questionCategory.update({
+      where: { id: categoryId },
+      data: { isActive: false },
+    });
+
+    await this.auditLogService.create({
+      actor,
+      action: 'ARCHIVE_QUESTION_CATEGORY',
+      module: 'question_metadata',
+      targetType: 'question_category',
+      targetId: categoryId,
+    });
+  }
+
   private async assertSubCategorySlugAvailable(
-    category: QuestionCategory,
+    categoryId: string,
     slug: string,
     currentId?: string,
   ) {
     const existing = await this.prisma.questionSubCategory.findFirst({
       where: {
-        category,
+        categoryId,
         slug,
         ...(currentId ? { id: { not: currentId } } : {}),
       },
@@ -638,9 +877,9 @@ export class QuestionMetadataService {
     }
   }
 
-  private async getNextSubCategorySortOrder(category: QuestionCategory) {
+  private async getNextSubCategorySortOrder(categoryId: string) {
     const latest = await this.prisma.questionSubCategory.findFirst({
-      where: { category },
+      where: { categoryId },
       orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
       select: { sortOrder: true },
     });
@@ -663,7 +902,11 @@ export class QuestionMetadataService {
       where: { id: subCategoryId },
       select: {
         id: true,
-        category: true,
+        categoryRef: {
+          select: {
+            code: true,
+          },
+        },
         isActive: true,
       },
     });
@@ -677,5 +920,34 @@ export class QuestionMetadataService {
     }
 
     return subCategory;
+  }
+
+  private async getCategoryByCode(categoryCode: QuestionCategoryCode) {
+    const category = await this.prisma.questionCategory.findUnique({
+      where: { code: normalizeQuestionCategoryCode(categoryCode) },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        isActive: true,
+        sortOrder: true,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Question category not found');
+    }
+
+    return category;
+  }
+
+  private async getNextCategorySortOrder() {
+    const latest = await this.prisma.questionCategory.findFirst({
+      orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
+      select: { sortOrder: true },
+    });
+
+    return (latest?.sortOrder ?? -1) + 1;
   }
 }

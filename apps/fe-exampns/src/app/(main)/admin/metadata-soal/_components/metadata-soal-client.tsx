@@ -185,9 +185,11 @@ export function MetadataSoalClient({
           className="w-44 rounded-xl border-slate-200 bg-white"
         >
           <NativeSelectOption value="all">Semua Kategori</NativeSelectOption>
-          <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-          <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-          <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+          {metadataOptions.categories.map((category) => (
+            <NativeSelectOption key={category.code} value={category.code}>
+              {category.name}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
         <div className="w-72 min-w-[12rem] flex-1">
           <ItemCombobox
@@ -219,6 +221,7 @@ export function MetadataSoalClient({
       <MetadataKpiCards summary={summary} />
 
       <MetadataManager
+        categories={metadataOptions.categories}
         subCategories={subCategoriesResponse.data}
         allSubCategories={allSubCategories}
         topicTags={topicTagsResponse.data}

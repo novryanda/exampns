@@ -1,4 +1,5 @@
-import { ExamIntegrityEventType, QuestionCategory } from '../../generated/prisma/client.js';
+import { ExamIntegrityEventType } from '../../generated/prisma/client.js';
+import { questionCategoryCodeSchema } from '../common/question-category.js';
 import { z } from 'zod';
 
 const emptyToUndefined = (value: unknown) => {
@@ -38,7 +39,7 @@ export const integrityEventSchema = z.object({
 });
 
 export const listResultAnswersQuerySchema = z.object({
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
   correctness: z.preprocess(
     emptyToUndefined,
     z.enum(['correct', 'wrong', 'empty']).optional(),

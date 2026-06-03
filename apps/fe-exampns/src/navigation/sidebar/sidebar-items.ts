@@ -140,6 +140,11 @@ export const superAdminSidebarItems: NavGroup[] = [
         url: "/super-admin/tryout-catalog",
         icon: BookCopy,
       },
+      {
+        title: "Question Categories",
+        url: "/super-admin/question-categories",
+        icon: Settings2,
+      },
     ],
   },
   {

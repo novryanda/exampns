@@ -2,6 +2,15 @@ import "server-only";
 
 import { type ApiPaginatedResponse, type ApiSuccessResponse, serverApiFetch, toQueryString } from "@/server/api-client";
 
+export interface QuestionCategorySummary {
+  id?: string;
+  code: string;
+  name: string;
+  answerMode: "single_correct" | "weighted_options";
+  isActive: boolean;
+  sortOrder: number;
+}
+
 export interface AdminContentDashboardSummary {
   totalQuestions: number;
   activeQuestions: number;
@@ -10,7 +19,8 @@ export interface AdminContentDashboardSummary {
   submittedReviewTryouts: number;
   failedPdfBatches: number;
   questionDistribution: Array<{
-    category: "TWK" | "TIU" | "TKP";
+    category: string;
+    categoryName?: string;
     activeCount: number;
   }>;
   recentImportBatches: Array<{
@@ -52,7 +62,7 @@ export interface QuestionBankOverview {
   topTopicTags: Array<{
     id: string;
     name: string;
-    category: "TWK" | "TIU" | "TKP";
+    category: string;
     subCategory: string;
     questionCount: number;
   }>;
@@ -61,7 +71,9 @@ export interface QuestionBankOverview {
 export interface QuestionListItem {
   id: string;
   questionPreview: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
+  categoryName?: string;
+  answerMode?: "single_correct" | "weighted_options";
   subCategoryId: string;
   topicTagId: string;
   subCategory: string;
@@ -75,7 +87,9 @@ export interface QuestionListItem {
 export interface QuestionDetail {
   id: string;
   questionText: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
+  categoryName?: string;
+  answerMode?: "single_correct" | "weighted_options";
   subCategoryId: string;
   topicTagId: string;
   subCategory: string;
@@ -90,7 +104,8 @@ export interface QuestionDetail {
     label: "A" | "B" | "C" | "D" | "E";
     text: string;
     isCorrect: boolean;
-    tkpWeight: number | null;
+    optionWeight: number | null;
+    tkpWeight?: number | null;
   }>;
   tags: string[];
 }
@@ -111,7 +126,7 @@ export interface ParsedQuestionListItem {
   id: string;
   batchId: string;
   questionPreview: string;
-  category: "TWK" | "TIU" | "TKP" | null;
+  category: string | null;
   topicTag: string | null;
   difficulty: "easy" | "medium" | "hard" | null;
   confidenceScore: number | null;
@@ -123,9 +138,15 @@ export interface ParsedQuestionDetail {
   id: string;
   batchId: string;
   questionText: string;
-  options: Array<{ label: "A" | "B" | "C" | "D" | "E"; text: string; tkpWeight?: number | null }>;
+  options: Array<{
+    label: "A" | "B" | "C" | "D" | "E";
+    text: string;
+    optionWeight?: number | null;
+    tkpWeight?: number | null;
+  }>;
   detectedAnswer: "A" | "B" | "C" | "D" | "E" | null;
-  category: "TWK" | "TIU" | "TKP" | null;
+  category: string | null;
+  answerMode?: "single_correct" | "weighted_options";
   subCategory: string | null;
   topicTag: string | null;
   resolvedSubCategoryId: string | null;
@@ -142,7 +163,7 @@ export interface ParsedQuestionDetail {
 
 export interface QuestionMetadataOptionSubCategory {
   id: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   name: string;
 }
 
@@ -153,6 +174,7 @@ export interface QuestionMetadataOptionTopicTag {
 }
 
 export interface QuestionMetadataOptions {
+  categories: QuestionCategorySummary[];
   subCategories: QuestionMetadataOptionSubCategory[];
   topicTags: QuestionMetadataOptionTopicTag[];
 }
@@ -168,7 +190,7 @@ export interface QuestionMetadataSummary {
 
 export interface QuestionSubCategoryItem {
   id: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   name: string;
   slug: string;
   isActive: boolean;
@@ -185,14 +207,14 @@ export interface QuestionTopicTagItem {
   sortOrder: number;
   subCategoryId: string;
   subCategory: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   questionCount: number;
 }
 
 export interface QuestionTopicTagQuestionItem {
   id: string;
   questionPreview: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   subCategoryId: string;
   topicTagId: string;
   subCategory: string;
@@ -248,7 +270,7 @@ export interface AdaptiveRuleConfig {
 
 export interface AdminTryoutGenerationSection {
   id?: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   questionCount: number;
   difficultyDistributionJson: Partial<Record<"easy" | "medium" | "hard", number>> | null;
   topicDistributionJson: Array<{ topicTag: string; questionCount: number }> | null;
@@ -284,7 +306,8 @@ export interface AdminWorkingManualQuestionSet {
     question: {
       id: string;
       questionPreview: string;
-      category: "TWK" | "TIU" | "TKP";
+      category: string;
+      categoryName?: string;
       subCategory: string;
       topicTag: string;
       difficulty: "easy" | "medium" | "hard";
@@ -342,7 +365,13 @@ export async function getAdminQuestionBankOverview(params?: { statusPeriod?: "7d
 
 export async function getAdminQuestionDetail(questionId: string) {
   const response = await serverApiFetch<ApiSuccessResponse<QuestionDetail>>(`/api/v1/admin/questions/${questionId}`);
-  return response.data;
+  return {
+    ...response.data,
+    options: response.data.options.map((option) => ({
+      ...option,
+      tkpWeight: option.optionWeight,
+    })),
+  };
 }
 
 export async function getAdminPdfImportBatches(params?: Record<string, string | number | undefined>) {
@@ -361,7 +390,13 @@ export async function getAdminParsedQuestionDetail(parsedQuestionId: string) {
   const response = await serverApiFetch<ApiSuccessResponse<ParsedQuestionDetail>>(
     `/api/v1/admin/parsed-questions/${parsedQuestionId}`,
   );
-  return response.data;
+  return {
+    ...response.data,
+    options: response.data.options.map((option) => ({
+      ...option,
+      tkpWeight: option.optionWeight,
+    })),
+  };
 }
 
 export async function getAdminQuestionMetadataOptions(params?: { category?: string; subCategoryId?: string }) {
@@ -370,6 +405,13 @@ export async function getAdminQuestionMetadataOptions(params?: { category?: stri
       category: params?.category,
       subCategoryId: params?.subCategoryId,
     })}`,
+  );
+  return response.data;
+}
+
+export async function getSuperAdminQuestionCategories() {
+  const response = await serverApiFetch<ApiSuccessResponse<QuestionCategorySummary[]>>(
+    "/api/v1/super-admin/question-categories",
   );
   return response.data;
 }

@@ -3,7 +3,7 @@ import {
   AIRecommendationStatus,
   Prisma,
   PriorityLevel,
-  QuestionCategory,
+  QuestionAnswerMode,
   QuestionDifficulty,
   RandomizationMode,
   ReasonCode,
@@ -17,13 +17,15 @@ export interface QuestionSnapshotOption {
   label: string;
   text: string;
   isCorrect?: boolean;
-  tkpWeight?: number | null;
+  optionWeight?: number | null;
 }
 
 export interface QuestionSnapshotPayload {
   id: string;
   questionText: string;
-  category: QuestionCategory;
+  category: string;
+  categoryName: string;
+  answerMode: QuestionAnswerMode;
   subCategory: string;
   topicTag: string;
   competencyArea?: string | null;
@@ -32,7 +34,9 @@ export interface QuestionSnapshotPayload {
 }
 
 export interface BreakdownItem {
-  category: QuestionCategory;
+  category: string;
+  categoryName: string;
+  answerMode: QuestionAnswerMode;
   subCategory: string;
   topicTag: string;
   difficulty: QuestionDifficulty;
@@ -49,7 +53,9 @@ export interface BreakdownItem {
 }
 
 export interface BreakdownRow {
-  category: QuestionCategory;
+  category: string;
+  categoryName: string;
+  answerMode: QuestionAnswerMode;
   subCategory: string;
   topicTag: string;
   difficulty: QuestionDifficulty;
@@ -74,26 +80,31 @@ export interface RecommendationNarrative {
   nextTryoutStrategy: string;
 }
 
+export interface RecommendationCategoryScore {
+  categoryCode: string;
+  categoryName: string;
+  score: number;
+  minScore: number;
+  passed: boolean;
+}
+
 export interface RecommendationPayload {
   examResultId: string;
   score: {
-    twk: number;
-    tiu: number;
-    tkp: number;
     total: number;
+    categories: RecommendationCategoryScore[];
   };
   passingStatus: {
-    twkPassed: boolean;
-    tiuPassed: boolean;
-    tkpPassed: boolean;
     totalPassed: boolean;
     overallPassed: boolean;
+    categories: RecommendationCategoryScore[];
   };
   weakAreas: Array<{
     priority: number;
     priorityLevel: PriorityLevel;
     priorityScore: number;
-    category: QuestionCategory;
+    category: string;
+    categoryName: string;
     subCategory: string;
     topicTag: string;
     difficulty: QuestionDifficulty;
@@ -138,7 +149,7 @@ export interface PublicAiRecommendationItem {
   priorityOrder: number;
   priorityLevel: PriorityLevel;
   priorityScore: number;
-  category: QuestionCategory;
+  category: string;
   subCategory: string;
   topicTag: string;
   reasonCode: ReasonCode;
@@ -214,6 +225,8 @@ export const buildBreakdown = (
       map.get(key) ??
       {
         category: row.category,
+        categoryName: row.categoryName,
+        answerMode: row.answerMode,
         subCategory: row.subCategory,
         topicTag: row.topicTag,
         difficulty: row.difficulty,
@@ -237,7 +250,7 @@ export const buildBreakdown = (
     if (row.selectedLabel === null) {
       current.emptyAnswers += 1;
     } else if (
-      row.category === QuestionCategory.TKP
+      row.answerMode === QuestionAnswerMode.weighted_options
         ? row.scoreAwarded >= row.maxScore
         : row.isCorrect === true
     ) {
@@ -252,7 +265,7 @@ export const buildBreakdown = (
   return [...map.values()].map((item) => ({
     ...item,
     accuracy:
-      item.category === QuestionCategory.TKP
+      item.answerMode === QuestionAnswerMode.weighted_options
         ? item.totalPossibleScore === 0
           ? 0
           : Math.round((item.totalAwardedScore / item.totalPossibleScore) * 100)
@@ -309,7 +322,7 @@ const trendScoreWeight = (trend: TrendType) => {
 };
 
 const topicKeyOf = (item: {
-  category: QuestionCategory;
+  category: string;
   subCategory: string;
   topicTag: string;
   difficulty: QuestionDifficulty;
@@ -345,7 +358,7 @@ const detectTrend = (
 
 const buildReasonCodes = (
   item: BreakdownItem,
-  categoryPassing: Record<QuestionCategory, boolean>,
+  categoryPassing: Record<string, boolean>,
   trend: TrendType,
   historyBreakdowns: BreakdownItem[][],
 ) => {
@@ -395,7 +408,7 @@ const selectPrimaryReasonCode = (reasonCodes: ReasonCode[]) => {
 
 export const buildWeakAreaItems = (
   breakdown: BreakdownItem[],
-  categoryPassing: Record<QuestionCategory, boolean>,
+  categoryPassing: Record<string, boolean>,
   historyBreakdowns: BreakdownItem[][] = [],
 ) => {
   return [...breakdown]
@@ -540,6 +553,7 @@ export const buildRecommendationPayload = (params: {
     priorityLevel: item.priorityLevel,
     priorityScore: item.priorityScore,
     category: item.category,
+    categoryName: item.categoryName,
     subCategory: item.subCategory,
     topicTag: item.topicTag,
     difficulty: item.difficulty,
@@ -657,7 +671,9 @@ export const buildFallbackRecommendationRecord = (params: {
 
 export const formatResultBreakdownForResponse = (
   breakdown: Array<{
-    category: QuestionCategory;
+    category: string;
+    categoryName: string;
+    answerMode: QuestionAnswerMode;
     subCategory: string;
     topicTag: string;
     difficulty: QuestionDifficulty;
@@ -669,6 +685,8 @@ export const formatResultBreakdownForResponse = (
 ) =>
   breakdown.map((item) => ({
     category: item.category,
+    categoryName: item.categoryName,
+    answerMode: item.answerMode,
     subCategory: item.subCategory,
     topicTag: item.topicTag,
     difficulty: item.difficulty,
@@ -682,7 +700,7 @@ export const formatAiRecommendationItemForResponse = (item: {
   priorityOrder: number;
   priorityLevel: PriorityLevel;
   priorityScore: Prisma.Decimal;
-  category: QuestionCategory;
+  category: string;
   subCategory: string;
   topicTag: string;
   reasonCode: ReasonCode;
@@ -732,7 +750,7 @@ export const formatAiRecommendationForResponse = (recommendation: {
     priorityOrder: number;
     priorityLevel: PriorityLevel;
     priorityScore: Prisma.Decimal;
-    category: QuestionCategory;
+    category: string;
     subCategory: string;
     topicTag: string;
     reasonCode: ReasonCode;

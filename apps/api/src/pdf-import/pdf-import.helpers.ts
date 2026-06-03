@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import {
   ParsedQuestionStatus,
-  QuestionCategory,
+  QuestionAnswerMode,
   type Prisma,
 } from '../../generated/prisma/client.js';
 
@@ -15,14 +15,14 @@ export interface UploadedPdfFile {
 export interface ParsedQuestionOptionPayload {
   label: 'A' | 'B' | 'C' | 'D' | 'E';
   text: string;
-  tkpWeight?: number | null;
+  optionWeight?: number | null;
 }
 
 export interface ParsedQuestionCallbackPayload {
   questionText: string;
   options: ParsedQuestionOptionPayload[];
   detectedAnswer?: string | null;
-  category?: QuestionCategory | null;
+  categoryCode?: string | null;
   subCategory?: string | null;
   topicTag?: string | null;
   difficulty?: 'easy' | 'medium' | 'hard' | null;
@@ -66,7 +66,7 @@ export const toInputJson = (value: unknown): Prisma.InputJsonValue =>
 
 export const toQuestionOptionCreateMany = (
   questionId: string,
-  category: QuestionCategory,
+  answerMode: QuestionAnswerMode,
   options: ParsedQuestionOptionPayload[],
   detectedAnswer?: string,
 ) =>
@@ -74,8 +74,10 @@ export const toQuestionOptionCreateMany = (
     questionId,
     label: option.label,
     optionText: option.text,
-    isCorrect: category === QuestionCategory.TKP ? false : option.label === detectedAnswer,
-    tkpWeight: category === QuestionCategory.TKP ? option.tkpWeight ?? null : null,
+    isCorrect:
+      answerMode === QuestionAnswerMode.weighted_options ? false : option.label === detectedAnswer,
+    optionWeight:
+      answerMode === QuestionAnswerMode.weighted_options ? option.optionWeight ?? null : null,
     displayOrder: index + 1,
   }));
 

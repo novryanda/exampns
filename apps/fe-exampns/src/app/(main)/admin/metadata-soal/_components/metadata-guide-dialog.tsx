@@ -30,8 +30,8 @@ export function MetadataGuideDialog() {
         </DialogHeader>
         <div className="space-y-4 text-slate-600 text-sm leading-6">
           <p>
-            <strong className="text-slate-900">Sub-kategori</strong> mengelompokkan materi per kategori TWK, TIU, atau
-            TKP. Setiap sub-kategori dapat memiliki banyak topik tag.
+            <strong className="text-slate-900">Sub-kategori</strong> mengelompokkan materi di bawah satu kategori
+            soal. Setiap sub-kategori dapat memiliki banyak topik tag.
           </p>
           <p>
             <strong className="text-slate-900">Topik tag</strong> adalah label paling spesifik untuk sebuah soal. Saat

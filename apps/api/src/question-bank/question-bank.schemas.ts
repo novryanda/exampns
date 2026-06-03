@@ -1,9 +1,9 @@
 import {
-  QuestionCategory,
   QuestionDifficulty,
   QuestionStatus,
   SourceType,
 } from '../../generated/prisma/client.js';
+import { questionCategoryCodeSchema } from '../common/question-category.js';
 import { z } from 'zod';
 
 const labels = ['A', 'B', 'C', 'D', 'E'] as const;
@@ -21,12 +21,12 @@ const optionSchema = z.object({
   label: z.enum(labels),
   text: z.string().trim().min(1),
   isCorrect: z.boolean().optional(),
-  tkpWeight: z.number().int().min(1).max(5).optional(),
+  optionWeight: z.number().int().min(1).max(5).optional(),
 });
 
 export const createQuestionSchema = z.object({
   questionText: z.string().trim().min(1),
-  category: z.nativeEnum(QuestionCategory),
+  categoryCode: questionCategoryCodeSchema,
   subCategoryId: z.string().trim().min(1),
   topicTagId: z.string().trim().min(1),
   competencyArea: z.preprocess(emptyToUndefined, z.string().trim().max(150).optional()),
@@ -51,7 +51,7 @@ export const listQuestionsQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   category: z.preprocess(
     emptyToUndefined,
-    z.nativeEnum(QuestionCategory).optional(),
+    questionCategoryCodeSchema.optional(),
   ),
   subCategoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   subCategory: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),

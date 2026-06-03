@@ -1,4 +1,4 @@
-import { getAdminParsedQuestions } from "@/server/admin-content-data";
+import { getAdminParsedQuestions, getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
 import { ReviewParsingManager } from "./_components/review-parsing-manager";
 
 function readParam(value: string | string[] | undefined) {
@@ -17,14 +17,17 @@ export default async function ReviewParsingPage({
   const category = readParam(params.category);
   const page = Math.max(1, Number(readParam(params.page) || "1") || 1);
 
-  const parsedQuestions = await getAdminParsedQuestions({
-    status: status === "all" ? undefined : status,
-    batchId: batchId || undefined,
-    search: search || undefined,
-    category: category && category !== "all" ? category : undefined,
-    page,
-    limit: 20,
-  });
+  const [parsedQuestions, metadataOptions] = await Promise.all([
+    getAdminParsedQuestions({
+      status: status === "all" ? undefined : status,
+      batchId: batchId || undefined,
+      search: search || undefined,
+      category: category && category !== "all" ? category : undefined,
+      page,
+      limit: 20,
+    }),
+    getAdminQuestionMetadataOptions(),
+  ]);
 
   return (
     <ReviewParsingManager
@@ -36,6 +39,7 @@ export default async function ReviewParsingPage({
         category: category || undefined,
         page,
       }}
+      categories={metadataOptions.categories}
     />
   );
 }

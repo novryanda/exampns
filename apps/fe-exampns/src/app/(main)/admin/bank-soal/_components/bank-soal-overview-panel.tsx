@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { SectionCard } from "@/app/(main)/_components/page-shell";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { fetchAdminData } from "@/lib/admin-data-client";
-import type { QuestionBankOverview } from "@/server/admin-content-data";
+import type { QuestionBankOverview, QuestionCategorySummary } from "@/server/admin-content-data";
 
 import { BankSoalDonutChart, type DonutSegment } from "./bank-soal-donut-chart";
 
@@ -18,11 +18,7 @@ interface ClientSuccessResponse<T> {
   data: T;
 }
 
-const categoryMeta: Record<string, { label: string; color: string }> = {
-  TWK: { label: "TWK", color: "#2F6FED" },
-  TIU: { label: "TIU", color: "#22C55E" },
-  TKP: { label: "TKP", color: "#F59E0B" },
-};
+const categoryPalette = ["#2F6FED", "#22C55E", "#F59E0B", "#0EA5E9", "#EC4899", "#8B5CF6", "#14B8A6"];
 
 const difficultyMeta: Record<string, { label: string; color: string }> = {
   easy: { label: "Mudah", color: "#22C55E" },
@@ -30,13 +26,18 @@ const difficultyMeta: Record<string, { label: string; color: string }> = {
   hard: { label: "Sulit", color: "#EF4444" },
 };
 
-function toCategorySegments(overview: QuestionBankOverview): DonutSegment[] {
+function toCategorySegments(
+  overview: QuestionBankOverview,
+  categories: QuestionCategorySummary[],
+): DonutSegment[] {
+  const categoryMap = new Map(categories.map((category, index) => [category.code, { category, index }]));
+
   return overview.categoryDistribution.map((item) => ({
     key: item.key,
-    label: categoryMeta[item.key]?.label ?? item.key,
+    label: categoryMap.get(item.key)?.category.name ?? item.key,
     count: item.count,
     percentage: item.percentage,
-    color: categoryMeta[item.key]?.color ?? "#94A3B8",
+    color: categoryPalette[(categoryMap.get(item.key)?.index ?? 0) % categoryPalette.length] ?? "#94A3B8",
   }));
 }
 
@@ -60,7 +61,13 @@ function toDifficultySegments(overview: QuestionBankOverview): DonutSegment[] {
   }));
 }
 
-export function BankSoalOverviewPanel({ initialOverview }: { readonly initialOverview: QuestionBankOverview }) {
+export function BankSoalOverviewPanel({
+  initialOverview,
+  categories,
+}: {
+  readonly initialOverview: QuestionBankOverview;
+  readonly categories: QuestionCategorySummary[];
+}) {
   const [overview, setOverview] = useState(initialOverview);
   const [statusPeriod, setStatusPeriod] = useState<"7d" | "all">(initialOverview.statusPeriod);
   const [isPending, startTransition] = useTransition();
@@ -88,11 +95,11 @@ export function BankSoalOverviewPanel({ initialOverview }: { readonly initialOve
       <div className="grid gap-4 xl:grid-cols-2">
         <SectionCard
           title="Distribusi Soal per Kategori"
-          description="Perbandingan jumlah soal TWK, TIU, dan TKP."
+          description="Perbandingan jumlah soal aktif per kategori."
           contentClassName="pt-2"
         >
           <BankSoalDonutChart
-            segments={toCategorySegments(overview)}
+            segments={toCategorySegments(overview, categories)}
             centerLabel="Total Soal"
             centerValue={overview.totalQuestions.toLocaleString("id-ID")}
           />

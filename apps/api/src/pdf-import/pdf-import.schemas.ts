@@ -1,10 +1,10 @@
 import {
   ImportBatchStatus,
   ParsedQuestionStatus,
-  QuestionCategory,
   QuestionDifficulty,
   QuestionStatus,
 } from '../../generated/prisma/client.js';
+import { questionCategoryCodeSchema } from '../common/question-category.js';
 import { z } from 'zod';
 
 const emptyToUndefined = (value: unknown) => {
@@ -19,14 +19,14 @@ const emptyToUndefined = (value: unknown) => {
 const optionSchema = z.object({
   label: z.enum(['A', 'B', 'C', 'D', 'E']),
   text: z.string().trim().min(1),
-  tkpWeight: z.number().int().min(1).max(5).nullable().optional(),
+  optionWeight: z.number().int().min(1).max(5).nullable().optional(),
 });
 
 const parsedQuestionCallbackSchema = z.object({
   questionText: z.string().trim().min(1),
   options: z.array(optionSchema).length(5),
   detectedAnswer: z.enum(['A', 'B', 'C', 'D', 'E']).nullable().optional(),
-  category: z.nativeEnum(QuestionCategory).nullable().optional(),
+  categoryCode: questionCategoryCodeSchema.nullable().optional(),
   subCategory: z.preprocess(emptyToUndefined, z.string().trim().max(255).nullable().optional()),
   topicTag: z.preprocess(emptyToUndefined, z.string().trim().max(255).nullable().optional()),
   difficulty: z.nativeEnum(QuestionDifficulty).nullable().optional(),
@@ -38,7 +38,7 @@ const parsedQuestionCallbackSchema = z.object({
 export const uploadPdfMetadataSchema = z.object({
   categoryHint: z.preprocess(
     emptyToUndefined,
-    z.enum(['TWK', 'TIU', 'TKP', 'auto']).optional(),
+    z.union([questionCategoryCodeSchema, z.literal('auto')]).optional(),
   ),
 });
 
@@ -51,7 +51,7 @@ export const listPdfImportBatchesQuerySchema = z.object({
 export const listParsedQuestionsQuerySchema = z.object({
   batchId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.nativeEnum(ParsedQuestionStatus).optional()),
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
   search: z.preprocess(emptyToUndefined, z.string().trim().max(255).optional()),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -61,7 +61,7 @@ export const updateParsedQuestionSchema = z.object({
   questionText: z.string().trim().min(1),
   options: z.array(optionSchema).length(5),
   detectedAnswer: z.enum(['A', 'B', 'C', 'D', 'E']).nullable().optional(),
-  category: z.nativeEnum(QuestionCategory),
+  categoryCode: questionCategoryCodeSchema,
   resolvedSubCategoryId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   resolvedTopicTagId: z.preprocess(emptyToUndefined, z.string().trim().min(1).optional()),
   difficulty: z.nativeEnum(QuestionDifficulty),

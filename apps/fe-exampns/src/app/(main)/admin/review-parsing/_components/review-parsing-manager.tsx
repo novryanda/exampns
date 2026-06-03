@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { type ClientPaginatedResponse, fetchAdminData } from "@/lib/admin-data-client";
 import { initialResourceActionState } from "@/server/admin-action-state";
 import { bulkApproveParsedQuestionsAction } from "@/server/admin-content-actions";
-import type { ParsedQuestionListItem } from "@/server/admin-content-data";
+import type { ParsedQuestionListItem, QuestionCategorySummary } from "@/server/admin-content-data";
 
 function toLabel(value: string) {
   return value
@@ -86,6 +86,7 @@ async function fetchParsedQuestions(params: {
 export function ReviewParsingManager({
   initialResponse,
   initialFilters,
+  categories,
 }: {
   readonly initialResponse: ClientPaginatedResponse<ParsedQuestionListItem[]>;
   readonly initialFilters: {
@@ -95,6 +96,7 @@ export function ReviewParsingManager({
     category?: string;
     page?: number;
   };
+  readonly categories: QuestionCategorySummary[];
 }) {
   const [response, setResponse] = useState(initialResponse);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
@@ -273,9 +275,11 @@ export function ReviewParsingManager({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Semua Kategori</SelectItem>
-              <SelectItem value="TWK">TWK</SelectItem>
-              <SelectItem value="TIU">TIU</SelectItem>
-              <SelectItem value="TKP">TKP</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.code} value={category.code}>
+                  {category.name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white" disabled={isPending}>

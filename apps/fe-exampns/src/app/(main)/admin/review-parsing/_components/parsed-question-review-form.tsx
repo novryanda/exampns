@@ -183,10 +183,15 @@ export function ParsedQuestionReviewForm({
     initialResourceActionState,
   );
 
-  const [category, setCategory] = useState<"TWK" | "TIU" | "TKP">(parsedQuestion.category ?? "TWK");
+  const [category, setCategory] = useState(parsedQuestion.category ?? metadataOptions.categories[0]?.code ?? "");
   const [resolvedSubCategoryId, setResolvedSubCategoryId] = useState(parsedQuestion.resolvedSubCategoryId ?? "");
   const [resolvedTopicTagId, setResolvedTopicTagId] = useState(parsedQuestion.resolvedTopicTagId ?? "");
-  const isTkp = category === "TKP";
+  const selectedCategory =
+    metadataOptions.categories.find((item) => item.code === category) ??
+    metadataOptions.categories[0] ??
+    null;
+  const answerMode = selectedCategory?.answerMode ?? parsedQuestion.answerMode ?? "single_correct";
+  const isWeightedCategory = answerMode === "weighted_options";
 
   const availableSubCategories = useMemo(
     () => metadataOptions.subCategories.filter((item) => item.category === category),
@@ -263,6 +268,7 @@ export function ParsedQuestionReviewForm({
   return (
     <form action={saveAction} className="space-y-6">
       <input type="hidden" name="parsedQuestionId" value={parsedQuestion.id} />
+      <input type="hidden" name="answerMode" value={answerMode} />
 
       <div className="grid gap-6 xl:grid-cols-[1.02fr_1fr]">
         <div className="space-y-6">
@@ -308,12 +314,14 @@ export function ParsedQuestionReviewForm({
                   id="category"
                   name="category"
                   value={category}
-                  onChange={(event) => setCategory(event.target.value as "TWK" | "TIU" | "TKP")}
+                  onChange={(event) => setCategory(event.target.value)}
                   className="w-full rounded-2xl border-slate-200 bg-white"
                 >
-                  <NativeSelectOption value="TWK">TWK</NativeSelectOption>
-                  <NativeSelectOption value="TIU">TIU</NativeSelectOption>
-                  <NativeSelectOption value="TKP">TKP</NativeSelectOption>
+                  {metadataOptions.categories.map((item) => (
+                    <NativeSelectOption key={item.code} value={item.code}>
+                      {item.name}
+                    </NativeSelectOption>
+                  ))}
                 </NativeSelect>
               </MetadataFieldCard>
 
@@ -412,10 +420,10 @@ export function ParsedQuestionReviewForm({
               </MetadataFieldCard>
 
               <div className="lg:col-span-2">
-                <MetadataFieldCard icon={CheckSquare2} title={isTkp ? "Skor Opsi TKP" : "Jawaban Terdeteksi"}>
-                  {isTkp ? (
+                <MetadataFieldCard icon={CheckSquare2} title={isWeightedCategory ? "Bobot Nilai Opsi" : "Jawaban Terdeteksi"}>
+                  {isWeightedCategory ? (
                     <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-[13px] text-sky-700 leading-6">
-                      Nilai tiap opsi TKP diatur langsung pada daftar pilihan jawaban di bawah. Sistem tidak memakai
+                      Nilai tiap opsi diatur langsung pada daftar pilihan jawaban di bawah. Sistem tidak memakai
                       satu jawaban benar untuk kategori ini.
                     </div>
                   ) : (
@@ -466,9 +474,9 @@ export function ParsedQuestionReviewForm({
               />
               <MetricCard
                 label="Deteksi Awal"
-                value={`${parsedQuestion.category ?? "TWK"} / ${toDifficultyLabel(parsedQuestion.difficulty)}`}
+                value={`${parsedQuestion.category ?? "-"} / ${toDifficultyLabel(parsedQuestion.difficulty)}`}
                 helper={
-                  isTkp
+                  isWeightedCategory
                     ? getTkpScoreSummary(parsedQuestion.options)
                     : `Jawaban: ${parsedQuestion.detectedAnswer ?? "-"}`
                 }
@@ -536,27 +544,27 @@ export function ParsedQuestionReviewForm({
         icon={ClipboardList}
         title="Pilihan Jawaban"
         description={
-          isTkp
-            ? "Untuk TKP, lengkapi juga skor 1-5 pada setiap opsi sebelum menyimpan hasil review."
+          isWeightedCategory
+            ? "Untuk kategori berbobot, lengkapi juga skor 1-5 pada setiap opsi sebelum menyimpan hasil review."
             : "Pastikan setiap opsi lengkap dan nyaman dibaca sebelum menyimpan hasil review."
         }
       >
         <div className="space-y-3">
           {optionLabels.map((label, index) => {
             const option = parsedQuestion.options[index];
-            const isDetected = !isTkp && parsedQuestion.detectedAnswer === label;
+            const isDetected = !isWeightedCategory && parsedQuestion.detectedAnswer === label;
             const isTopTkpOption =
-              isTkp && highestTkpWeight !== null && (option?.tkpWeight ?? null) === highestTkpWeight;
-            const isHighlighted = isTkp ? isTopTkpOption : isDetected;
+              isWeightedCategory && highestTkpWeight !== null && (option?.tkpWeight ?? null) === highestTkpWeight;
+            const isHighlighted = isWeightedCategory ? isTopTkpOption : isDetected;
 
             return (
               <div
                 key={label}
                 className={cn(
                   "grid gap-3 rounded-2xl border px-4 py-3 transition-colors",
-                  isTkp ? "md:grid-cols-[80px_1fr_150px_32px]" : "md:grid-cols-[80px_1fr_32px]",
+                  isWeightedCategory ? "md:grid-cols-[80px_1fr_150px_32px]" : "md:grid-cols-[80px_1fr_32px]",
                   isHighlighted
-                    ? isTkp
+                    ? isWeightedCategory
                       ? "border-sky-200 bg-sky-50/70 shadow-[0_12px_30px_-24px_rgba(14,165,233,0.75)]"
                       : "border-emerald-200 bg-emerald-50/70 shadow-[0_12px_30px_-24px_rgba(16,185,129,0.85)]"
                     : "border-slate-200 bg-white",
@@ -566,7 +574,7 @@ export function ParsedQuestionReviewForm({
                   className={cn(
                     "flex size-9 shrink-0 items-center justify-center rounded-xl font-semibold text-sm",
                     isHighlighted
-                      ? isTkp
+                      ? isWeightedCategory
                         ? "bg-sky-100 text-sky-700"
                         : "bg-emerald-100 text-emerald-700"
                       : "bg-blue-50 text-blue-600",
@@ -586,10 +594,10 @@ export function ParsedQuestionReviewForm({
                   required
                 />
 
-                {isTkp ? (
+                {isWeightedCategory ? (
                   <div className="grid gap-2">
                     <Label htmlFor={`optionWeight${label}`} className="text-slate-500 text-xs">
-                      Skor TKP
+                      Bobot Nilai
                     </Label>
                     <Input
                       id={`optionWeight${label}`}
@@ -607,7 +615,9 @@ export function ParsedQuestionReviewForm({
 
                 <div className="flex items-center justify-end gap-3">
                   {isHighlighted ? (
-                    <CheckCircle2 className={cn("size-5", isTkp ? "text-sky-600" : "text-emerald-600")} />
+                    <CheckCircle2
+                      className={cn("size-5", isWeightedCategory ? "text-sky-600" : "text-emerald-600")}
+                    />
                   ) : null}
                   <div className="grid gap-0.5 text-slate-300">
                     <span className="block size-1 rounded-full bg-current" />

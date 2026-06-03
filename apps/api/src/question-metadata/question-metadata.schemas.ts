@@ -1,4 +1,4 @@
-import { QuestionCategory } from '../../generated/prisma/client.js';
+import { questionAnswerModeSchema, questionCategoryCodeSchema } from '../common/question-category.js';
 import { z } from 'zod';
 
 const emptyToUndefined = (value: unknown) => {
@@ -11,16 +11,16 @@ const emptyToUndefined = (value: unknown) => {
 };
 
 export const metadataOptionsQuerySchema = z.object({
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
   subCategoryId: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 export const metadataSummaryQuerySchema = z.object({
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
 });
 
 export const listSubCategoriesQuerySchema = z.object({
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
   search: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
   includeInactive: z.preprocess(
     (value) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined),
@@ -31,7 +31,7 @@ export const listSubCategoriesQuerySchema = z.object({
 });
 
 export const createSubCategorySchema = z.object({
-  category: z.nativeEnum(QuestionCategory),
+  categoryCode: questionCategoryCodeSchema,
   name: z.string().trim().min(1).max(100),
   sortOrder: z.coerce.number().int().min(0).optional(),
 });
@@ -48,7 +48,7 @@ export const updateSubCategorySchema = z
 
 export const listTopicTagsQuerySchema = z.object({
   subCategoryId: z.preprocess(emptyToUndefined, z.string().optional()),
-  category: z.preprocess(emptyToUndefined, z.nativeEnum(QuestionCategory).optional()),
+  category: z.preprocess(emptyToUndefined, questionCategoryCodeSchema.optional()),
   search: z.preprocess(emptyToUndefined, z.string().trim().max(100).optional()),
   includeInactive: z.preprocess(
     (value) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : undefined),
@@ -74,6 +74,24 @@ export const updateTopicTagSchema = z
   .object({
     subCategoryId: z.string().min(1).optional(),
     name: z.string().trim().min(1).max(150).optional(),
+    sortOrder: z.coerce.number().int().min(0).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export const createQuestionCategorySchema = z.object({
+  code: questionCategoryCodeSchema,
+  name: z.string().trim().min(1).max(100),
+  answerMode: questionAnswerModeSchema,
+  sortOrder: z.coerce.number().int().min(0).optional(),
+});
+
+export const updateQuestionCategorySchema = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    answerMode: questionAnswerModeSchema.optional(),
     sortOrder: z.coerce.number().int().min(0).optional(),
     isActive: z.boolean().optional(),
   })

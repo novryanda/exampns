@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -37,6 +37,7 @@ import type {
   AdminTryoutAvailabilityCheck,
   AdminTryoutDraftDetail,
   QuestionListItem,
+  QuestionCategorySummary,
   QuestionMetadataOptions,
 } from "@/server/admin-content-data";
 
@@ -45,7 +46,7 @@ import { TryoutDraftForm } from "./tryout-draft-form";
 type BuilderStep = "info" | "strategi" | "bank-soal" | "validasi" | "submit";
 
 type StrategySection = {
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   questionCount: number;
   easy: number;
   medium: number;
@@ -57,7 +58,7 @@ type StrategySection = {
 type ManualQuestionItem = {
   id: string;
   questionPreview: string;
-  category: "TWK" | "TIU" | "TKP";
+  category: string;
   subCategory: string;
   topicTag: string;
   difficulty: "easy" | "medium" | "hard";
@@ -104,23 +105,35 @@ function distributeByWeights(total: number, weights: number[]) {
   return base;
 }
 
-function buildDefaultSections(totalQuestions: number): StrategySection[] {
-  const [twkCount, tiuCount, tkpCount] = distributeByWeights(totalQuestions, [27.27, 40.91, 31.82]);
+function buildDefaultSections(totalQuestions: number, categories: QuestionCategorySummary[]): StrategySection[] {
+  if (categories.length === 0) {
+    return [];
+  }
+
+  const distributedCounts = distributeByWeights(
+    totalQuestions,
+    categories.map(() => 100 / categories.length),
+  );
   const toDifficulty = (count: number) => {
     const [easy, medium, hard] = distributeByWeights(count, [30, 50, 20]);
     return { easy, medium, hard };
   };
 
-  return [
-    { category: "TWK", questionCount: twkCount, sortOrder: 0, topicDistributionText: "", ...toDifficulty(twkCount) },
-    { category: "TIU", questionCount: tiuCount, sortOrder: 1, topicDistributionText: "", ...toDifficulty(tiuCount) },
-    { category: "TKP", questionCount: tkpCount, sortOrder: 2, topicDistributionText: "", ...toDifficulty(tkpCount) },
-  ];
+  return categories.map((category, index) => {
+    const questionCount = distributedCounts[index] ?? 0;
+    return {
+      category: category.code,
+      questionCount,
+      sortOrder: index,
+      topicDistributionText: "",
+      ...toDifficulty(questionCount),
+    };
+  });
 }
 
-function toStrategySections(draft: AdminTryoutDraftDetail): StrategySection[] {
+function toStrategySections(draft: AdminTryoutDraftDetail, categories: QuestionCategorySummary[]): StrategySection[] {
   if (!draft.generationRule || draft.generationRule.sections.length === 0) {
-    return buildDefaultSections(draft.totalQuestions);
+    return buildDefaultSections(draft.totalQuestions, categories);
   }
 
   return draft.generationRule.sections.map((section, index) => ({
@@ -156,7 +169,7 @@ const stepItems: Array<{ id: BuilderStep; label: string; icon: typeof Settings2 
   { id: "strategi", label: "Strategi", icon: ListChecks },
   { id: "bank-soal", label: "Bank Soal", icon: Database },
   { id: "validasi", label: "Validasi", icon: CheckCircle2 },
-  { id: "submit", label: "Submit", icon: Send },
+  { id: "submit", label: "Finalisasi", icon: Send },
 ];
 
 export function TryoutDraftBuilder({
@@ -172,6 +185,7 @@ export function TryoutDraftBuilder({
   const listPath = scope === "super-admin" ? "/super-admin/tryout-catalog" : "/admin/tryout-drafts";
   const editPath =
     scope === "super-admin" ? `/super-admin/tryout-catalog/${draft.id}/edit` : `/admin/tryout-drafts/${draft.id}/edit`;
+  const builderSteps = scope === "super-admin" ? stepItems.filter((item) => item.id !== "validasi") : stepItems;
   const [activeStep, setActiveStep] = useState<BuilderStep>("info");
   const [randomizationMode, setRandomizationMode] = useState(getDefaultRandomizationMode(draft));
   const [questionOrderMode, setQuestionOrderMode] = useState(draft.generationRule?.questionOrderMode ?? "mixed_random");
@@ -198,16 +212,24 @@ export function TryoutDraftBuilder({
       ? Boolean(draft.generationRule.rulesJson.includeTrendBoost)
       : true,
   );
-  const [sections, setSections] = useState<StrategySection[]>(() => toStrategySections(draft));
+  const [sections, setSections] = useState<StrategySection[]>(() => toStrategySections(draft, metadataOptions.categories));
   const [manualSetName, setManualSetName] = useState(
     draft.workingManualQuestionSetSummary?.name ?? `Manual Set ${draft.name}`,
   );
   const [manualSetDescription, setManualSetDescription] = useState(
     draft.workingManualQuestionSetSummary?.description ?? "",
   );
-  const [manualSetStatus, setManualSetStatus] = useState<"draft" | "review">(
-    draft.workingManualQuestionSetSummary?.status === "review" ? "review" : "draft",
-  );
+  const [manualSetStatus, setManualSetStatus] = useState<"draft" | "review" | "approved">(() => {
+    if (draft.workingManualQuestionSetSummary?.status === "approved") {
+      return "approved";
+    }
+
+    if (draft.workingManualQuestionSetSummary?.status === "review") {
+      return "review";
+    }
+
+    return "draft";
+  });
   const [selectedQuestions, setSelectedQuestions] = useState<ManualQuestionItem[]>(
     draft.workingManualQuestionSetSummary?.items.map((item) => ({
       id: item.question.id,
@@ -222,7 +244,7 @@ export function TryoutDraftBuilder({
   const [questionResponse, setQuestionResponse] = useState<ClientPaginatedResponse<QuestionListItem[]> | null>(null);
   const [availability, setAvailability] = useState<AdminTryoutAvailabilityCheck | null>(null);
   const [questionSearch, setQuestionSearch] = useState("");
-  const [questionCategory, setQuestionCategory] = useState<"all" | "TWK" | "TIU" | "TKP">("all");
+  const [questionCategory, setQuestionCategory] = useState<string>("all");
   const [questionDifficulty, setQuestionDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
   const [questionSubCategoryId, setQuestionSubCategoryId] = useState("all");
   const [questionTopicTagId, setQuestionTopicTagId] = useState("all");
@@ -329,6 +351,12 @@ export function TryoutDraftBuilder({
     }
   }, [draft.tryoutType]);
 
+  useEffect(() => {
+    if (scope === "super-admin" && activeStep === "validasi") {
+      setActiveStep("submit");
+    }
+  }, [activeStep, scope]);
+
   const refreshQuestions = () => {
     startQuestionsTransition(async () => {
       try {
@@ -352,7 +380,7 @@ export function TryoutDraftBuilder({
     });
   };
 
-  const refreshAvailability = () => {
+  const refreshAvailability = useCallback(() => {
     startAvailabilityTransition(async () => {
       try {
         const response = await fetchAdminData<{ success: true; data: AdminTryoutAvailabilityCheck }>(
@@ -365,7 +393,13 @@ export function TryoutDraftBuilder({
         toast.error(error instanceof Error ? error.message : "Gagal memuat availability check.");
       }
     });
-  };
+  }, [draft.id, scope]);
+
+  useEffect(() => {
+    if (activeStep === "validasi" || activeStep === "submit") {
+      refreshAvailability();
+    }
+  }, [activeStep, refreshAvailability]);
 
   const addQuestion = (question: QuestionListItem) => {
     setSelectedQuestions((current) => {
@@ -431,7 +465,7 @@ export function TryoutDraftBuilder({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
-        {stepItems.map((step) => {
+        {builderSteps.map((step) => {
           const Icon = step.icon;
           const isActive = activeStep === step.id;
           return (
@@ -451,8 +485,12 @@ export function TryoutDraftBuilder({
 
       {activeStep === "info" ? (
         <SectionCard
-          title="Info Draft"
-          description="Perbarui metadata utama draft sebelum menyusun strategi dan bank soal."
+          title={scope === "super-admin" ? "Info Tryout" : "Info Draft"}
+          description={
+            scope === "super-admin"
+              ? "Perbarui metadata utama tryout sebelum finalisasi publish."
+              : "Perbarui metadata utama draft sebelum menyusun strategi dan bank soal."
+          }
         >
           <TryoutDraftForm draft={draft} scope={scope} redirectPath={editPath} createRedirectBasePath={listPath} />
         </SectionCard>
@@ -478,7 +516,7 @@ export function TryoutDraftBuilder({
                 name="sectionsJson"
                 value={JSON.stringify(
                   sections.map((section) => ({
-                    category: section.category,
+                    categoryCode: section.category,
                     questionCount: section.questionCount,
                     difficultyDistribution: {
                       easy: section.easy,
@@ -709,16 +747,18 @@ export function TryoutDraftBuilder({
                   />
                   <Select
                     value={questionCategory}
-                    onValueChange={(value) => setQuestionCategory(value as typeof questionCategory)}
+                    onValueChange={setQuestionCategory}
                   >
                     <SelectTrigger className="rounded-xl border-slate-200 bg-white">
                       <SelectValue placeholder="Kategori" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Semua Kategori</SelectItem>
-                      <SelectItem value="TWK">TWK</SelectItem>
-                      <SelectItem value="TIU">TIU</SelectItem>
-                      <SelectItem value="TKP">TKP</SelectItem>
+                      {metadataOptions.categories.map((item) => (
+                        <SelectItem key={item.code} value={item.code}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <Select
@@ -849,7 +889,9 @@ export function TryoutDraftBuilder({
 
                 <SectionCard
                   title="Manual Question Set"
-                  description={`Tersusun ${selectedQuestions.length} soal. TWK ${selectedCounts.TWK ?? 0}, TIU ${selectedCounts.TIU ?? 0}, TKP ${selectedCounts.TKP ?? 0}.`}
+                  description={`Tersusun ${selectedQuestions.length} soal. ${metadataOptions.categories
+                    .map((item) => `${item.name} ${selectedCounts[item.code] ?? 0}`)
+                    .join(", ")}.`}
                 >
                   <form action={manualAction} className="grid gap-4">
                     <input type="hidden" name="tryoutDraftId" value={draft.id} />
@@ -871,7 +913,7 @@ export function TryoutDraftBuilder({
                         <Label htmlFor="manualSetStatus">Status Set</Label>
                         <Select
                           value={manualSetStatus}
-                          onValueChange={(value) => setManualSetStatus(value as "draft" | "review")}
+                          onValueChange={(value) => setManualSetStatus(value as "draft" | "review" | "approved")}
                         >
                           <SelectTrigger id="manualSetStatus" className="rounded-xl border-slate-200 bg-white">
                             <SelectValue />
@@ -879,6 +921,7 @@ export function TryoutDraftBuilder({
                           <SelectContent>
                             <SelectItem value="draft">Draft</SelectItem>
                             <SelectItem value="review">Review</SelectItem>
+                            {scope === "super-admin" ? <SelectItem value="approved">Approved</SelectItem> : null}
                           </SelectContent>
                         </Select>
                         <input type="hidden" name="status" value={manualSetStatus} />
@@ -975,7 +1018,7 @@ export function TryoutDraftBuilder({
         </SectionCard>
       ) : null}
 
-      {activeStep === "validasi" ? (
+      {scope !== "super-admin" && activeStep === "validasi" ? (
         <SectionCard
           title="Validasi Draft"
           description="Cek kelengkapan struktur draft untuk review dan lihat kesiapan publish/start dari availability check."
@@ -1069,7 +1112,7 @@ export function TryoutDraftBuilder({
           title={scope === "super-admin" ? "Finalisasi Tryout" : "Ajukan Review"}
           description={
             scope === "super-admin"
-              ? "Super admin dapat mengajukan review, publish, atau mengarsipkan tryout dari builder yang sama."
+              ? "Super admin dapat langsung mempublish atau mengarsipkan tryout dari builder yang sama."
               : "Admin hanya bisa mengirim draft ke status review. Publish final tetap dilakukan super admin."
           }
         >
@@ -1083,6 +1126,99 @@ export function TryoutDraftBuilder({
                 Total target section: {sections.reduce((sum, section) => sum + section.questionCount, 0)}
               </p>
             </div>
+            {scope === "super-admin" ? (
+              <div className="grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    {draft.builderStatus.isStructurallyValid ? (
+                      <CheckCircle2 className="size-5 text-emerald-600" />
+                    ) : (
+                      <AlertCircle className="size-5 text-amber-600" />
+                    )}
+                    <h3 className="font-medium text-slate-950">Kelengkapan Builder</h3>
+                  </div>
+                  <p className="text-slate-600 text-sm">
+                    {draft.builderStatus.isStructurallyValid
+                      ? "Struktur minimum tryout sudah lengkap."
+                      : "Masih ada bagian wajib yang perlu dilengkapi sebelum tryout bisa dipublish."}
+                  </p>
+                  <div className="mt-4 grid gap-2 text-sm">
+                    {draft.builderStatus.missingParts.length === 0 ? (
+                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
+                        Tidak ada missing parts.
+                      </div>
+                    ) : (
+                      draft.builderStatus.missingParts.map((item) => (
+                        <div
+                          key={item}
+                          className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700"
+                        >
+                          {item}
+                        </div>
+                      ))
+                    )}
+                    {draft.builderStatus.modeSpecificWarnings.map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-slate-950">Kesiapan Publish</h3>
+                      <p className="text-slate-600 text-sm">Blokir publish ditampilkan langsung di finalisasi.</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl border-slate-200 bg-white"
+                      onClick={refreshAvailability}
+                    >
+                      {isAvailabilityPending ? "Memuat..." : "Refresh Check"}
+                    </Button>
+                  </div>
+                  {!availability ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-4 text-slate-500 text-sm">
+                      Mengecek availability tryout...
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 text-sm">
+                      <div
+                        className={`rounded-xl px-3 py-2 ${availability.isReady ? "border border-emerald-100 bg-emerald-50 text-emerald-700" : "border border-amber-100 bg-amber-50 text-amber-700"}`}
+                      >
+                        {availability.isReady ? "Tryout siap dipublish." : "Tryout belum siap dipublish."}
+                      </div>
+                      {!availability.isReady ? (
+                        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700">
+                          Publish terkunci sampai semua issue bank soal aktif dan
+                          distribusi section di bawah ini terpenuhi.
+                        </div>
+                      ) : null}
+                      {availability.issues.length === 0 ? (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
+                          Tidak ada issue yang terdeteksi.
+                        </div>
+                      ) : (
+                        availability.issues.map((issue) => (
+                          <div
+                            key={issue}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                          >
+                            {issue}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
             {!draft.builderStatus.isStructurallyValid ? (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-amber-700 text-sm">
                 Draft belum bisa diajukan karena masih ada bagian wajib yang belum lengkap. Lengkapi step Strategi atau
@@ -1103,25 +1239,29 @@ export function TryoutDraftBuilder({
                     <Button
                       type="submit"
                       className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
-                      disabled={!draft.builderStatus.isStructurallyValid}
+                      disabled={
+                        !draft.builderStatus.isStructurallyValid || !availability?.isReady || isAvailabilityPending
+                      }
                     >
                       Publish
                     </Button>
                   </form>
                 </>
               ) : null}
-              <form action={submitAction}>
-                <input type="hidden" name="tryoutDraftId" value={draft.id} />
-                <input type="hidden" name="scope" value={scope} />
-                <Button
-                  type="submit"
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700"
-                  disabled={!draft.builderStatus.isStructurallyValid}
-                >
-                  <Send className="mr-2 size-4" />
-                  Kirim ke Review
-                </Button>
-              </form>
+              {scope !== "super-admin" ? (
+                <form action={submitAction}>
+                  <input type="hidden" name="tryoutDraftId" value={draft.id} />
+                  <input type="hidden" name="scope" value={scope} />
+                  <Button
+                    type="submit"
+                    className="rounded-xl bg-blue-600 hover:bg-blue-700"
+                    disabled={!draft.builderStatus.isStructurallyValid}
+                  >
+                    <Send className="mr-2 size-4" />
+                    Kirim ke Review
+                  </Button>
+                </form>
+              ) : null}
             </div>
           </div>
         </SectionCard>

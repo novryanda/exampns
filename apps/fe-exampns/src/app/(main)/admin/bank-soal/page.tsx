@@ -53,7 +53,7 @@ export default async function BankSoalPage({
     <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
       <PageHeader
         title="Bank Soal"
-        description="Kelola soal TWK, TIU, dan TKP yang digunakan untuk tryout."
+        description="Kelola soal per kategori yang digunakan untuk tryout."
         actions={
           <Button asChild className="rounded-xl bg-blue-600 hover:bg-blue-700">
             <Link href="/admin/bank-soal/new">

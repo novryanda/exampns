@@ -9,38 +9,40 @@ import { Cell, Pie, PieChart } from "recharts";
 import { type ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { cn } from "@/lib/utils";
 
-const categoryMeta = {
-  TWK: {
-    label: "TWK",
-    description: "Tes Wawasan Kebangsaan",
+const categoryPalette = [
+  {
     color: "#2F6FED",
     badgeClassName: "border-blue-100 bg-blue-50 text-blue-600",
     cardClassName: "border-blue-100 bg-blue-50/35 shadow-[inset_4px_0_0_0_#2F6FED]",
     iconClassName: "bg-blue-50 text-blue-600 ring-blue-100",
     icon: FileText,
   },
-  TIU: {
-    label: "TIU",
-    description: "Tes Intelegensia Umum",
+  {
     color: "#A9B4C7",
     badgeClassName: "border-slate-100 bg-slate-100 text-slate-600",
     cardClassName: "border-slate-200 bg-white shadow-[inset_4px_0_0_0_#A9B4C7]",
     iconClassName: "bg-slate-50 text-slate-500 ring-slate-100",
     icon: BrainCircuit,
   },
-  TKP: {
-    label: "TKP",
-    description: "Tes Karakteristik Pribadi",
+  {
     color: "#22C55E",
     badgeClassName: "border-emerald-100 bg-emerald-50 text-emerald-600",
     cardClassName: "border-emerald-100 bg-emerald-50/30 shadow-[inset_4px_0_0_0_#22C55E]",
     iconClassName: "bg-emerald-50 text-emerald-600 ring-emerald-100",
     icon: UserRound,
   },
-} as const;
+  {
+    color: "#F59E0B",
+    badgeClassName: "border-amber-100 bg-amber-50 text-amber-600",
+    cardClassName: "border-amber-100 bg-amber-50/30 shadow-[inset_4px_0_0_0_#F59E0B]",
+    iconClassName: "bg-amber-50 text-amber-600 ring-amber-100",
+    icon: PieChartIcon,
+  },
+] as const;
 
 type DistributionItem = {
-  category: keyof typeof categoryMeta;
+  category: string;
+  categoryName?: string;
   activeCount: number;
 };
 
@@ -58,6 +60,15 @@ type NormalizedDistributionItem = DistributionItem & {
 
 function formatPercentage(value: number) {
   return `${value.toFixed(1)}%`;
+}
+
+function getCategoryMeta(item: DistributionItem, index: number) {
+  const palette = categoryPalette[index % categoryPalette.length] ?? categoryPalette[0];
+  return {
+    label: item.categoryName ?? item.category,
+    description: `Distribusi soal kategori ${item.categoryName ?? item.category}`,
+    ...palette,
+  };
 }
 
 function renderSliceLabel({
@@ -142,7 +153,7 @@ export function QuestionDistributionCard({ distribution }: { readonly distributi
   const normalizedData = useMemo<NormalizedDistributionItem[]>(
     () =>
       distribution.map((item) => {
-        const meta = categoryMeta[item.category];
+        const meta = getCategoryMeta(item, distribution.indexOf(item));
         const percentage = totalActiveQuestions > 0 ? (item.activeCount / totalActiveQuestions) * 100 : 0;
 
         return {
@@ -171,13 +182,13 @@ export function QuestionDistributionCard({ distribution }: { readonly distributi
 
   const initialActiveCategory = useMemo(
     () =>
-      normalizedData.reduce<keyof typeof categoryMeta>((selected, current) => {
+      normalizedData.reduce<string>((selected, current) => {
         const selectedValue = normalizedData.find((item) => item.category === selected)?.activeCount ?? -1;
         return current.activeCount > selectedValue ? current.category : selected;
-      }, normalizedData[0]?.category ?? "TWK"),
+      }, normalizedData[0]?.category ?? ""),
     [normalizedData],
   );
-  const [activeCategory, setActiveCategory] = useState<keyof typeof categoryMeta>(initialActiveCategory);
+  const [activeCategory, setActiveCategory] = useState(initialActiveCategory);
 
   useEffect(() => {
     if (!normalizedData.some((item) => item.category === activeCategory)) {

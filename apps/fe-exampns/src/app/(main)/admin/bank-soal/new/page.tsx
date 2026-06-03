@@ -30,7 +30,10 @@ export default async function NewQuestionPage() {
         </div>
       </div>
 
-      <SectionCard title="Form Soal" description="TWK/TIU memakai satu jawaban benar, TKP memakai nilai opsi 1-5.">
+      <SectionCard
+        title="Form Soal"
+        description="Kategori berbobot memakai nilai opsi 1-5, kategori lain memakai satu jawaban benar."
+      >
         <QuestionEditorForm metadataOptions={metadataOptions} redirectPath="/admin/bank-soal" />
       </SectionCard>
     </div>

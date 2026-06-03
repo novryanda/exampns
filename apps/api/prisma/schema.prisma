@@ -19,10 +19,9 @@ enum UserStatus {
   suspended
 }
 
-enum QuestionCategory {
-  TWK
-  TIU
-  TKP
+enum QuestionAnswerMode {
+  single_correct
+  weighted_options
 }
 
 enum QuestionDifficulty {
@@ -267,10 +266,28 @@ model Verification {
   @@map("verifications")
 }
 
+model QuestionCategory {
+  id                      String                   @id @default(uuid())
+  code                    String                   @unique @db.VarChar(50)
+  name                    String                   @db.VarChar(100)
+  answerMode              QuestionAnswerMode       @map("answer_mode")
+  isActive                Boolean                  @default(true) @map("is_active")
+  sortOrder               Int                      @default(0) @map("sort_order")
+  createdAt               DateTime                 @default(now()) @map("created_at")
+  updatedAt               DateTime                 @updatedAt @map("updated_at")
+  subCategories           QuestionSubCategory[]
+  questions               Question[]
+  tryoutRuleSections      TryoutRuleSection[]
+  passingGradeConfigItems PassingGradeConfigItem[]
+
+  @@index([isActive, sortOrder], map: "idx_question_categories_active")
+  @@map("question_categories")
+}
+
 model Question {
   id                     String                  @id @default(uuid())
   questionText           String                  @map("question_text")
-  category               QuestionCategory        @map("category")
+  categoryId             String                  @map("category_id")
   subCategoryId          String                  @map("sub_category_id")
   topicTagId             String                  @map("topic_tag_id")
   competencyArea         String?                 @map("competency_area") @db.VarChar(150)
@@ -286,6 +303,7 @@ model Question {
   deletedAt              DateTime?               @map("deleted_at")
   createdByUser          User                    @relation("QuestionCreatedBy", fields: [createdBy], references: [id])
   updatedByUser          User?                   @relation("QuestionUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+  categoryRef            QuestionCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   subCategoryRef         QuestionSubCategory     @relation("QuestionSubCategoryQuestions", fields: [subCategoryId], references: [id], onDelete: Restrict)
   topicTagRef            QuestionTopicTag        @relation("QuestionTopicTagQuestions", fields: [topicTagId], references: [id], onDelete: Restrict)
   options                QuestionOption[]
@@ -294,7 +312,7 @@ model Question {
   manualQuestionSetItems ManualQuestionSetItem[]
   examSessionQuestions   ExamSessionQuestion[]
 
-  @@index([status, category], map: "idx_questions_active_category")
+  @@index([status, categoryId], map: "idx_questions_active_category")
   @@index([topicTagId], map: "idx_questions_topic")
   @@index([subCategoryId], map: "idx_questions_sub_category")
   @@index([difficulty], map: "idx_questions_difficulty")
@@ -304,19 +322,20 @@ model Question {
 
 model QuestionSubCategory {
   id                    String               @id @default(uuid())
-  category              QuestionCategory
+  categoryId            String               @map("category_id")
   name                  String               @db.VarChar(100)
   slug                  String               @db.VarChar(120)
   isActive              Boolean              @default(true) @map("is_active")
   sortOrder             Int                  @default(0) @map("sort_order")
   createdAt             DateTime             @default(now()) @map("created_at")
   updatedAt             DateTime             @updatedAt @map("updated_at")
+  categoryRef           QuestionCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   topicTags             QuestionTopicTag[]   @relation("QuestionSubCategoryTopicTags")
   questions             Question[]           @relation("QuestionSubCategoryQuestions")
   resolvedParsedReviews ParsedQuestionReview[] @relation("ParsedQuestionResolvedSubCategory")
 
-  @@unique([category, slug], map: "uq_question_sub_categories_category_slug")
-  @@index([category, isActive, sortOrder], map: "idx_question_sub_categories_category_active")
+  @@unique([categoryId, slug], map: "uq_question_sub_categories_category_slug")
+  @@index([categoryId, isActive, sortOrder], map: "idx_question_sub_categories_category_active")
   @@map("question_sub_categories")
 }
 
@@ -344,7 +363,7 @@ model QuestionOption {
   label           String       @db.VarChar(1)
   optionText      String       @map("option_text")
   isCorrect       Boolean      @default(false) @map("is_correct")
-  tkpWeight       Int?         @map("tkp_weight")
+  optionWeight    Int?         @map("option_weight")
   displayOrder    Int          @map("display_order")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
@@ -395,7 +414,7 @@ model ParsedQuestionReview {
   questionText    String               @map("question_text")
   optionsJson     Json                 @map("options_json")
   detectedAnswer  String?              @map("detected_answer") @db.VarChar(1)
-  category        QuestionCategory?
+  categoryCode    String?              @map("category_code") @db.VarChar(50)
   subCategory     String?              @map("sub_category") @db.VarChar(100)
   topicTag        String?              @map("topic_tag") @db.VarChar(150)
   resolvedSubCategoryId String?        @map("resolved_sub_category_id")
@@ -473,13 +492,14 @@ model TryoutGenerationRule {
 model TryoutRuleSection {
   id                         String               @id @default(uuid())
   tryoutGenerationRuleId     String               @map("tryout_generation_rule_id")
-  category                   QuestionCategory
+  categoryId                 String               @map("category_id")
   questionCount              Int                  @map("question_count")
   difficultyDistributionJson Json?                @map("difficulty_distribution_json")
   topicDistributionJson      Json?                @map("topic_distribution_json")
   sortOrder                  Int                  @default(0) @map("sort_order")
   createdAt                  DateTime             @default(now()) @map("created_at")
   updatedAt                  DateTime             @updatedAt @map("updated_at")
+  categoryRef                QuestionCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   tryoutGenerationRule       TryoutGenerationRule @relation(fields: [tryoutGenerationRuleId], references: [id], onDelete: Cascade)
 
   @@index([tryoutGenerationRuleId, sortOrder])
@@ -550,7 +570,9 @@ model ExamSessionQuestion {
   questionOrder       Int                @map("question_order")
   questionSnapshot    Json               @map("question_snapshot")
   optionsSnapshot     Json               @map("options_snapshot")
-  categorySnapshot    QuestionCategory   @map("category_snapshot")
+  categorySnapshot    String             @map("category_snapshot") @db.VarChar(50)
+  categoryNameSnapshot String            @map("category_name_snapshot") @db.VarChar(100)
+  answerModeSnapshot  QuestionAnswerMode @map("answer_mode_snapshot")
   subCategorySnapshot String             @map("sub_category_snapshot") @db.VarChar(100)
   topicTagSnapshot    String             @map("topic_tag_snapshot") @db.VarChar(150)
   difficultySnapshot  QuestionDifficulty @map("difficulty_snapshot")
@@ -589,13 +611,7 @@ model ExamResult {
   examSessionId        String             @unique @map("exam_session_id")
   userId               String             @map("user_id")
   passingGradeConfigId String             @map("passing_grade_config_id")
-  twkScore             Int                @map("twk_score")
-  tiuScore             Int                @map("tiu_score")
-  tkpScore             Int                @map("tkp_score")
   totalScore           Int                @map("total_score")
-  twkPassed            Boolean            @map("twk_passed")
-  tiuPassed            Boolean            @map("tiu_passed")
-  tkpPassed            Boolean            @map("tkp_passed")
   totalPassed          Boolean            @map("total_passed")
   overallPassed        Boolean            @map("overall_passed")
   breakdownJson        Json               @map("breakdown_json")
@@ -605,9 +621,26 @@ model ExamResult {
   user                 User               @relation(fields: [userId], references: [id], onDelete: Restrict)
   passingGradeConfig   PassingGradeConfig @relation(fields: [passingGradeConfigId], references: [id], onDelete: Restrict)
   aiRecommendations    AIRecommendation[]
+  categoryScores       ExamResultCategoryScore[]
 
   @@index([userId, createdAt], map: "idx_exam_results_user")
   @@map("exam_results")
+}
+
+model ExamResultCategoryScore {
+  id            String     @id @default(uuid())
+  examResultId  String     @map("exam_result_id")
+  categoryCode  String     @map("category_code") @db.VarChar(50)
+  categoryName  String     @map("category_name") @db.VarChar(100)
+  score         Int
+  minScore      Int        @default(0) @map("min_score")
+  passed        Boolean
+  createdAt     DateTime   @default(now()) @map("created_at")
+  examResult    ExamResult @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+
+  @@unique([examResultId, categoryCode], map: "uq_exam_result_category_score")
+  @@index([examResultId], map: "idx_exam_result_category_scores_exam_result")
+  @@map("exam_result_category_scores")
 }
 
 model ExamIntegrityLog {
@@ -649,7 +682,7 @@ model AIRecommendationItem {
   priorityOrder      Int                 @map("priority_order")
   priorityLevel      PriorityLevel       @map("priority_level")
   priorityScore      Decimal             @default(0) @map("priority_score") @db.Decimal(5, 2)
-  category           QuestionCategory
+  category           String              @db.VarChar(50)
   subCategory        String              @map("sub_category") @db.VarChar(100)
   topicTag           String              @map("topic_tag") @db.VarChar(150)
   reasonCode         ReasonCode          @map("reason_code")
@@ -790,21 +823,34 @@ model PaymentWebhookEvent {
 }
 
 model PassingGradeConfig {
-  id             String          @id @default(uuid())
-  name           String          @db.VarChar(100)
-  twkMinScore    Int             @map("twk_min_score")
-  tiuMinScore    Int             @map("tiu_min_score")
-  tkpMinScore    Int             @map("tkp_min_score")
-  totalMinScore  Int             @map("total_min_score")
-  isActive       Boolean         @default(false) @map("is_active")
-  effectiveFrom  DateTime        @map("effective_from")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @updatedAt @map("updated_at")
+  id             String                   @id @default(uuid())
+  name           String                   @db.VarChar(100)
+  totalMinScore  Int                      @map("total_min_score")
+  isActive       Boolean                  @default(false) @map("is_active")
+  effectiveFrom  DateTime                 @map("effective_from")
+  createdAt      DateTime                 @default(now()) @map("created_at")
+  updatedAt      DateTime                 @updatedAt @map("updated_at")
   tryoutCatalogs TryoutCatalog[]
   examResults    ExamResult[]
+  items          PassingGradeConfigItem[]
 
   @@index([isActive, effectiveFrom])
   @@map("passing_grade_configs")
+}
+
+model PassingGradeConfigItem {
+  id                   String             @id @default(uuid())
+  passingGradeConfigId String             @map("passing_grade_config_id")
+  categoryId           String             @map("category_id")
+  minScore             Int                @default(0) @map("min_score")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  passingGradeConfig   PassingGradeConfig @relation(fields: [passingGradeConfigId], references: [id], onDelete: Cascade)
+  categoryRef          QuestionCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([passingGradeConfigId, categoryId], map: "uq_passing_grade_config_item")
+  @@index([categoryId], map: "idx_passing_grade_config_items_category")
+  @@map("passing_grade_config_items")
 }
 
 model TrialConfig {

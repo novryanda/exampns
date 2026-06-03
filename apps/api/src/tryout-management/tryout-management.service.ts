@@ -74,7 +74,13 @@ const catalogDetailSelect = {
       sections: {
         select: {
           id: true,
-          category: true,
+          categoryId: true,
+          categoryRef: {
+            select: {
+              code: true,
+              name: true,
+            },
+          },
           questionCount: true,
           difficultyDistributionJson: true,
           topicDistributionJson: true,
@@ -119,7 +125,12 @@ const manualSetSelect = {
         select: {
           id: true,
           questionText: true,
-          category: true,
+          categoryRef: {
+            select: {
+              code: true,
+              name: true,
+            },
+          },
           subCategoryRef: {
             select: {
               name: true,
@@ -301,7 +312,16 @@ export class TryoutManagementService {
       include: {
         generationRule: {
           include: {
-            sections: true,
+            sections: {
+              include: {
+                categoryRef: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
         manualQuestionSets: {
@@ -351,7 +371,7 @@ export class TryoutManagementService {
             rulesJson: catalog.generationRule.rulesJson ?? undefined,
             sections: {
               create: catalog.generationRule.sections.map((section) => ({
-                category: section.category,
+                categoryId: section.categoryId,
                 questionCount: section.questionCount,
                 difficultyDistributionJson: section.difficultyDistributionJson ?? undefined,
                 topicDistributionJson: section.topicDistributionJson ?? undefined,
@@ -423,10 +443,29 @@ export class TryoutManagementService {
       }
     }
 
+    const effectivePassingGradeConfigId =
+      catalog.passingGradeConfigId ??
+      (
+        await this.prisma.passingGradeConfig.findFirst({
+          where: { isActive: true },
+          orderBy: { effectiveFrom: 'desc' },
+          select: { id: true },
+        })
+      )?.id;
+
+    if (!effectivePassingGradeConfigId) {
+      throw new BadRequestException({
+        code: 'PASSING_GRADE_REQUIRED',
+        message: 'Tryout tidak bisa dipublish tanpa passing grade aktif.',
+      });
+    }
+
     await this.prisma.tryoutCatalog.update({
       where: { id: tryoutCatalogId },
       data: {
         status: TryoutStatus.published,
+        isPublic: true,
+        passingGradeConfigId: effectivePassingGradeConfigId,
         approvedBy: actor.id,
         publishedAt: new Date(),
       },
@@ -729,6 +768,9 @@ export class TryoutManagementService {
     const payload = this.validationService.validate(generationRuleSchema, rawBody);
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
     assertGenerationRuleRules(catalog, payload);
+    const categoryIdByCode = await this.getCategoryIdByCodeMap(
+      payload.sections.map((section) => section.categoryCode),
+    );
 
     return await this.prisma.$transaction(async (tx) => {
       const existing = await tx.tryoutGenerationRule.findUnique({
@@ -751,7 +793,7 @@ export class TryoutManagementService {
             rulesJson: this.toNullableJsonValue(payload.rulesJson),
             sections: {
               create: payload.sections.map((section, index) => ({
-                category: section.category,
+                categoryId: categoryIdByCode.get(section.categoryCode)!,
                 questionCount: section.questionCount,
                 difficultyDistributionJson: section.difficultyDistribution,
                 topicDistributionJson: section.topicDistribution,
@@ -779,7 +821,7 @@ export class TryoutManagementService {
           rulesJson: this.toNullableJsonValue(payload.rulesJson),
           sections: {
             create: payload.sections.map((section, index) => ({
-              category: section.category,
+              categoryId: categoryIdByCode.get(section.categoryCode)!,
               questionCount: section.questionCount,
               difficultyDistributionJson: section.difficultyDistribution,
               topicDistributionJson: section.topicDistribution,
@@ -967,7 +1009,11 @@ export class TryoutManagementService {
                 question: {
                   select: {
                     id: true,
-                    category: true,
+                    categoryRef: {
+                      select: {
+                        code: true,
+                      },
+                    },
                   },
                 },
               },
@@ -981,14 +1027,26 @@ export class TryoutManagementService {
       throw new NotFoundException('Tryout catalog not found');
     }
 
+    const activePassingGrade = await this.prisma.passingGradeConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { effectiveFrom: 'desc' },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
     const issues: string[] = [];
     const checks: Record<string, unknown> = {
       tryoutType: catalog.tryoutType,
       totalQuestions: catalog.totalQuestions,
-      passingGradeConfigured: Boolean(catalog.passingGradeConfigId),
+      passingGradeConfigured: Boolean(catalog.passingGradeConfigId || activePassingGrade?.id),
+      passingGradeSource: catalog.passingGradeConfigId ? 'catalog' : activePassingGrade ? 'active_default' : 'missing',
+      passingGradeConfigId: catalog.passingGradeConfigId ?? activePassingGrade?.id ?? null,
+      passingGradeName: activePassingGrade?.name ?? null,
     };
 
-    if (!catalog.passingGradeConfigId) {
+    if (!catalog.passingGradeConfigId && !activePassingGrade) {
       issues.push('Passing grade configuration is missing');
     }
 
@@ -997,10 +1055,25 @@ export class TryoutManagementService {
     );
     const approvedManualCountsByCategory = approvedManualSet
       ? approvedManualSet.items.reduce<Record<string, number>>((acc, item) => {
-          acc[item.question.category] = (acc[item.question.category] ?? 0) + 1;
+          acc[item.question.categoryRef.code] = (acc[item.question.categoryRef.code] ?? 0) + 1;
           return acc;
         }, {})
       : {};
+    const categoryCodeById = new Map(
+      (
+        await this.prisma.questionCategory.findMany({
+          where: {
+            id: {
+              in: catalog.generationRule?.sections.map((section) => section.categoryId) ?? [],
+            },
+          },
+          select: {
+            id: true,
+            code: true,
+          },
+        })
+      ).map((item) => [item.id, item.code]),
+    );
 
     if (catalog.tryoutType !== TryoutType.manual) {
       if (!catalog.generationRule) {
@@ -1009,7 +1082,8 @@ export class TryoutManagementService {
         const sectionSummary: Array<Record<string, unknown>> = [];
 
         for (const section of catalog.generationRule.sections) {
-          const seededManualCount = approvedManualCountsByCategory[section.category] ?? 0;
+          const sectionCategoryCode = categoryCodeById.get(section.categoryId) ?? section.categoryId;
+          const seededManualCount = approvedManualCountsByCategory[sectionCategoryCode] ?? 0;
           const generatedRequired =
             catalog.tryoutType === TryoutType.hybrid
               ? Math.max(0, section.questionCount - seededManualCount)
@@ -1018,12 +1092,12 @@ export class TryoutManagementService {
             where: {
               status: QuestionStatus.active,
               deletedAt: null,
-              category: section.category,
+              categoryId: section.categoryId,
             },
           });
 
           const detail: Record<string, unknown> = {
-            category: section.category,
+            category: sectionCategoryCode,
             required: section.questionCount,
             generatedRequired,
             seededManualCount,
@@ -1045,7 +1119,7 @@ export class TryoutManagementService {
                 where: {
                   status: QuestionStatus.active,
                   deletedAt: null,
-                  category: section.category,
+                  categoryId: section.categoryId,
                   difficulty: difficulty as never,
                 },
               });
@@ -1059,7 +1133,7 @@ export class TryoutManagementService {
 
               if (availableByDifficulty < generatedDifficultyRequired) {
                 issues.push(
-                  `Not enough active ${section.category} questions for difficulty ${difficulty}`,
+                  `Not enough active ${sectionCategoryCode} questions for difficulty ${difficulty}`,
                 );
               }
             }
@@ -1082,7 +1156,7 @@ export class TryoutManagementService {
                 where: {
                   status: QuestionStatus.active,
                   deletedAt: null,
-                  category: section.category,
+                  categoryId: section.categoryId,
                   topicTagRef: {
                     is: {
                       name: topic.topicTag,
@@ -1100,7 +1174,7 @@ export class TryoutManagementService {
 
               if (availableByTopic < generatedTopicRequired) {
                 issues.push(
-                  `Not enough active ${section.category} questions for topic ${topic.topicTag}`,
+                  `Not enough active ${sectionCategoryCode} questions for topic ${topic.topicTag}`,
                 );
               }
             }
@@ -1109,7 +1183,7 @@ export class TryoutManagementService {
           }
 
           if (availableQuestions < generatedRequired) {
-            issues.push(`Not enough active questions for category ${section.category}`);
+            issues.push(`Not enough active questions for category ${sectionCategoryCode}`);
           }
 
           sectionSummary.push(detail);
@@ -1173,10 +1247,12 @@ export class TryoutManagementService {
 
           if (catalog.generationRule) {
             for (const section of catalog.generationRule.sections) {
-              const manualCount = approvedManualCountsByCategory[section.category] ?? 0;
+              const sectionCategoryCode =
+                categoryCodeById.get(section.categoryId) ?? section.categoryId;
+              const manualCount = approvedManualCountsByCategory[sectionCategoryCode] ?? 0;
               if (manualCount > section.questionCount) {
                 issues.push(
-                  `Approved manual question set exceeds section target for category ${section.category}`,
+                  `Approved manual question set exceeds section target for category ${sectionCategoryCode}`,
                 );
               }
             }
@@ -1217,6 +1293,7 @@ export class TryoutManagementService {
         totalQuestions: true,
         tryoutType: true,
         accessType: true,
+        passingGradeConfigId: true,
       },
     });
 
@@ -1305,7 +1382,8 @@ export class TryoutManagementService {
               question: {
                 id: item.question.id,
                 questionPreview: item.question.questionText.slice(0, 120),
-                category: item.question.category,
+                category: item.question.categoryRef.code,
+                categoryName: item.question.categoryRef.name,
                 subCategory: item.question.subCategoryRef.name,
                 topicTag: item.question.topicTagRef.name,
                 difficulty: item.question.difficulty,
@@ -1324,7 +1402,11 @@ export class TryoutManagementService {
       where: {
         tryoutCatalogId,
         status: {
-          in: [ManualQuestionSetStatus.draft, ManualQuestionSetStatus.review],
+          in: [
+            ManualQuestionSetStatus.draft,
+            ManualQuestionSetStatus.review,
+            ManualQuestionSetStatus.approved,
+          ],
         },
       },
       select: manualSetSelect,
@@ -1345,7 +1427,8 @@ export class TryoutManagementService {
         question: {
           id: item.question.id,
           questionPreview: item.question.questionText.slice(0, 120),
-          category: item.question.category,
+          category: item.question.categoryRef.code,
+          categoryName: item.question.categoryRef.name,
           subCategory: item.question.subCategoryRef.name,
           topicTag: item.question.topicTagRef.name,
           difficulty: item.question.difficulty,
@@ -1368,7 +1451,7 @@ export class TryoutManagementService {
     const workingCount = workingManualQuestionSet?.items.length ?? 0;
     const workingCountsByCategory = workingManualQuestionSet
       ? workingManualQuestionSet.items.reduce<Record<string, number>>((acc, item) => {
-          acc[item.question.category] = (acc[item.question.category] ?? 0) + 1;
+          acc[item.question.categoryRef.code] = (acc[item.question.categoryRef.code] ?? 0) + 1;
           return acc;
         }, {})
       : {};
@@ -1415,10 +1498,10 @@ export class TryoutManagementService {
 
           if (detail.generationRule) {
             for (const section of detail.generationRule.sections) {
-              const manualCount = workingCountsByCategory[section.category] ?? 0;
+              const manualCount = workingCountsByCategory[section.categoryRef.code] ?? 0;
               if (manualCount > section.questionCount) {
                 missingParts.push(
-                  `Soal manual kategori ${section.category} melebihi target section.`,
+                  `Soal manual kategori ${section.categoryRef.code} melebihi target section.`,
                 );
               }
             }
@@ -1527,6 +1610,32 @@ export class TryoutManagementService {
     }
 
     return config;
+  }
+
+  private async getCategoryIdByCodeMap(categoryCodes: string[]) {
+    const uniqueCodes = [...new Set(categoryCodes)];
+    const categories = await this.prisma.questionCategory.findMany({
+      where: {
+        code: {
+          in: uniqueCodes,
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        code: true,
+      },
+    });
+
+    if (categories.length !== uniqueCodes.length) {
+      const categoryMap = new Set(categories.map((item) => item.code));
+      const missingCodes = uniqueCodes.filter((code) => !categoryMap.has(code));
+      throw new BadRequestException(
+        `Kategori soal tidak ditemukan atau tidak aktif: ${missingCodes.join(', ')}`,
+      );
+    }
+
+    return new Map(categories.map((item) => [item.code, item.id]));
   }
 
   private async ensurePassingGradeExists(passingGradeConfigId?: string) {

@@ -22,12 +22,16 @@ import {
   type ApiPaginatedResponse,
   type ApiSuccessResponse,
 } from '../common/api-response.js';
+import { QuestionMetadataService } from '../question-metadata/question-metadata.service.js';
 import { OperationsService } from './operations.service.js';
 
 @Roles('SUPER_ADMIN')
 @Controller('super-admin')
 export class SuperAdminController {
-  constructor(private readonly operationsService: OperationsService) {}
+  constructor(
+    private readonly operationsService: OperationsService,
+    private readonly questionMetadataService: QuestionMetadataService,
+  ) {}
 
   @Post('admins')
   @HttpCode(HttpStatus.CREATED)
@@ -134,6 +138,44 @@ export class SuperAdminController {
     return apiMessage(
       'Passing grade berhasil diperbarui. Perubahan berlaku untuk ujian baru.',
     );
+  }
+
+  @Get('question-categories')
+  async listQuestionCategories(): Promise<ApiSuccessResponse<unknown[]>> {
+    return apiData(await this.questionMetadataService.listCategories(true));
+  }
+
+  @Post('question-categories')
+  @HttpCode(HttpStatus.CREATED)
+  async createQuestionCategory(
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.questionMetadataService.createCategory(body, actor),
+      'Kategori soal berhasil dibuat',
+    );
+  }
+
+  @Patch('question-categories/:categoryId')
+  async updateQuestionCategory(
+    @Param('categoryId') categoryId: string,
+    @Body() body: unknown,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.questionMetadataService.updateCategory(categoryId, body, actor),
+      'Kategori soal berhasil diperbarui',
+    );
+  }
+
+  @Patch('question-categories/:categoryId/archive')
+  async archiveQuestionCategory(
+    @Param('categoryId') categoryId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiMessageResponse> {
+    await this.questionMetadataService.archiveCategory(categoryId, actor);
+    return apiMessage('Kategori soal berhasil diarsipkan');
   }
 
   @Get('trial-config')

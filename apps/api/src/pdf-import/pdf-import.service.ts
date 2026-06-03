@@ -9,12 +9,13 @@ import {
   ImportBatchStatus,
   ParsedQuestionStatus,
   Prisma,
-  QuestionCategory,
+  QuestionAnswerMode,
   QuestionStatus,
   SourceType,
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AuditLogService } from '../common/audit-log.service.js';
+import { normalizeQuestionCategoryCode } from '../common/question-category.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import { assertQuestionOptionRules } from '../question-bank/question-bank.rules.js';
@@ -108,7 +109,7 @@ export class PdfImportService {
     const where = {
       ...(query.batchId ? { batchId: query.batchId } : {}),
       ...(query.status ? { status: query.status } : {}),
-      ...(query.category ? { category: query.category } : {}),
+      ...(query.category ? { categoryCode: query.category } : {}),
       ...(query.search
         ? {
             OR: [
@@ -144,7 +145,7 @@ export class PdfImportService {
         id: item.id,
         batchId: item.batchId,
         questionPreview: buildQuestionPreview(item.questionText),
-        category: item.category,
+        category: item.categoryCode,
         topicTag: item.topicTag,
         difficulty: item.difficulty,
         confidenceScore: item.confidenceScore === null ? null : Number(item.confidenceScore),
@@ -228,7 +229,7 @@ export class PdfImportService {
       parsedQuestions: batch.parsedQuestions.map((item) => ({
         id: item.id,
         questionPreview: buildQuestionPreview(item.questionText),
-        category: item.category,
+        category: item.categoryCode,
         subCategory: item.subCategory,
         topicTag: item.topicTag,
         resolvedSubCategoryId: item.resolvedSubCategoryId,
@@ -248,7 +249,11 @@ export class PdfImportService {
           select: {
             id: true,
             name: true,
-            category: true,
+            categoryRef: {
+              select: {
+                code: true,
+              },
+            },
           },
         },
         resolvedTopicTagRef: {
@@ -271,7 +276,7 @@ export class PdfImportService {
       questionText: parsedQuestion.questionText,
       options: parsedQuestion.optionsJson,
       detectedAnswer: parsedQuestion.detectedAnswer,
-      category: parsedQuestion.category,
+      category: parsedQuestion.categoryCode,
       subCategory: parsedQuestion.subCategory,
       topicTag: parsedQuestion.topicTag,
       resolvedSubCategoryId: parsedQuestion.resolvedSubCategoryId,
@@ -309,16 +314,20 @@ export class PdfImportService {
     actor: AuthenticatedUser,
   ) {
     const payload = this.validationService.validate(updateParsedQuestionSchema, rawBody);
+    const category = await this.getCategoryByCode(payload.categoryCode);
     assertQuestionOptionRules(
-      payload.category,
+      category.answerMode,
       payload.options.map((option) => ({
         label: option.label,
         text: option.text,
         isCorrect:
-          payload.category === QuestionCategory.TKP
+          category.answerMode === QuestionAnswerMode.weighted_options
             ? undefined
             : option.label === payload.detectedAnswer,
-        tkpWeight: payload.category === QuestionCategory.TKP ? option.tkpWeight ?? undefined : undefined,
+        optionWeight:
+          category.answerMode === QuestionAnswerMode.weighted_options
+            ? option.optionWeight ?? undefined
+            : undefined,
       })),
     );
 
@@ -331,7 +340,7 @@ export class PdfImportService {
     } else {
       try {
         await this.assertResolvedMetadata(
-          payload.category,
+          category.code,
           resolvedSubCategoryId,
           resolvedTopicTagId,
         );
@@ -363,8 +372,10 @@ export class PdfImportService {
         questionText: payload.questionText,
         optionsJson: toInputJson(payload.options),
         detectedAnswer:
-          payload.category === QuestionCategory.TKP ? null : (payload.detectedAnswer ?? null),
-        category: payload.category,
+          category.answerMode === QuestionAnswerMode.weighted_options
+            ? null
+            : (payload.detectedAnswer ?? null),
+        categoryCode: category.code,
         resolvedSubCategoryId,
         resolvedTopicTagId,
         difficulty: payload.difficulty,
@@ -382,7 +393,7 @@ export class PdfImportService {
       targetType: 'parsed_question_review',
       targetId: parsedQuestionId,
       metadata: {
-        category: payload.category,
+        categoryCode: category.code,
         resolvedSubCategoryId,
         resolvedTopicTagId,
       },
@@ -445,20 +456,23 @@ export class PdfImportService {
       throw new ConflictException('Parsed question sudah pernah di-approve');
     }
 
-    if (!parsedQuestion.category || !parsedQuestion.difficulty) {
+    if (!parsedQuestion.categoryCode || !parsedQuestion.difficulty) {
       throw new ConflictException('Parsed question belum lengkap untuk di-approve');
     }
 
+    const category = await this.getCategoryByCode(parsedQuestion.categoryCode);
     const options = parsedQuestion.optionsJson as unknown as ParsedQuestionOptionPayload[];
-    assertQuestionOptionRules(parsedQuestion.category, options.map((option) => ({
+    assertQuestionOptionRules(category.answerMode, options.map((option) => ({
       label: option.label,
       text: option.text,
       isCorrect:
-        parsedQuestion.category === QuestionCategory.TKP
+        category.answerMode === QuestionAnswerMode.weighted_options
           ? undefined
           : option.label === parsedQuestion.detectedAnswer,
-      tkpWeight:
-        parsedQuestion.category === QuestionCategory.TKP ? option.tkpWeight ?? undefined : undefined,
+      optionWeight:
+        category.answerMode === QuestionAnswerMode.weighted_options
+          ? option.optionWeight ?? undefined
+          : undefined,
     })));
 
     const result = await this.prisma.$transaction(async (tx) => {
@@ -468,7 +482,7 @@ export class PdfImportService {
       const question = await tx.question.create({
         data: {
           questionText: parsedQuestion.questionText,
-          category: parsedQuestion.category!,
+          categoryId: category.id,
           subCategoryId: resolvedSubCategoryId,
           topicTagId: resolvedTopicTagId,
           competencyArea: null,
@@ -486,7 +500,7 @@ export class PdfImportService {
       await tx.questionOption.createMany({
         data: toQuestionOptionCreateMany(
           question.id,
-          parsedQuestion.category!,
+          category.answerMode,
           options,
           parsedQuestion.detectedAnswer ?? undefined,
         ),
@@ -582,7 +596,7 @@ export class PdfImportService {
   private async processPdfImportBatch(
     batchId: string,
     file: UploadedPdfFile,
-    categoryHint?: 'TWK' | 'TIU' | 'TKP' | 'auto',
+    categoryHint?: string,
   ) {
     const webhookUrl = process.env.PDF_IMPORT_WEBHOOK_URL?.trim();
     const callbackSecret = this.resolvePdfImportCallbackSecret();
@@ -676,7 +690,7 @@ export class PdfImportService {
           questionText: item.questionText,
           optionsJson: toInputJson(item.options),
           detectedAnswer: item.detectedAnswer ?? null,
-          category: item.category ?? null,
+          categoryCode: item.categoryCode ? normalizeQuestionCategoryCode(item.categoryCode) : null,
           subCategory: item.subCategory ?? null,
           topicTag: item.topicTag ?? null,
           resolvedSubCategoryId: null,
@@ -696,11 +710,13 @@ export class PdfImportService {
           FROM "question_sub_categories" qsc
           JOIN "question_topic_tags" qtt
             ON qtt."sub_category_id" = qsc."id"
+          JOIN "question_categories" qc
+            ON qc."id" = qsc."category_id"
           WHERE p."batch_id" = $1
-            AND p."category" IS NOT NULL
+            AND p."category_code" IS NOT NULL
             AND p."sub_category" IS NOT NULL
             AND p."topic_tag" IS NOT NULL
-            AND qsc."category" = p."category"
+            AND qc."code" = p."category_code"
             AND qsc."slug" = regexp_replace(
               regexp_replace(lower(btrim(p."sub_category")), '\\s+', ' ', 'g'),
               '[^a-z0-9]+',
@@ -811,7 +827,7 @@ export class PdfImportService {
   }
 
   private async assertResolvedMetadata(
-    category: QuestionCategory,
+    categoryCode: string,
     resolvedSubCategoryId: string,
     resolvedTopicTagId: string,
     db:
@@ -823,7 +839,11 @@ export class PdfImportService {
         where: { id: resolvedSubCategoryId },
         select: {
           id: true,
-          category: true,
+          categoryRef: {
+            select: {
+              code: true,
+            },
+          },
           isActive: true,
         },
       }),
@@ -837,7 +857,7 @@ export class PdfImportService {
       }),
     ]);
 
-    if (!subCategory || subCategory.category !== category) {
+    if (!subCategory || subCategory.categoryRef.code !== categoryCode) {
       throw new BadRequestException('Resolved sub-category tidak valid untuk category terpilih');
     }
 
@@ -857,20 +877,22 @@ export class PdfImportService {
   private async resolveMetadataForApproval(
     tx: Prisma.TransactionClient,
     parsedQuestion: {
-      category: QuestionCategory | null;
+      categoryCode: string | null;
       resolvedSubCategoryId: string | null;
       resolvedTopicTagId: string | null;
       subCategory: string | null;
       topicTag: string | null;
     },
   ) {
-    if (!parsedQuestion.category) {
+    if (!parsedQuestion.categoryCode) {
       throw new ConflictException('Kategori parsed question belum lengkap');
     }
 
+    const category = await this.getCategoryByCode(parsedQuestion.categoryCode);
+
     if (parsedQuestion.resolvedSubCategoryId && parsedQuestion.resolvedTopicTagId) {
       await this.assertResolvedMetadata(
-        parsedQuestion.category,
+        category.code,
         parsedQuestion.resolvedSubCategoryId,
         parsedQuestion.resolvedTopicTagId,
         tx,
@@ -898,7 +920,7 @@ export class PdfImportService {
     if (!subCategoryId) {
       const existingSubCategory = await tx.questionSubCategory.findFirst({
         where: {
-          category: parsedQuestion.category,
+          categoryId: category.id,
           slug: subCategorySlug,
         },
         select: {
@@ -914,14 +936,14 @@ export class PdfImportService {
         subCategoryId = existingSubCategory.id;
       } else {
         const latestSubCategory = await tx.questionSubCategory.findFirst({
-          where: { category: parsedQuestion.category },
+          where: { categoryId: category.id },
           orderBy: [{ sortOrder: 'desc' }, { createdAt: 'desc' }],
           select: { sortOrder: true },
         });
 
         const createdSubCategory = await tx.questionSubCategory.create({
           data: {
-            category: parsedQuestion.category,
+            categoryId: category.id,
             name: detectedSubCategory,
             slug: subCategorySlug,
             sortOrder: (latestSubCategory?.sortOrder ?? -1) + 1,
@@ -972,11 +994,29 @@ export class PdfImportService {
       }
     }
 
-    await this.assertResolvedMetadata(parsedQuestion.category, subCategoryId, topicTagId, tx);
+    await this.assertResolvedMetadata(category.code, subCategoryId, topicTagId, tx);
 
     return {
       subCategoryId,
       topicTagId,
     };
+  }
+
+  private async getCategoryByCode(categoryCode: string) {
+    const category = await this.prisma.questionCategory.findUnique({
+      where: { code: normalizeQuestionCategoryCode(categoryCode) },
+      select: {
+        id: true,
+        code: true,
+        answerMode: true,
+        isActive: true,
+      },
+    });
+
+    if (!category || !category.isActive) {
+      throw new NotFoundException('Kategori soal tidak ditemukan atau tidak aktif');
+    }
+
+    return category;
   }
 }

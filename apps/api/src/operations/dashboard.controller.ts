@@ -14,4 +14,11 @@ export class DashboardController {
   ): Promise<ApiSuccessResponse<unknown>> {
     return apiData(await this.operationsService.getUserDashboardSummary(actor));
   }
+
+  @Get('tryouts')
+  async listTryouts(
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown[]>> {
+    return apiData(await this.operationsService.listAccessibleTryouts(actor));
+  }
 }

@@ -35,19 +35,24 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
     <>
       <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[350px]">
         <div className="space-y-2 text-center">
-          <h1 className="font-medium text-3xl">Atur password</h1>
+          <h1 className="font-medium text-3xl">Reset password</h1>
           <p className="text-muted-foreground text-sm">
             {hasInvalidToken
-              ? "Link tidak valid atau sudah kedaluwarsa. Minta link baru ke admin."
+              ? "Link tidak valid atau sudah kedaluwarsa. Minta link baru dari halaman lupa password."
               : "Buat password baru untuk akun ExamCPNS Anda."}
           </p>
         </div>
         <div className="space-y-6">
           {hasInvalidToken ? (
-            <div className="text-center text-sm">
-              <Link prefetch={false} className="text-foreground underline" href="/auth/login">
-                Kembali ke halaman masuk
+            <div className="space-y-3 text-center text-sm">
+              <Link prefetch={false} className="text-foreground underline" href="/auth/forgot-password">
+                Minta link reset password baru
               </Link>
+              <div>
+                <Link prefetch={false} className="text-muted-foreground underline" href="/auth/login">
+                  Kembali ke halaman masuk
+                </Link>
+              </div>
             </div>
           ) : (
             <ResetPasswordForm token={token} />
@@ -66,7 +71,7 @@ export default async function ResetPasswordPage({ searchParams }: ResetPasswordP
 
       <div className="absolute bottom-5 flex w-full justify-between px-10">
         <div className="text-sm">{APP_CONFIG.copyright}</div>
-        <div className="text-muted-foreground text-xs">Atur password akun baru.</div>
+        <div className="text-muted-foreground text-xs">Reset password akun ExamCPNS.</div>
       </div>
     </>
   );

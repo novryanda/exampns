@@ -43,7 +43,7 @@ export default async function UsersPage({ searchParams }: UsersPageProps) {
       <UsersFilters />
       <Suspense
         key={tableKey}
-        fallback={<div className="min-h-96 animate-pulse rounded-2xl bg-slate-100" />}
+        fallback={<div className="h-64 animate-pulse rounded-2xl bg-slate-100" />}
       >
         <UsersTableSection
           isSuperAdmin={isSuperAdmin}

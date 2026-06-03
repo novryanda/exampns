@@ -72,9 +72,13 @@ export const auth = betterAuth({
     onPasswordReset: async ({ user }) => {
       await markPasswordSetAndActivateIfReady(user.id);
     },
-    sendResetPassword: async ({ user, url }) => {
+    sendResetPassword: async ({ user, url, token }) => {
+      const resetUrl = token
+        ? `${frontendUrl.replace(/\/$/, '')}/auth/reset-password?token=${encodeURIComponent(token)}`
+        : url;
+
       try {
-        await sendAuthEmail('reset-password', user.email, url, {
+        await sendAuthEmail('reset-password', user.email, resetUrl, {
           appName: 'ExamCPNS',
         });
       } catch (error: unknown) {

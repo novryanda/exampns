@@ -95,7 +95,12 @@ export async function UsersChartSection() {
   ];
 
   return (
-    <SectionCard title="Subscription Composition" description="Distribusi status subscription user">
+    <SectionCard
+      className="min-w-0"
+      contentClassName="min-w-0 overflow-hidden"
+      title="Subscription Composition"
+      description="Distribusi status subscription user"
+    >
       <DistributionDonutChart data={subscriptionDistribution} />
     </SectionCard>
   );

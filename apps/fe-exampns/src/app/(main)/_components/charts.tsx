@@ -90,7 +90,7 @@ export function DistributionDonutChart({
 }) {
   return (
     <ChartContainer
-      className="h-72 w-full"
+      className="aspect-auto h-72 max-h-72 w-full max-w-full min-h-0"
       config={Object.fromEntries(data.map((item) => [item.name, { label: item.name, color: item.fill }]))}
     >
       <PieChart>

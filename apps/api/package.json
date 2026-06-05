@@ -10,6 +10,7 @@
     "build": "nest build",
     "db:push": "prisma db push",
     "db:seed": "node --loader ts-node/esm prisma/seed.ts",
+    "seed:demo-catalog": "npx tsx scripts/seed-demo-catalog.ts",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",

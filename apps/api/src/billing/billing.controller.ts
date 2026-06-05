@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Public } from '../auth/decorators/public.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import {
   apiData,
@@ -52,14 +53,6 @@ export class BillingController {
     );
   }
 
-  @Get('payments/:paymentTransactionId')
-  async getPaymentStatus(
-    @Param('paymentTransactionId') paymentTransactionId: string,
-    @CurrentUser() actor: AuthenticatedUser,
-  ): Promise<ApiSuccessResponse<unknown>> {
-    return apiData(await this.billingService.getPaymentStatus(paymentTransactionId, actor));
-  }
-
   @Get('payments/me')
   async listMyPaymentHistory(
     @Query() query: Record<string, unknown>,
@@ -67,6 +60,27 @@ export class BillingController {
   ): Promise<ApiPaginatedResponse<unknown[]>> {
     const result = await this.billingService.listMyPaymentHistory(actor, query);
     return apiPaginated(result.data, result.meta);
+  }
+
+  @Roles('ADMIN', 'SUPER_ADMIN')
+  @Post('admin/payments/:paymentTransactionId/approve')
+  @HttpCode(HttpStatus.OK)
+  async approvePaymentManually(
+    @Param('paymentTransactionId') paymentTransactionId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(
+      await this.billingService.approvePaymentManually(paymentTransactionId, actor),
+      'Pembayaran berhasil dikonfirmasi',
+    );
+  }
+
+  @Get('payments/:paymentTransactionId')
+  async getPaymentStatus(
+    @Param('paymentTransactionId') paymentTransactionId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(await this.billingService.getPaymentStatus(paymentTransactionId, actor));
   }
 
   @Public()

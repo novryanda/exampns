@@ -21,4 +21,9 @@ export class DashboardController {
   ): Promise<ApiSuccessResponse<unknown[]>> {
     return apiData(await this.operationsService.listAccessibleTryouts(actor));
   }
+
+  @Get('question-categories')
+  async listQuestionCategories(): Promise<ApiSuccessResponse<unknown[]>> {
+    return apiData(await this.operationsService.listActiveQuestionCategories());
+  }
 }

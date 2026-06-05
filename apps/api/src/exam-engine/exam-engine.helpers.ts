@@ -280,6 +280,19 @@ export const buildBreakdown = (
 export const isPrivilegedRole = (role?: UserRole) =>
   role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
 
+export const maskLeaderboardDisplayName = (fullName: string) => {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) {
+    return 'Peserta';
+  }
+
+  if (parts.length === 1) {
+    return parts[0];
+  }
+
+  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+};
+
 export const priorityLevelFromScore = (score: number) => {
   if (score >= 75) {
     return PriorityLevel.HIGH;

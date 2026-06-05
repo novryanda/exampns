@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   FileSearch,
   Files,
+  History,
   LayoutDashboard,
   LogOut,
   ReceiptText,
@@ -94,6 +95,51 @@ export const adminSidebarItems: NavGroup[] = [
   },
 ];
 
+export const userSidebarItems: NavGroup[] = [
+  {
+    id: 1,
+    items: [
+      {
+        title: "Dashboard",
+        url: "/app/dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    id: 2,
+    label: "Belajar",
+    items: [
+      {
+        title: "Tryout",
+        url: "/app/tryout",
+        icon: BookCopy,
+      },
+      {
+        title: "Hasil Ujian",
+        url: "/app/hasil",
+        icon: ChartNoAxesCombined,
+      },
+      {
+        title: "Riwayat",
+        url: "/app/riwayat",
+        icon: History,
+      },
+    ],
+  },
+  {
+    id: 3,
+    label: "Akun",
+    items: [
+      {
+        title: "Langganan",
+        url: "/app/langganan",
+        icon: WalletCards,
+      },
+    ],
+  },
+];
+
 export const superAdminSidebarItems: NavGroup[] = [
   {
     id: 1,
@@ -161,3 +207,15 @@ export const superAdminSidebarItems: NavGroup[] = [
 ];
 
 export const sidebarItems = superAdminSidebarItems;
+
+export function getSidebarItemsForRole(role: string): NavGroup[] {
+  if (role === "ADMIN") {
+    return adminSidebarItems;
+  }
+
+  if (role === "USER") {
+    return userSidebarItems;
+  }
+
+  return superAdminSidebarItems;
+}

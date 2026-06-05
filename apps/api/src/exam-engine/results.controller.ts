@@ -34,6 +34,14 @@ export class ResultsController {
     return apiData(await this.examEngineService.getResultDetail(examResultId, actor));
   }
 
+  @Get('results/:examResultId/ranking')
+  async getResultRanking(
+    @Param('examResultId') examResultId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(await this.examEngineService.getResultRanking(examResultId, actor));
+  }
+
   @Get('results/:examResultId/answers')
   async getResultAnswers(
     @Param('examResultId') examResultId: string,
@@ -73,12 +81,4 @@ export class ResultsController {
     );
   }
 
-  @Get('exams/history')
-  async getExamHistory(
-    @Query() query: Record<string, unknown>,
-    @CurrentUser() actor: AuthenticatedUser,
-  ) {
-    const result = await this.examEngineService.getExamHistory(actor, query);
-    return apiPaginated(result.data, result.meta);
-  }
 }

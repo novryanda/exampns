@@ -39,7 +39,6 @@ export class AdminMonitoringController {
     return apiData(await this.operationsService.getUserDetailForAdmin(userId));
   }
 
-  @Roles('SUPER_ADMIN')
   @Get('transactions')
   async listTransactions(
     @Query() query: Record<string, unknown>,

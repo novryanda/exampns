@@ -39,6 +39,7 @@ import {
   formatAiRecommendationForResponse,
   formatResultBreakdownForResponse,
   isPrivilegedRole,
+  maskLeaderboardDisplayName,
   processingAiRecommendationResponse,
   resolveTryoutCatalogId,
   sanitizeQuestionOptionsForActiveExam,
@@ -485,6 +486,20 @@ export class ExamEngineService {
         };
       }
 
+      if (payload.submitType === 'manual') {
+        const unansweredQuestions = session.questions.filter(
+          (question) => !question.answers[0]?.selectedLabel,
+        );
+
+        if (unansweredQuestions.length > 0) {
+          throw new BadRequestException({
+            code: 'EXAM_INCOMPLETE_ANSWERS',
+            message: 'Semua soal harus diisi sebelum mengumpulkan ujian.',
+            unansweredQuestionNumbers: unansweredQuestions.map((question) => question.questionOrder),
+          });
+        }
+      }
+
       const passingGrade = session.tryoutCatalog.passingGradeConfigId
         ? await tx.passingGradeConfig.findUnique({
             where: { id: session.tryoutCatalog.passingGradeConfigId },
@@ -735,7 +750,16 @@ export class ExamEngineService {
     const result = await this.prisma.examResult.findUnique({
       where: { id: examResultId },
       include: {
-        examSession: true,
+        examSession: {
+          include: {
+            tryoutCatalog: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
         passingGradeConfig: {
           include: {
             items: {
@@ -790,6 +814,7 @@ export class ExamEngineService {
     return {
       examResultId: result.id,
       examSessionId: result.examSessionId,
+      tryoutName: result.examSession.tryoutCatalog?.name ?? 'Tryout',
       examDate: result.examSession.startedAt,
       score: {
         total: result.totalScore,
@@ -821,6 +846,100 @@ export class ExamEngineService {
       breakdown,
       aiRecommendationStatus:
         result.aiRecommendations[0]?.status ?? AIRecommendationStatus.processing,
+    };
+  }
+
+  async getResultRanking(examResultId: string, actor: AuthenticatedUser) {
+    const result = await this.prisma.examResult.findUnique({
+      where: { id: examResultId },
+      include: {
+        examSession: {
+          include: {
+            tryoutCatalog: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!result) {
+      throw new NotFoundException('Exam result not found');
+    }
+
+    this.assertResultAccess(result.userId, actor);
+
+    const tryoutCatalogId = result.examSession.tryoutCatalogId;
+    const allResults = await this.prisma.examResult.findMany({
+      where: {
+        examSession: {
+          tryoutCatalogId,
+        },
+      },
+      orderBy: [{ totalScore: 'desc' }, { generatedAt: 'asc' }],
+      select: {
+        id: true,
+        userId: true,
+        totalScore: true,
+        overallPassed: true,
+        generatedAt: true,
+        user: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    const bestByUser = new Map<
+      string,
+      (typeof allResults)[number]
+    >();
+
+    for (const entry of allResults) {
+      const existing = bestByUser.get(entry.userId);
+      if (
+        !existing ||
+        entry.totalScore > existing.totalScore ||
+        (entry.totalScore === existing.totalScore && entry.generatedAt < existing.generatedAt)
+      ) {
+        bestByUser.set(entry.userId, entry);
+      }
+    }
+
+    const ranked = [...bestByUser.values()].sort((left, right) => {
+      if (right.totalScore !== left.totalScore) {
+        return right.totalScore - left.totalScore;
+      }
+
+      return left.generatedAt.getTime() - right.generatedAt.getTime();
+    });
+
+    const currentUserIndex = ranked.findIndex((entry) => entry.userId === actor.id);
+    const currentUserEntry = currentUserIndex >= 0 ? ranked[currentUserIndex] : null;
+
+    return {
+      tryoutName: result.examSession.tryoutCatalog?.name ?? 'Tryout',
+      totalParticipants: ranked.length,
+      topTen: ranked.slice(0, 10).map((entry, index) => ({
+        rank: index + 1,
+        displayName: maskLeaderboardDisplayName(entry.user.name),
+        totalScore: entry.totalScore,
+        overallPassed: entry.overallPassed,
+        isCurrentUser: entry.userId === actor.id,
+      })),
+      currentUser: currentUserEntry
+        ? {
+            rank: currentUserIndex + 1,
+            displayName: maskLeaderboardDisplayName(currentUserEntry.user.name),
+            totalScore: currentUserEntry.totalScore,
+            overallPassed: currentUserEntry.overallPassed,
+            isInTopTen: currentUserIndex < 10,
+          }
+        : null,
     };
   }
 
@@ -1018,7 +1137,16 @@ export class ExamEngineService {
       this.prisma.examResult.findMany({
         where,
         include: {
-          examSession: true,
+          examSession: {
+            include: {
+              tryoutCatalog: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
           categoryScores: {
             orderBy: { categoryCode: 'asc' },
           },
@@ -1044,6 +1172,7 @@ export class ExamEngineService {
       data: results.map((result) => ({
         examResultId: result.id,
         examSessionId: result.examSessionId,
+        tryoutName: result.examSession.tryoutCatalog?.name ?? 'Tryout',
         examDate: result.examSession.startedAt,
         totalScore: result.totalScore,
         categoryScores: result.categoryScores.map((item) => ({

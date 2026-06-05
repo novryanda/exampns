@@ -2,9 +2,13 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { BACKEND_API_URL } from "@/lib/auth/config";
 
-const FORWARD_REQUEST_HEADERS = ["cookie", "origin", "referer", "user-agent"] as const;
+const FORWARD_REQUEST_HEADERS = ["cookie", "origin", "referer", "user-agent", "content-type"] as const;
 
-export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+async function proxyAdminRequest(
+  request: NextRequest,
+  context: { params: Promise<{ path: string[] }> },
+  method: string,
+) {
   const { path } = await context.params;
   const headers = new Headers();
 
@@ -21,8 +25,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
   const queryString = searchParams.toString();
   const backendUrl = `${BACKEND_API_URL}/api/v1/${scope}/${path.join("/")}${queryString ? `?${queryString}` : ""}`;
   const backendResponse = await fetch(backendUrl, {
-    method: "GET",
+    method,
     headers,
+    body: method === "GET" ? undefined : await request.text(),
     cache: "no-store",
   });
 
@@ -34,4 +39,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
     statusText: backendResponse.statusText,
     headers: responseHeaders,
   });
+}
+
+export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  return proxyAdminRequest(request, context, "GET");
+}
+
+export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  return proxyAdminRequest(request, context, "POST");
 }

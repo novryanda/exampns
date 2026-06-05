@@ -333,7 +333,12 @@ export function ExamWorkspace({ initialDetail }: { readonly initialDetail: ExamS
                       ? "border-blue-200 bg-blue-50 text-blue-900"
                       : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                   }`}
-                  onClick={() => saveAnswer(currentQuestion.examSessionQuestionId, option.label)}
+                  onClick={() =>
+                    void saveAnswer(
+                      currentQuestion.examSessionQuestionId,
+                      currentQuestion.selectedLabel === option.label ? null : option.label,
+                    )
+                  }
                   disabled={savingQuestionId === currentQuestion.examSessionQuestionId}
                 >
                   <div className="mt-0.5 font-semibold">{option.label}.</div>

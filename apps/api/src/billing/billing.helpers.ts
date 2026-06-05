@@ -16,6 +16,29 @@ export const buildInvoiceNumber = (sequence: number, now = new Date()) => {
 export const buildPaymentUrl = (baseUrl: string, paymentTransactionId: string) =>
   `${baseUrl.replace(/\/+$/, '')}/pay/${paymentTransactionId}`;
 
+export const buildInternalPaymentPageUrl = (frontendUrl: string, paymentTransactionId: string) =>
+  `${frontendUrl.replace(/\/+$/, '')}/app/langganan/pembayaran/${paymentTransactionId}`;
+
+export const resolveCheckoutPaymentUrl = ({
+  gatewayProvider,
+  paymentBaseUrl,
+  frontendUrl,
+  paymentTransactionId,
+}: {
+  gatewayProvider: string;
+  paymentBaseUrl: string;
+  frontendUrl: string;
+  paymentTransactionId: string;
+}) => {
+  const normalizedBase = paymentBaseUrl.replace(/\/+$/, '');
+
+  if (gatewayProvider === 'manual' || normalizedBase.includes('payment-gateway.example')) {
+    return buildInternalPaymentPageUrl(frontendUrl, paymentTransactionId);
+  }
+
+  return buildPaymentUrl(paymentBaseUrl, paymentTransactionId);
+};
+
 export const computeDaysRemaining = (endDate: Date, now = new Date()) =>
   Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
 

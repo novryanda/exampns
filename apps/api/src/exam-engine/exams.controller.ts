@@ -1,9 +1,21 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import {
   apiData,
   apiMessage,
+  apiPaginated,
   type ApiMessageResponse,
   type ApiSuccessResponse,
 } from '../common/api-response.js';
@@ -30,6 +42,15 @@ export class ExamsController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ApiSuccessResponse<unknown>> {
     return apiData(await this.examEngineService.getActiveExam(actor));
+  }
+
+  @Get('history')
+  async getExamHistory(
+    @Query() query: Record<string, unknown>,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    const result = await this.examEngineService.getExamHistory(actor, query);
+    return apiPaginated(result.data, result.meta);
   }
 
   @Get(':examSessionId')

@@ -10,8 +10,15 @@ export class ValidationService {
     } catch (error) {
       if (error instanceof ZodError) {
         throw new BadRequestException({
+          success: false,
           message: 'Validation failed',
-          errors: error.flatten(),
+          error: {
+            code: 'VALIDATION_ERROR',
+            details: error.issues.map((issue) => ({
+              field: issue.path.join('.') || 'body',
+              message: issue.message,
+            })),
+          },
         });
       }
 

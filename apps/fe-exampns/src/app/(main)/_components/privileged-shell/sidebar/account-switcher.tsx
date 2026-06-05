@@ -35,7 +35,9 @@ export function AccountSwitcher({
   const [activeUser, setActiveUser] = useState(users[0]);
   const [isPending, startTransition] = useTransition();
   const profileHref =
-    activeUser?.role === "ADMIN" || activeUser?.role === "SUPER_ADMIN" ? "/profil" : "/";
+    activeUser?.role === "ADMIN" || activeUser?.role === "SUPER_ADMIN"
+      ? "/profil"
+      : "/app/profil";
 
   const handleSignOut = () => {
     startTransition(() => {

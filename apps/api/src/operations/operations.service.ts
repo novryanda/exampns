@@ -95,7 +95,19 @@ export class OperationsService {
         userId: actor.id,
       },
       include: {
-        examSession: true,
+        examSession: {
+          include: {
+            tryoutCatalog: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+        categoryScores: {
+          orderBy: { categoryCode: 'asc' },
+        },
       },
       orderBy: { generatedAt: 'desc' },
       take: 5,
@@ -162,11 +174,32 @@ export class OperationsService {
         })) ?? [],
       recentExams: recentResults.map((result) => ({
         examResultId: result.id,
+        examSessionId: result.examSessionId,
+        tryoutName: result.examSession.tryoutCatalog?.name ?? 'Tryout',
         examDate: result.examSession.startedAt,
         totalScore: result.totalScore,
+        categoryScores: result.categoryScores.map((item) => ({
+          categoryCode: item.categoryCode,
+          categoryName: item.categoryName,
+          score: item.score,
+        })),
         overallPassed: result.overallPassed,
       })),
     };
+  }
+
+  async listActiveQuestionCategories() {
+    return this.prisma.questionCategory.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        answerMode: true,
+        sortOrder: true,
+      },
+    });
   }
 
   async listAccessibleTryouts(actor: AuthenticatedUser) {
@@ -189,6 +222,24 @@ export class OperationsService {
         showResultImmediately: true,
         showAnswerReview: true,
         publishedAt: true,
+        generationRule: {
+          select: {
+            sections: {
+              select: {
+                questionCount: true,
+                categoryRef: {
+                  select: {
+                    code: true,
+                    name: true,
+                  },
+                },
+              },
+              orderBy: {
+                sortOrder: 'asc',
+              },
+            },
+          },
+        },
       },
       orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { publishedAt: 'desc' }],
     });
@@ -209,8 +260,31 @@ export class OperationsService {
               ? 'Khusus user trial aktif'
               : 'Akses subscription tidak aktif';
 
+      const composition =
+        tryout.generationRule?.sections.map((section) => ({
+          categoryCode: section.categoryRef.code,
+          categoryName: section.categoryRef.name,
+          questionCount: section.questionCount,
+        })) ?? [];
+      const compositionLabel =
+        composition.length > 0
+          ? composition.map((item) => `${item.categoryCode}${item.questionCount}`).join(' ')
+          : null;
+
       return {
-        ...tryout,
+        id: tryout.id,
+        name: tryout.name,
+        description: tryout.description,
+        tryoutType: tryout.tryoutType,
+        accessType: tryout.accessType,
+        isFeatured: tryout.isFeatured,
+        durationMinutes: tryout.durationMinutes,
+        totalQuestions: tryout.totalQuestions,
+        showResultImmediately: tryout.showResultImmediately,
+        showAnswerReview: tryout.showAnswerReview,
+        publishedAt: tryout.publishedAt,
+        composition,
+        compositionLabel,
         canStart,
         lockedReason,
       };

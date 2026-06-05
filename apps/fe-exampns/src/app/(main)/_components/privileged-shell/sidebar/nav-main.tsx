@@ -153,7 +153,7 @@ export function NavMain({ items, userRole }: NavMainProps) {
     if (subItems?.length) {
       return subItems.some((sub) => path.startsWith(sub.url));
     }
-    if (url !== "/dashboard" && path.startsWith(`${url}/`)) {
+    if (url !== "/app/dashboard" && path.startsWith(`${url}/`)) {
       return true;
     }
     return path === url;

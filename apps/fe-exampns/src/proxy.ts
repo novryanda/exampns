@@ -42,7 +42,8 @@ export async function proxy(request: NextRequest) {
 
   if (
     !sessionCookie &&
-    (pathname.startsWith("/dashboard") ||
+    (pathname.startsWith("/app") ||
+      pathname.startsWith("/dashboard") ||
       pathname.startsWith("/admin") ||
       pathname.startsWith("/super-admin") ||
       pathname === "/profil")
@@ -78,5 +79,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/auth/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*", "/profil"],
+  matcher: ["/", "/auth/:path*", "/app/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*", "/profil"],
 };

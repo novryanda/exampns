@@ -14,7 +14,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { adminSidebarItems, superAdminSidebarItems } from "@/navigation/sidebar/sidebar-items";
+import { getSidebarItemsForRole } from "@/navigation/sidebar/sidebar-items";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 
 import { NavMain } from "./nav-main";
@@ -46,7 +46,7 @@ export function AppSidebar({
 
   const variant = isSynced ? sidebarVariant : props.variant;
   const collapsible = isSynced ? sidebarCollapsible : props.collapsible;
-  const items = currentUser.role === "ADMIN" ? adminSidebarItems : superAdminSidebarItems;
+  const items = getSidebarItemsForRole(currentUser.role);
 
   return (
     <Sidebar {...props} variant={variant} collapsible={collapsible}>

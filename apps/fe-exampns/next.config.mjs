@@ -22,7 +22,22 @@ const nextConfig = {
     return [
       {
         source: "/dashboard/default",
-        destination: "/dashboard",
+        destination: "/app/dashboard",
+        permanent: false,
+      },
+      {
+        source: "/dashboard",
+        destination: "/app/dashboard",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/exams/:examSessionId",
+        destination: "/app/exam/:examSessionId",
+        permanent: false,
+      },
+      {
+        source: "/dashboard/:path*",
+        destination: "/app/:path*",
         permanent: false,
       },
     ];

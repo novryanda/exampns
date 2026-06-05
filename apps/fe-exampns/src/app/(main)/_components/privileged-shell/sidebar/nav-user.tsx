@@ -47,7 +47,8 @@ export function NavUser({
   const router = useRouter();
   const { isMobile } = useSidebar();
   const [isPending, startTransition] = useTransition();
-  const profileHref = user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/profil" : "/";
+  const profileHref =
+    user.role === "ADMIN" || user.role === "SUPER_ADMIN" ? "/profil" : "/app/profil";
 
   const handleSignOut = () => {
     startTransition(() => {

@@ -20,18 +20,16 @@ export default async function UserExamPage({
   const detail = await getExamSessionDetail(examSessionId).catch(() => notFound());
 
   return (
-    <main className="min-h-dvh bg-slate-50">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-        <PageHeader
-          title={"score" in detail ? "Hasil Tryout" : "Sesi Tryout Berjalan"}
-          description={
-            "score" in detail
-              ? "Nilai tryout dan status kelulusan Anda ditampilkan di bawah."
-              : "Jawaban disimpan otomatis. Pastikan koneksi stabil sampai ujian selesai."
-          }
-        />
-        <ExamWorkspace initialDetail={detail} />
-      </div>
-    </main>
+    <div className="mx-auto flex min-h-dvh max-w-7xl flex-col gap-6 bg-slate-50 px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title={"score" in detail ? "Hasil Tryout" : "Sesi Tryout Berjalan"}
+        description={
+          "score" in detail
+            ? "Nilai tryout dan status kelulusan Anda ditampilkan di bawah."
+            : "Jawaban disimpan otomatis. Pastikan koneksi stabil sampai ujian selesai."
+        }
+      />
+      <ExamWorkspace initialDetail={detail} />
+    </div>
   );
 }

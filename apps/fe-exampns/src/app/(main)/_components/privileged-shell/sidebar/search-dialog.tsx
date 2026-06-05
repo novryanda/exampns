@@ -18,7 +18,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import type { NavMainItem } from "@/navigation/sidebar/sidebar-items";
-import { adminSidebarItems, superAdminSidebarItems } from "@/navigation/sidebar/sidebar-items";
+import { getSidebarItemsForRole } from "@/navigation/sidebar/sidebar-items";
 
 type SearchItem = {
   group: string;
@@ -42,7 +42,7 @@ function groupBy(items: SearchItem[]) {
 }
 
 function buildSearchItems(userRole?: string) {
-  const sidebarItems = userRole === "ADMIN" ? adminSidebarItems : superAdminSidebarItems;
+  const sidebarItems = getSidebarItemsForRole(userRole ?? "SUPER_ADMIN");
 
   return sidebarItems.flatMap((group) =>
     group.items.flatMap((item) => {

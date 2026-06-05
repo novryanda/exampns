@@ -1,5 +1,6 @@
 import { CheckCircle2, Clock3, ReceiptText, WalletCards, XCircle } from "lucide-react";
 
+import { ApprovePaymentButton } from "@/app/(main)/super-admin/transactions/_components/approve-payment-button";
 import { MetricCard, PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/utils";
@@ -95,12 +96,13 @@ export default async function SuperAdminTransactionsPage() {
               <TableHead>Method</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {allTransactions.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-slate-400">
+                <TableCell colSpan={7} className="py-10 text-center text-slate-400">
                   Belum ada transaksi yang tersedia.
                 </TableCell>
               </TableRow>
@@ -130,6 +132,16 @@ export default async function SuperAdminTransactionsPage() {
                   </TableCell>
                   <TableCell>
                     <StatusBadge tone={toneForStatus(transaction.status)}>{toLabel(transaction.status)}</StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {transaction.status === "pending" ? (
+                      <ApprovePaymentButton
+                        paymentTransactionId={transaction.id}
+                        invoiceNumber={transaction.invoiceNumber}
+                      />
+                    ) : (
+                      <span className="text-slate-400 text-xs">-</span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

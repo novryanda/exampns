@@ -22,6 +22,13 @@ function getShellConfig(role: string) {
     };
   }
 
+  if (role === "USER") {
+    return {
+      homeHref: "/app/dashboard",
+      roleLabel: "Peserta",
+    };
+  }
+
   return {
     homeHref: "/super-admin/dashboard",
     roleLabel: "Super Admin",

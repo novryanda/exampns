@@ -14,18 +14,16 @@ import {
   type UserRole,
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
-import { AccessResolverService } from '../common/access-resolver.service.js';
-import { getSubscriptionTierSnapshot } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
   addDays,
   buildInvoiceNumber,
-  buildPaymentUrl,
   computeDaysRemaining,
   computeTryoutRemaining,
   isSubscriptionCurrentlyActive,
   mapWebhookStatusToPaymentStatus,
+  resolveCheckoutPaymentUrl,
   statusAllowsSubscriptionActivation,
   verifyWebhookSignature,
 } from './billing.helpers.js';
@@ -39,7 +37,6 @@ import {
 export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly accessResolverService: AccessResolverService,
     private readonly validationService: ValidationService,
   ) {}
 
@@ -61,33 +58,26 @@ export class BillingService {
       durationDays: plan.durationDays,
       price: Number(plan.price),
       currency: plan.currency,
-      tier: plan.tier,
       isTrial: plan.isTrial,
       isActive: plan.isActive,
     }));
   }
 
   async getMySubscription(actor: AuthenticatedUser) {
-    const [accessResolution, subscription] = await Promise.all([
-      this.accessResolverService.resolveEffectiveAccessLevel(actor.id),
-      this.prisma.userSubscription.findFirst({
-        where: {
-          userId: actor.id,
-        },
-        include: {
-          subscriptionPlan: true,
-        },
-        orderBy: [{ endDate: 'desc' }, { createdAt: 'desc' }],
-      }),
-    ]);
+    const subscription = await this.prisma.userSubscription.findFirst({
+      where: {
+        userId: actor.id,
+      },
+      include: {
+        subscriptionPlan: true,
+      },
+      orderBy: [{ endDate: 'desc' }, { createdAt: 'desc' }],
+    });
 
     if (!subscription) {
       return {
         status: null,
         isTrial: false,
-        tier: null,
-        accessLevel: 'expired',
-        accessSource: 'none',
         planName: null,
         startDate: null,
         endDate: null,
@@ -101,9 +91,6 @@ export class BillingService {
     return {
       status: subscription.status,
       isTrial: subscription.isTrial,
-      tier: getSubscriptionTierSnapshot(subscription),
-      accessLevel: accessResolution.effectiveAccessLevel,
-      accessSource: accessResolution.effectiveAccessSource,
       planName: subscription.subscriptionPlan.name,
       startDate: subscription.startDate,
       endDate: subscription.endDate,
@@ -146,15 +133,21 @@ export class BillingService {
 
     if (!plan) {
       throw new NotFoundException({
-        code: 'PLAN_NOT_FOUND',
+        success: false,
         message: 'Plan tidak ditemukan',
+        error: {
+          code: 'PLAN_NOT_FOUND',
+        },
       });
     }
 
     if (!plan.isActive || plan.tier === SubscriptionTier.trial || plan.isTrial) {
       throw new ConflictException({
-        code: 'PLAN_INACTIVE',
+        success: false,
         message: 'Plan tidak aktif',
+        error: {
+          code: 'PLAN_INACTIVE',
+        },
       });
     }
 
@@ -177,8 +170,11 @@ export class BillingService {
       plan.tier === SubscriptionTier.standard
     ) {
       throw new ConflictException({
-        code: 'PLAN_DOWNGRADE_NOT_ALLOWED',
+        success: false,
         message: 'Akses premium aktif tidak bisa diturunkan ke plan standard.',
+        error: {
+          code: 'PLAN_DOWNGRADE_NOT_ALLOWED',
+        },
       });
     }
 
@@ -188,6 +184,7 @@ export class BillingService {
     const gatewayProvider = process.env.PAYMENT_GATEWAY_PROVIDER?.trim() || 'manual';
     const paymentBaseUrl =
       process.env.PAYMENT_GATEWAY_BASE_URL?.trim() || 'https://payment-gateway.example';
+    const frontendUrl = process.env.FRONTEND_URL?.trim() || 'http://localhost:3000';
 
     try {
       const transaction = await this.prisma.paymentTransaction.create({
@@ -209,7 +206,12 @@ export class BillingService {
         },
       });
 
-      const paymentUrl = buildPaymentUrl(paymentBaseUrl, transaction.id);
+      const paymentUrl = resolveCheckoutPaymentUrl({
+        gatewayProvider,
+        paymentBaseUrl,
+        frontendUrl,
+        paymentTransactionId: transaction.id,
+      });
       const updated = await this.prisma.paymentTransaction.update({
         where: { id: transaction.id },
         data: {
@@ -245,8 +247,11 @@ export class BillingService {
       }
 
       throw new BadRequestException({
-        code: 'PAYMENT_GATEWAY_ERROR',
+        success: false,
         message: 'Gagal membuat pembayaran',
+        error: {
+          code: 'PAYMENT_GATEWAY_ERROR',
+        },
       });
     }
   }
@@ -275,7 +280,67 @@ export class BillingService {
       paymentMethod: payment.paymentMethod,
       status: payment.status,
       paidAt: payment.paidAt,
+      expiredAt: payment.expiredAt,
+      paymentUrl: payment.paymentUrl,
       subscriptionActivated: Boolean(payment.userSubscriptionId && payment.userSubscription),
+    };
+  }
+
+  async approvePaymentManually(paymentTransactionId: string, actor: AuthenticatedUser) {
+    if (!this.isPrivilegedRole(actor.role)) {
+      throw new ForbiddenException('You do not have access to approve this payment');
+    }
+
+    const payment = await this.prisma.paymentTransaction.findUnique({
+      where: { id: paymentTransactionId },
+      include: {
+        subscriptionPlan: true,
+        userSubscription: true,
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException({
+        success: false,
+        message: 'Payment transaction not found',
+        error: {
+          code: 'PAYMENT_NOT_FOUND',
+        },
+      });
+    }
+
+    if (payment.status !== PaymentStatus.pending) {
+      throw new ConflictException({
+        success: false,
+        message: 'Transaksi ini sudah diproses',
+        error: {
+          code: 'PAYMENT_ALREADY_PROCESSED',
+        },
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const activatedSubscriptionId = await this.activateSubscriptionForPayment(tx, payment);
+      return tx.paymentTransaction.update({
+        where: { id: payment.id },
+        data: {
+          status: PaymentStatus.success,
+          paidAt: new Date(),
+          userSubscriptionId: activatedSubscriptionId,
+        },
+        include: {
+          subscriptionPlan: true,
+          userSubscription: true,
+        },
+      });
+    });
+
+    return {
+      id: updated.id,
+      invoiceNumber: updated.invoiceNumber,
+      status: updated.status,
+      paidAt: updated.paidAt,
+      subscriptionActivated: Boolean(updated.userSubscriptionId && updated.userSubscription),
     };
   }
 
@@ -311,6 +376,7 @@ export class BillingService {
         paymentMethod: payment.paymentMethod,
         status: payment.status,
         createdAt: payment.createdAt,
+        paymentUrl: payment.status === PaymentStatus.pending ? payment.paymentUrl : null,
       })),
       meta: {
         page: query.page,
@@ -391,84 +457,7 @@ export class BillingService {
       let activatedSubscriptionId = payment.userSubscriptionId;
 
       if (statusAllowsSubscriptionActivation(mappedStatus) && !payment.userSubscriptionId) {
-        const activePaidSubscription = await tx.userSubscription.findFirst({
-          where: {
-            userId: payment.userId,
-            status: SubscriptionStatus.active,
-            endDate: {
-              gt: new Date(),
-            },
-            tierSnapshot: {
-              in: [SubscriptionTier.standard, SubscriptionTier.premium],
-            },
-          },
-          orderBy: [{ tierSnapshot: 'desc' }, { endDate: 'desc' }, { createdAt: 'desc' }],
-        });
-
-        if (activePaidSubscription) {
-          if (
-            activePaidSubscription.tierSnapshot === SubscriptionTier.premium &&
-            payment.subscriptionPlan.tier === SubscriptionTier.standard
-          ) {
-            throw new ConflictException('Plan standard tidak bisa mengurangi akses premium yang masih aktif');
-          }
-
-          if (activePaidSubscription.tierSnapshot === payment.subscriptionPlan.tier) {
-            const baseDate =
-              activePaidSubscription.endDate > new Date()
-                ? activePaidSubscription.endDate
-                : new Date();
-            const updatedSubscription = await tx.userSubscription.update({
-              where: { id: activePaidSubscription.id },
-              data: {
-                endDate: addDays(baseDate, payment.subscriptionPlan.durationDays),
-              },
-            });
-            activatedSubscriptionId = updatedSubscription.id;
-          } else {
-            const now = new Date();
-            await tx.userSubscription.update({
-              where: { id: activePaidSubscription.id },
-              data: {
-                status: SubscriptionStatus.cancelled,
-                endDate: now,
-              },
-            });
-
-            const createdSubscription = await tx.userSubscription.create({
-              data: {
-                userId: payment.userId,
-                subscriptionPlanId: payment.subscriptionPlanId,
-                status: SubscriptionStatus.active,
-                startDate: now,
-                endDate: addDays(now, payment.subscriptionPlan.durationDays),
-                tryoutLimit: null,
-                tryoutUsed: 0,
-                isTrial: false,
-                tierSnapshot: payment.subscriptionPlan.tier,
-                activationSource: ActivationSource.payment,
-              },
-            });
-            activatedSubscriptionId = createdSubscription.id;
-          }
-        } else {
-          const now = new Date();
-          const createdSubscription = await tx.userSubscription.create({
-            data: {
-              userId: payment.userId,
-              subscriptionPlanId: payment.subscriptionPlanId,
-              status: SubscriptionStatus.active,
-              startDate: now,
-              endDate: addDays(now, payment.subscriptionPlan.durationDays),
-              tryoutLimit: null,
-              tryoutUsed: 0,
-              isTrial: false,
-              tierSnapshot: payment.subscriptionPlan.tier,
-              activationSource: ActivationSource.payment,
-            },
-          });
-          activatedSubscriptionId = createdSubscription.id;
-        }
+        activatedSubscriptionId = await this.activateSubscriptionForPayment(tx, payment);
       }
 
       await tx.paymentTransaction.update({
@@ -491,6 +480,101 @@ export class BillingService {
         },
       });
     });
+  }
+
+  private async activateSubscriptionForPayment(
+    tx: Prisma.TransactionClient,
+    payment: {
+      id: string;
+      userId: string;
+      subscriptionPlanId: string;
+      userSubscriptionId: string | null;
+      subscriptionPlan: {
+        tier: SubscriptionTier;
+        durationDays: number;
+      };
+    },
+  ) {
+    if (payment.userSubscriptionId) {
+      return payment.userSubscriptionId;
+    }
+
+    const activePaidSubscription = await tx.userSubscription.findFirst({
+      where: {
+        userId: payment.userId,
+        status: SubscriptionStatus.active,
+        endDate: {
+          gt: new Date(),
+        },
+        tierSnapshot: {
+          in: [SubscriptionTier.standard, SubscriptionTier.premium],
+        },
+      },
+      orderBy: [{ tierSnapshot: 'desc' }, { endDate: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    if (activePaidSubscription) {
+      if (
+        activePaidSubscription.tierSnapshot === SubscriptionTier.premium &&
+        payment.subscriptionPlan.tier === SubscriptionTier.standard
+      ) {
+        throw new ConflictException('Plan standard tidak bisa mengurangi akses premium yang masih aktif');
+      }
+
+      if (activePaidSubscription.tierSnapshot === payment.subscriptionPlan.tier) {
+        const baseDate =
+          activePaidSubscription.endDate > new Date() ? activePaidSubscription.endDate : new Date();
+        const updatedSubscription = await tx.userSubscription.update({
+          where: { id: activePaidSubscription.id },
+          data: {
+            endDate: addDays(baseDate, payment.subscriptionPlan.durationDays),
+          },
+        });
+        return updatedSubscription.id;
+      }
+
+      const now = new Date();
+      await tx.userSubscription.update({
+        where: { id: activePaidSubscription.id },
+        data: {
+          status: SubscriptionStatus.cancelled,
+          endDate: now,
+        },
+      });
+
+      const createdSubscription = await tx.userSubscription.create({
+        data: {
+          userId: payment.userId,
+          subscriptionPlanId: payment.subscriptionPlanId,
+          status: SubscriptionStatus.active,
+          startDate: now,
+          endDate: addDays(now, payment.subscriptionPlan.durationDays),
+          tryoutLimit: null,
+          tryoutUsed: 0,
+          isTrial: false,
+          tierSnapshot: payment.subscriptionPlan.tier,
+          activationSource: ActivationSource.payment,
+        },
+      });
+      return createdSubscription.id;
+    }
+
+    const now = new Date();
+    const createdSubscription = await tx.userSubscription.create({
+      data: {
+        userId: payment.userId,
+        subscriptionPlanId: payment.subscriptionPlanId,
+        status: SubscriptionStatus.active,
+        startDate: now,
+        endDate: addDays(now, payment.subscriptionPlan.durationDays),
+        tryoutLimit: null,
+        tryoutUsed: 0,
+        isTrial: false,
+        tierSnapshot: payment.subscriptionPlan.tier,
+        activationSource: ActivationSource.payment,
+      },
+    });
+    return createdSubscription.id;
   }
 
   private toCheckoutResponse(

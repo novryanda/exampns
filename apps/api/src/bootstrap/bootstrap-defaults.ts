@@ -1,6 +1,7 @@
 import type { PrismaClient } from '../../generated/prisma/client.js';
 import {
   ActivationSource,
+  QuestionAnswerMode,
   SubscriptionTier,
   SubscriptionStatus,
   UserRole,
@@ -8,20 +9,38 @@ import {
 } from '../../generated/prisma/client.js';
 import type { PrismaService } from '../common/prisma.service.js';
 import { auth } from '../auth/auth.js';
+import { seedDemoTryoutCatalog } from './seed-demo-catalog.js';
 
 type BootstrapPrismaClient = PrismaService | PrismaClient;
 
 const APP_URL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3001';
 
-const defaultPassingGrade = {
-  name: 'Default Passing Grade',
-  twkMinScore: 65,
-  tiuMinScore: 80,
-  tkpMinScore: 166,
-  totalMinScore: 311,
-  isActive: true,
-  effectiveFrom: new Date('2026-05-14T00:00:00.000Z'),
-};
+const defaultQuestionCategories = [
+  {
+    code: 'TWK',
+    name: 'TWK',
+    answerMode: QuestionAnswerMode.single_correct,
+    sortOrder: 0,
+  },
+  {
+    code: 'TIU',
+    name: 'TIU',
+    answerMode: QuestionAnswerMode.single_correct,
+    sortOrder: 1,
+  },
+  {
+    code: 'TKP',
+    name: 'TKP',
+    answerMode: QuestionAnswerMode.weighted_options,
+    sortOrder: 2,
+  },
+] as const;
+
+const defaultPassingGradeCategoryMinimums = [
+  { categoryCode: 'TWK', minScore: 65 },
+  { categoryCode: 'TIU', minScore: 80 },
+  { categoryCode: 'TKP', minScore: 166 },
+] as const;
 
 const defaultTrialConfig = {
   name: 'Default Trial Configuration',
@@ -161,15 +180,53 @@ const toBootstrapHeaders = () => {
   });
 };
 
+const seedQuestionCategories = async (prisma: BootstrapPrismaClient) => {
+  for (const category of defaultQuestionCategories) {
+    await prisma.questionCategory.upsert({
+      where: { code: category.code },
+      create: category,
+      update: {
+        name: category.name,
+        answerMode: category.answerMode,
+        isActive: true,
+        sortOrder: category.sortOrder,
+      },
+    });
+  }
+};
+
 export const seedCoreDefaults = async (prisma: BootstrapPrismaClient) => {
+  await seedQuestionCategories(prisma);
+
   const activePassingGrade = await prisma.passingGradeConfig.findFirst({
     where: { isActive: true },
     select: { id: true },
   });
 
   if (!activePassingGrade) {
+    const categories = await prisma.questionCategory.findMany({
+      where: {
+        code: {
+          in: defaultPassingGradeCategoryMinimums.map((item) => item.categoryCode),
+        },
+      },
+      select: { id: true, code: true },
+    });
+    const categoryIdByCode = new Map(categories.map((item) => [item.code, item.id]));
+
     await prisma.passingGradeConfig.create({
-      data: defaultPassingGrade,
+      data: {
+        name: 'Default Passing Grade',
+        totalMinScore: 311,
+        isActive: true,
+        effectiveFrom: new Date('2026-05-14T00:00:00.000Z'),
+        items: {
+          create: defaultPassingGradeCategoryMinimums.map((item) => ({
+            categoryId: categoryIdByCode.get(item.categoryCode)!,
+            minScore: item.minScore,
+          })),
+        },
+      },
     });
   }
 
@@ -206,6 +263,8 @@ export const seedCoreDefaults = async (prisma: BootstrapPrismaClient) => {
       },
     });
   }
+
+  await seedDemoTryoutCatalog(prisma);
 };
 
 export const seedSuperAdminFromEnv = async (prisma: BootstrapPrismaClient) => {

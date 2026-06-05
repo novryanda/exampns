@@ -6,8 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { APP_CONFIG } from "@/config/app-config";
 import { fontVars } from "@/lib/fonts/registry";
-import { PREFERENCE_DEFAULTS } from "@/lib/preferences/preferences-config";
-import { ThemeBootScript } from "@/scripts/theme-boot";
+import { cn } from "@/lib/utils";
+import { getServerLayoutPreferences } from "@/server/layout-preferences";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
 
 import "./globals.css";
@@ -17,33 +17,31 @@ export const metadata: Metadata = {
   description: APP_CONFIG.meta.description,
 };
 
-export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const { theme_mode, theme_preset, content_layout, navbar_style, sidebar_variant, sidebar_collapsible, font } =
-    PREFERENCE_DEFAULTS;
+export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
+  const prefs = await getServerLayoutPreferences();
+
   return (
     <html
       lang="en"
-      data-theme-mode={theme_mode}
-      data-theme-preset={theme_preset}
-      data-content-layout={content_layout}
-      data-navbar-style={navbar_style}
-      data-sidebar-variant={sidebar_variant}
-      data-sidebar-collapsible={sidebar_collapsible}
-      data-font={font}
+      className={cn(prefs.resolvedThemeMode === "dark" && "dark")}
+      style={{ colorScheme: prefs.resolvedThemeMode }}
+      data-theme-mode={prefs.theme_mode}
+      data-theme-preset={prefs.theme_preset}
+      data-content-layout={prefs.content_layout}
+      data-navbar-style={prefs.navbar_style}
+      data-sidebar-variant={prefs.sidebar_variant}
+      data-sidebar-collapsible={prefs.sidebar_collapsible}
+      data-font={prefs.font}
       suppressHydrationWarning
     >
-      <head>
-        {/* Applies theme and layout preferences on load to avoid flicker and unnecessary server rerenders. */}
-        <ThemeBootScript />
-      </head>
       <body className={`${fontVars} min-h-screen antialiased`}>
         <TooltipProvider>
           <PreferencesStoreProvider
-            themeMode={theme_mode}
-            themePreset={theme_preset}
-            contentLayout={content_layout}
-            navbarStyle={navbar_style}
-            font={font}
+            themeMode={prefs.theme_mode}
+            themePreset={prefs.theme_preset}
+            contentLayout={prefs.content_layout}
+            navbarStyle={prefs.navbar_style}
+            font={prefs.font}
           >
             {children}
             <Toaster />

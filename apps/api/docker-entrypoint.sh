@@ -3,7 +3,7 @@ set -e
 
 if [ "${RUN_DB_PUSH_ON_STARTUP:-false}" = "true" ]; then
   echo "[entrypoint] Running prisma db push..."
-  npx prisma db push --skip-generate
+  npx prisma db push
 fi
 
 if [ "${RUN_MIGRATE_ON_STARTUP:-true}" = "true" ]; then

@@ -1,0 +1,81 @@
+# ============================================================
+# ExamCPNS – Backend API
+# Database is an existing PostgreSQL instance (Dokploy/external)
+# Env vars dikelola via Dokploy panel → injected sebagai ${VAR}.
+# ============================================================
+
+services:
+  exampns-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+
+      # ── Database ───────────────────────────────────────────
+      DATABASE_URL: ${DATABASE_URL}
+
+      # ── Auth (Better Auth) ─────────────────────────────────
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      PUBLIC_API_URL: ${PUBLIC_API_URL}
+
+      # ── Email / SMTP ───────────────────────────────────────
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER}
+      EMAIL_FROM: ${EMAIL_FROM}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+
+      # ── Startup flags ──────────────────────────────────────
+      RUN_DB_PUSH_ON_STARTUP: ${RUN_DB_PUSH_ON_STARTUP}
+      RUN_MIGRATE_ON_STARTUP: ${RUN_MIGRATE_ON_STARTUP}
+      BOOTSTRAP_ON_STARTUP: ${BOOTSTRAP_ON_STARTUP}
+
+      # ── Bootstrap super admin ──────────────────────────────
+      SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD}
+
+      # ── n8n / AI recommendation ──────────────────────────
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET}
+      AI_RECOMMENDATION_TIMEOUT_MS: ${AI_RECOMMENDATION_TIMEOUT_MS}
+
+      # ── PDF import webhook ─────────────────────────────────
+      PDF_IMPORT_WEBHOOK_URL: ${PDF_IMPORT_WEBHOOK_URL}
+      PDF_IMPORT_CALLBACK_SECRET: ${PDF_IMPORT_CALLBACK_SECRET}
+
+      # ── Payment gateway ────────────────────────────────────
+      PAYMENT_GATEWAY_PROVIDER: ${PAYMENT_GATEWAY_PROVIDER}
+      PAYMENT_GATEWAY_BASE_URL: ${PAYMENT_GATEWAY_BASE_URL}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET}
+    volumes:
+      - exampns_api_uploads:/app/uploads
+    expose:
+      - '${PORT:-3001}'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:${PORT:-3001}/api/v1/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    networks:
+      - dokploy-network
+    logging:
+      driver: json-file
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+volumes:
+  exampns_api_uploads:
+
+networks:
+  dokploy-network:
+    external: true

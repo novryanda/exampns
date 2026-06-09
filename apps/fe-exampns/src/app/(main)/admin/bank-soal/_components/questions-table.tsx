@@ -12,7 +12,7 @@ import {
   type Table,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { CheckCircle2, EyeOff, Pencil, Settings2, Trash2 } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Pencil, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
@@ -176,6 +176,9 @@ export function QuestionsTable({
   initialResponse,
   filters,
   onResponseChange,
+  readOnly = false,
+  basePath = "/admin/bank-soal",
+  toolbar,
 }: {
   readonly initialResponse: ClientPaginatedResponse<QuestionListItem[]>;
   readonly filters: {
@@ -186,6 +189,9 @@ export function QuestionsTable({
     status?: string;
   };
   readonly onResponseChange?: (response: ClientPaginatedResponse<QuestionListItem[]>) => void;
+  readonly readOnly?: boolean;
+  readonly basePath?: string;
+  readonly toolbar?: React.ReactNode;
 }) {
   const [response, setResponse] = useState(initialResponse);
   const [pendingQuestionId, setPendingQuestionId] = useState<string | null>(null);
@@ -212,9 +218,12 @@ export function QuestionsTable({
   }, [onResponseChange, response]);
 
   const updateHistory = (page: number) => {
-    const nextUrl = buildPageHref("/admin/bank-soal", paginationParams, "page", page);
+    const nextUrl = buildPageHref(basePath, paginationParams, "page", page);
     window.history.replaceState(null, "", nextUrl);
   };
+
+  const questionDetailPath = (questionId: string) =>
+    readOnly ? `${basePath}/${questionId}` : `${basePath}/${questionId}/edit`;
 
   const loadPage = (page: number) => {
     startTransition(async () => {
@@ -250,8 +259,65 @@ export function QuestionsTable({
     });
   };
 
-  const columns = useMemo<ColumnDef<QuestionListItem>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<QuestionListItem>[]>(() => {
+    const actionColumn: ColumnDef<QuestionListItem> = {
+      id: "actions",
+      enableHiding: false,
+      header: "Aksi",
+      cell: ({ row }) => {
+        const question = row.original;
+
+        if (readOnly) {
+          return (
+            <div className="flex items-center justify-center">
+              <Button variant="outline" size="sm" className="rounded-lg" asChild>
+                <Link href={questionDetailPath(question.id)}>
+                  <Eye className="size-4" />
+                  Lihat
+                </Link>
+              </Button>
+            </div>
+          );
+        }
+
+        const nextStatus = question.status === "archived" ? "active" : "archived";
+        const buttonPending = isPending && pendingQuestionId === question.id;
+
+        return (
+          <div className="flex items-center justify-center gap-2">
+            <Button variant="outline" size="sm" className="rounded-lg" asChild>
+              <Link href={questionDetailPath(question.id)}>
+                <Pencil className="size-4" />
+                Edit
+              </Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={buttonPending}
+              onClick={() => handleStatusToggle(question.id, nextStatus)}
+              className={
+                nextStatus === "active"
+                  ? "rounded-lg border-emerald-200 px-2 text-emerald-600"
+                  : "rounded-lg border-rose-200 px-2 text-rose-600"
+              }
+              aria-label={nextStatus === "active" ? "Aktifkan soal" : "Arsipkan soal"}
+              title={nextStatus === "active" ? "Aktifkan" : "Arsipkan"}
+            >
+              {nextStatus === "active" ? (
+                <CheckCircle2 className="size-4" />
+              ) : (
+                <Trash2 className="size-4" />
+              )}
+              {buttonPending ? "Memproses..." : nextStatus === "active" ? "Aktifkan" : "Arsipkan"}
+            </Button>
+          </div>
+        );
+      },
+    };
+
+    return [
       {
         accessorKey: "questionPreview",
         id: "questionPreview",
@@ -306,51 +372,9 @@ export function QuestionsTable({
         header: "Sumber",
         cell: ({ row }) => <span className="whitespace-nowrap">{toSourceLabel(row.original.sourceType)}</span>,
       },
-      {
-        id: "actions",
-        enableHiding: false,
-        header: "Aksi",
-        cell: ({ row }) => {
-          const question = row.original;
-          const nextStatus = question.status === "archived" ? "active" : "archived";
-          const buttonPending = isPending && pendingQuestionId === question.id;
-
-          return (
-            <div className="flex items-center justify-center gap-2">
-              <Button variant="outline" size="sm" className="rounded-lg" asChild>
-                <Link href={`/admin/bank-soal/${question.id}/edit`}>
-                  <Pencil className="size-4" />
-                  Edit
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={buttonPending}
-                onClick={() => handleStatusToggle(question.id, nextStatus)}
-                className={
-                  nextStatus === "active"
-                    ? "rounded-lg border-emerald-200 px-2 text-emerald-600"
-                    : "rounded-lg border-rose-200 px-2 text-rose-600"
-                }
-                aria-label={nextStatus === "active" ? "Aktifkan soal" : "Arsipkan soal"}
-                title={nextStatus === "active" ? "Aktifkan" : "Arsipkan"}
-              >
-                {nextStatus === "active" ? (
-                  <CheckCircle2 className="size-4" />
-                ) : (
-                  <Trash2 className="size-4" />
-                )}
-                {buttonPending ? "Memproses..." : nextStatus === "active" ? "Aktifkan" : "Arsipkan"}
-              </Button>
-            </div>
-          );
-        },
-      },
-    ],
-    [handleStatusToggle, isPending, pendingQuestionId],
-  );
+      actionColumn,
+    ];
+  }, [basePath, handleStatusToggle, isPending, pendingQuestionId, readOnly]);
 
   const table = useReactTable({
     data: response.data,
@@ -372,7 +396,7 @@ export function QuestionsTable({
   return (
     <SectionCard
       className="min-w-0 gap-2"
-      contentClassName="pt-0"
+      contentClassName="space-y-4 pt-0"
       title="Daftar Soal"
       description={listDescription}
       trailing={
@@ -382,6 +406,7 @@ export function QuestionsTable({
         />
       }
     >
+      {toolbar}
       <div className="min-w-0 w-full max-w-full overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table className="w-full min-w-[980px] caption-bottom text-sm">
           <TableHeader>
@@ -435,7 +460,7 @@ export function QuestionsTable({
         page={response.meta.page}
         totalPages={response.meta.totalPages}
         params={paginationParams}
-        basePath="/admin/bank-soal"
+        basePath={basePath}
         onPageChange={loadPage}
       />
     </SectionCard>

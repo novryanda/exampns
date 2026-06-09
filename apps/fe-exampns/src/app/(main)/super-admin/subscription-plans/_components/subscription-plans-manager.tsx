@@ -1,18 +1,51 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { toast } from "sonner";
+import { Plus, Search } from "lucide-react";
 
 import { SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { initialAdminActionState } from "@/server/admin-action-state";
-import { saveSubscriptionPlanAction } from "@/server/admin-actions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getPaginationItems } from "@/lib/list-pagination";
+import { cn, formatCurrency } from "@/lib/utils";
 import type { SubscriptionPlanItem } from "@/server/admin-data";
+
+import {
+  createEmptyPlanDraft,
+  planToDraft,
+  SubscriptionPlanFormSheet,
+  type PlanFormDraft,
+} from "./subscription-plan-form-sheet";
+import { SubscriptionPlanRowActions } from "./subscription-plan-row-actions";
+import { SubscriptionPlansInfoBanner } from "./subscription-plans-info-banner";
+import { SubscriptionPlansKpiCards } from "./subscription-plans-kpi-cards";
+
+const PAGE_SIZE = 10;
+
+const tierOptions = [
+  { value: "all", label: "Semua Tier" },
+  { value: "trial", label: "Trial" },
+  { value: "standard", label: "Standard" },
+  { value: "premium", label: "Premium" },
+] as const;
+
+const statusOptions = [
+  { value: "all", label: "Semua Status" },
+  { value: "active", label: "Aktif" },
+  { value: "inactive", label: "Nonaktif" },
+] as const;
 
 function toLabel(value: string) {
   return value
@@ -27,230 +60,269 @@ function toneForTier(tier: string) {
   return "warning";
 }
 
-export function SubscriptionPlansManager({ plans }: { readonly plans: SubscriptionPlanItem[] }) {
-  const [state, formAction, isPending] = useActionState(saveSubscriptionPlanAction, initialAdminActionState);
-  const [selectedTier, setSelectedTier] = useState<"trial" | "standard" | "premium">("standard");
+function formatDuration(days: number) {
+  return `${days} hari`;
+}
 
-  useEffect(() => {
-    if (state.status === "success") {
-      toast.success(state.message);
-    } else if (state.status === "error") {
-      toast.error(state.message);
-    }
-  }, [state]);
+function formatPrice(plan: SubscriptionPlanItem) {
+  if (plan.tier === "trial" || plan.price <= 0) {
+    return "Gratis";
+  }
+
+  return formatCurrency(plan.price, { currency: plan.currency, locale: "id-ID", noDecimals: true });
+}
+
+export function SubscriptionPlansManager({ plans }: { readonly plans: SubscriptionPlanItem[] }) {
+  const [search, setSearch] = useState("");
+  const [tierFilter, setTierFilter] = useState<(typeof tierOptions)[number]["value"]>("all");
+  const [statusFilter, setStatusFilter] = useState<(typeof statusOptions)[number]["value"]>("all");
+  const [page, setPage] = useState(1);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetMode, setSheetMode] = useState<"create" | "edit">("create");
+  const [formDraft, setFormDraft] = useState<PlanFormDraft>(createEmptyPlanDraft());
+
+  const filteredPlans = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return plans.filter((plan) => {
+      const matchesSearch =
+        !query ||
+        plan.name.toLowerCase().includes(query) ||
+        (plan.description ?? "").toLowerCase().includes(query);
+
+      const matchesTier = tierFilter === "all" || plan.tier === tierFilter;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" ? plan.isActive : !plan.isActive);
+
+      return matchesSearch && matchesTier && matchesStatus;
+    });
+  }, [plans, search, tierFilter, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredPlans.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+
+  const paginatedPlans = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredPlans.slice(start, start + PAGE_SIZE);
+  }, [filteredPlans, currentPage]);
+
+  const rangeStart = filteredPlans.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, filteredPlans.length);
+
+  const openCreateSheet = () => {
+    setSheetMode("create");
+    setFormDraft(createEmptyPlanDraft());
+    setSheetOpen(true);
+  };
+
+  const openEditSheet = (plan: SubscriptionPlanItem) => {
+    setSheetMode("edit");
+    setFormDraft(planToDraft(plan));
+    setSheetOpen(true);
+  };
+
+  const openDuplicateSheet = (plan: SubscriptionPlanItem) => {
+    setSheetMode("create");
+    setFormDraft(planToDraft(plan, true));
+    setSheetOpen(true);
+  };
+
+  const handleFilterChange = <T extends string>(setter: (value: T) => void, value: T) => {
+    setter(value);
+    setPage(1);
+  };
+
+  const paginationItems = getPaginationItems(currentPage, totalPages);
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.2fr_1.8fr]">
-      <SectionCard
-        title="Buat Plan Baru"
-        description="Tentukan tier plan agar logic akses trial, standard, dan premium berjalan konsisten."
-      >
-        <form action={formAction} className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="plan-name">Nama Plan</Label>
-            <Input id="plan-name" name="name" className="rounded-xl border-slate-200" required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="plan-description">Deskripsi</Label>
-            <Textarea id="plan-description" name="description" className="min-h-24 rounded-xl border-slate-200" />
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="plan-tier">Tier</Label>
-              <Select
-                name="tier"
-                value={selectedTier}
-                onValueChange={(value) => setSelectedTier(value as typeof selectedTier)}
-              >
-                <SelectTrigger id="plan-tier" className="rounded-xl border-slate-200 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="plan-duration">Durasi (hari)</Label>
-              <Input
-                id="plan-duration"
-                name="durationDays"
-                type="number"
-                min={1}
-                defaultValue={30}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="plan-price">Harga</Label>
-              <Input
-                id="plan-price"
-                name="price"
-                type="number"
-                min={0}
-                defaultValue={selectedTier === "trial" ? 0 : 99000}
-                className="rounded-xl border-slate-200"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="plan-currency">Mata Uang</Label>
-              <Input id="plan-currency" name="currency" defaultValue="IDR" className="rounded-xl border-slate-200" />
-            </div>
-            {selectedTier === "trial" ? (
-              <>
-                <div className="grid gap-2">
-                  <Label htmlFor="trial-tryout-limit">Batas Tryout Trial</Label>
-                  <Input
-                    id="trial-tryout-limit"
-                    name="trialTryoutLimit"
-                    type="number"
-                    min={0}
-                    defaultValue={3}
-                    className="rounded-xl border-slate-200"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="trial-day-limit">Durasi Trial (hari)</Label>
-                  <Input
-                    id="trial-day-limit"
-                    name="trialDayLimit"
-                    type="number"
-                    min={1}
-                    defaultValue={7}
-                    className="rounded-xl border-slate-200"
-                  />
-                </div>
-              </>
-            ) : null}
-          </div>
-          <label className="flex items-center justify-between rounded-2xl border border-slate-100 px-4 py-3">
-            <span className="text-sm">Aktifkan plan</span>
-            <input name="isActive" type="checkbox" defaultChecked className="h-4 w-4" />
-          </label>
-          <div className="flex justify-end">
-            <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-              {isPending ? "Menyimpan..." : "Simpan Plan"}
-            </Button>
-          </div>
-        </form>
-      </SectionCard>
+    <div className="flex flex-col gap-6">
+      <SubscriptionPlansKpiCards plans={plans} />
 
-      <SectionCard title="Daftar Plan" description="Plan lama non-trial sudah diperlakukan sebagai standard.">
-        <div className="grid gap-4">
-          {plans.map((plan) => (
-            <form key={plan.id} action={formAction} className="grid gap-4 rounded-2xl border border-slate-200 p-4">
-              <input type="hidden" name="planId" value={plan.id} />
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="font-medium text-slate-950">{plan.name}</div>
-                  <div className="text-slate-500 text-sm">{plan.description ?? "Tanpa deskripsi"}</div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <StatusBadge tone={toneForTier(plan.tier)}>{toLabel(plan.tier)}</StatusBadge>
-                  <StatusBadge tone={plan.isActive ? "success" : "neutral"}>
-                    {plan.isActive ? "Aktif" : "Nonaktif"}
-                  </StatusBadge>
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <div className="grid gap-2">
-                  <Label htmlFor={`name-${plan.id}`}>Nama</Label>
-                  <Input
-                    id={`name-${plan.id}`}
-                    name="name"
-                    defaultValue={plan.name}
-                    className="rounded-xl border-slate-200"
+      <SectionCard
+        className="min-w-0"
+        contentClassName="min-w-0 space-y-4"
+        title="Daftar Plan"
+        description="Kelola paket subscription dan hak akses pengguna dengan mudah."
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search plan..."
+                className="rounded-xl border-slate-200 pl-9"
+              />
+            </div>
+            <Select
+              value={tierFilter}
+              onValueChange={(value) =>
+                handleFilterChange(setTierFilter, value as (typeof tierOptions)[number]["value"])
+              }
+            >
+              <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tierOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={statusFilter}
+              onValueChange={(value) =>
+                handleFilterChange(setStatusFilter, value as (typeof statusOptions)[number]["value"])
+              }
+            >
+              <SelectTrigger className="w-full rounded-xl border-slate-200 bg-white sm:w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {statusOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button className="rounded-xl bg-blue-600 hover:bg-blue-700" onClick={openCreateSheet}>
+            <Plus className="size-4" />
+            Buat Plan Baru
+          </Button>
+        </div>
+
+        <Table className="min-w-[760px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama Plan</TableHead>
+              <TableHead>Tier</TableHead>
+              <TableHead>Durasi</TableHead>
+              <TableHead>Harga</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedPlans.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-12 text-center text-slate-400">
+                  Tidak ada plan yang cocok dengan filter.
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedPlans.map((plan) => (
+                <TableRow key={plan.id}>
+                  <TableCell className="max-w-[18rem]">
+                    <div className="font-medium text-slate-950">{plan.name}</div>
+                    <div className="truncate text-slate-500 text-sm">{plan.description ?? "Tanpa deskripsi"}</div>
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge tone={toneForTier(plan.tier)}>{toLabel(plan.tier)}</StatusBadge>
+                  </TableCell>
+                  <TableCell className="text-slate-700">{formatDuration(plan.durationDays)}</TableCell>
+                  <TableCell className="font-medium text-slate-900">{formatPrice(plan)}</TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-2 text-sm">
+                      <span
+                        className={cn("size-2 rounded-full", plan.isActive ? "bg-emerald-500" : "bg-slate-300")}
+                      />
+                      <span className={plan.isActive ? "text-emerald-700" : "text-slate-500"}>
+                        {plan.isActive ? "Aktif" : "Nonaktif"}
+                      </span>
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <SubscriptionPlanRowActions
+                      plan={plan}
+                      onEdit={openEditSheet}
+                      onDuplicate={openDuplicateSheet}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+
+        <div className="flex flex-col gap-3 border-slate-100 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-slate-500 text-sm">
+            {filteredPlans.length === 0
+              ? "Menampilkan 0 plan"
+              : `Menampilkan ${rangeStart} - ${rangeEnd} dari ${filteredPlans.length} plan`}
+          </p>
+          {totalPages > 1 ? (
+            <Pagination className="mx-0 w-auto justify-end">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href="#"
+                    text="Prev"
+                    className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      if (currentPage > 1) {
+                        setPage(currentPage - 1);
+                      }
+                    }}
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`tier-${plan.id}`}>Tier</Label>
-                  <Select name="tier" defaultValue={plan.tier}>
-                    <SelectTrigger id={`tier-${plan.id}`} className="rounded-xl border-slate-200 bg-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="trial">Trial</SelectItem>
-                      <SelectItem value="standard">Standard</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`duration-${plan.id}`}>Durasi</Label>
-                  <Input
-                    id={`duration-${plan.id}`}
-                    name="durationDays"
-                    type="number"
-                    min={1}
-                    defaultValue={plan.durationDays}
-                    className="rounded-xl border-slate-200"
+                </PaginationItem>
+                {paginationItems.map((item, index) =>
+                  item === null ? (
+                    <PaginationItem key={`ellipsis-${index}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        href="#"
+                        isActive={item === currentPage}
+                        size="icon"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setPage(item);
+                        }}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    href="#"
+                    text="Next"
+                    className={currentPage >= totalPages ? "pointer-events-none opacity-50" : undefined}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      if (currentPage < totalPages) {
+                        setPage(currentPage + 1);
+                      }
+                    }}
                   />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`price-${plan.id}`}>Harga</Label>
-                  <Input
-                    id={`price-${plan.id}`}
-                    name="price"
-                    type="number"
-                    min={0}
-                    defaultValue={plan.price}
-                    className="rounded-xl border-slate-200"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor={`description-${plan.id}`}>Deskripsi</Label>
-                <Textarea
-                  id={`description-${plan.id}`}
-                  name="description"
-                  defaultValue={plan.description ?? ""}
-                  className="min-h-20 rounded-xl border-slate-200"
-                />
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor={`trial-limit-${plan.id}`}>Trial Tryout Limit</Label>
-                  <Input
-                    id={`trial-limit-${plan.id}`}
-                    name="trialTryoutLimit"
-                    type="number"
-                    min={0}
-                    defaultValue={plan.trialTryoutLimit ?? ""}
-                    className="rounded-xl border-slate-200"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor={`trial-days-${plan.id}`}>Trial Day Limit</Label>
-                  <Input
-                    id={`trial-days-${plan.id}`}
-                    name="trialDayLimit"
-                    type="number"
-                    min={1}
-                    defaultValue={plan.trialDayLimit ?? ""}
-                    className="rounded-xl border-slate-200"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <label className="flex items-center gap-2 text-slate-600 text-sm">
-                  <input name="isActive" type="checkbox" defaultChecked={plan.isActive} className="h-4 w-4" />
-                  Plan aktif
-                </label>
-                <Button
-                  type="submit"
-                  variant="outline"
-                  className="rounded-xl border-slate-200 bg-white"
-                  disabled={isPending}
-                >
-                  Perbarui Plan
-                </Button>
-              </div>
-            </form>
-          ))}
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          ) : null}
         </div>
       </SectionCard>
+
+      <SubscriptionPlansInfoBanner />
+
+      <SubscriptionPlanFormSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        draft={formDraft}
+        mode={sheetMode}
+      />
     </div>
   );
 }

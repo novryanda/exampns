@@ -27,18 +27,14 @@ export default async function ForgotPasswordPage() {
         </div>
       </div>
 
-      <div className="absolute top-5 flex w-full justify-end px-10">
+      <div className="absolute bottom-5 flex w-full justify-between px-10">
+        <div className="text-sm">{APP_CONFIG.copyright}</div>
         <div className="text-muted-foreground text-sm">
           Ingat password?{" "}
           <Link prefetch={false} className="text-foreground" href="/auth/login">
             Masuk
           </Link>
         </div>
-      </div>
-
-      <div className="absolute bottom-5 flex w-full justify-between px-10">
-        <div className="text-sm">{APP_CONFIG.copyright}</div>
-        <div className="text-muted-foreground text-xs">Link reset berlaku 1 jam.</div>
       </div>
     </>
   );

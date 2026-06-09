@@ -26,6 +26,8 @@ import {
 import {
   assertQuestionOptionRules,
   normalizeTags,
+  resolveQuestionDisplayTags,
+  resolveQuestionTagsForWrite,
 } from './question-bank.rules.js';
 
 const listSelect = {
@@ -55,6 +57,14 @@ const listSelect = {
   status: true,
   sourceType: true,
   updatedAt: true,
+  tags: {
+    select: {
+      tag: true,
+    },
+    orderBy: {
+      tag: 'asc',
+    },
+  },
 } as const;
 
 const detailSelect = {
@@ -352,6 +362,10 @@ export class QuestionBankService {
         difficulty: item.difficulty,
         status: item.status,
         sourceType: item.sourceType,
+        tags: resolveQuestionDisplayTags(
+          item.tags.map((tag) => tag.tag),
+          item.topicTagRef.name,
+        ),
         updatedAt: item.updatedAt,
       })),
       meta: {
@@ -369,7 +383,16 @@ export class QuestionBankService {
     assertQuestionOptionRules(category.answerMode, payload.options);
     await this.assertQuestionMetadata(category.id, payload.subCategoryId, payload.topicTagId);
 
-    const tags = normalizeTags(payload.tags);
+    const topicTag = await this.prisma.questionTopicTag.findUnique({
+      where: { id: payload.topicTagId },
+      select: { name: true },
+    });
+
+    if (!topicTag) {
+      throw new NotFoundException('Topic tag not found');
+    }
+
+    const tags = resolveQuestionTagsForWrite(payload.tags, topicTag.name);
 
     const created = await this.prisma.question.create({
       data: {
@@ -394,7 +417,7 @@ export class QuestionBankService {
             displayOrder: index + 1,
           })),
         },
-        ...(tags
+        ...(tags.length > 0
           ? {
               tags: {
                 create: tags.map((tag) => ({ tag })),
@@ -456,7 +479,10 @@ export class QuestionBankService {
         isCorrect: option.isCorrect,
         optionWeight: option.optionWeight,
       })),
-      tags: question.tags.map((tag) => tag.tag),
+      tags: resolveQuestionDisplayTags(
+        question.tags.map((tag) => tag.tag),
+        question.topicTagRef.name,
+      ),
       createdAt: question.createdAt,
       updatedAt: question.updatedAt,
     };
@@ -483,7 +509,19 @@ export class QuestionBankService {
       : await this.getCategoryById(existing.categoryId);
     const nextSubCategoryId = payload.subCategoryId ?? existing.subCategoryId;
     const nextTopicTagId = payload.topicTagId ?? existing.topicTagId;
-    const tags = normalizeTags(payload.tags);
+    const topicTag = await this.prisma.questionTopicTag.findUnique({
+      where: { id: nextTopicTagId },
+      select: { name: true },
+    });
+
+    if (!topicTag) {
+      throw new NotFoundException('Topic tag not found');
+    }
+
+    const tags =
+      payload.tags !== undefined
+        ? resolveQuestionTagsForWrite(payload.tags, topicTag.name)
+        : undefined;
 
     if (payload.options) {
       assertQuestionOptionRules(nextCategory.answerMode, payload.options);
@@ -536,12 +574,12 @@ export class QuestionBankService {
         });
       }
 
-      if (payload.tags !== undefined) {
+      if (tags !== undefined) {
         await tx.questionTag.deleteMany({
           where: { questionId },
         });
 
-        if (tags && tags.length > 0) {
+        if (tags.length > 0) {
           await tx.questionTag.createMany({
             data: tags.map((tag) => ({
               questionId,

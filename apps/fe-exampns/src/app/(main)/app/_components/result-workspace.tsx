@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { AiRecommendationContent } from "@/app/(main)/app/_components/ai-recommendation-content";
+import { AnswerReviewCard } from "@/app/(main)/app/_components/answer-review-card";
 import { ResultRankingPanel } from "@/app/(main)/app/_components/result-ranking-panel";
 import { ServerPagination } from "@/components/server-pagination";
 import { Button } from "@/components/ui/button";
@@ -283,26 +284,7 @@ export function ResultWorkspace({
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {answers.map((answer, index) => (
-              <article
-                key={`answer-${answer.number}-${index}`}
-                className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-slate-950">Soal {answer.number}</span>
-                  <StatusBadge tone="neutral">{answer.category}</StatusBadge>
-                  <StatusBadge
-                    tone={answer.isCorrect === true ? "success" : answer.isCorrect === false ? "danger" : "warning"}
-                  >
-                    {answer.isCorrect === true ? "Benar" : answer.isCorrect === false ? "Salah" : "Kosong"}
-                  </StatusBadge>
-                </div>
-                <p className="mt-3 flex-1 text-slate-700 text-sm leading-6">{answer.questionText}</p>
-                <p className="mt-3 border-slate-100 border-t pt-3 text-slate-500 text-sm">
-                  Jawaban Anda: <span className="font-medium text-slate-800">{answer.selectedLabel ?? "-"}</span>
-                  <br />
-                  Kunci: <span className="font-medium text-slate-800">{answer.correctLabel ?? "-"}</span>
-                </p>
-              </article>
+              <AnswerReviewCard key={`answer-${answer.number}-${index}`} answer={answer} />
             ))}
           </div>
         )}

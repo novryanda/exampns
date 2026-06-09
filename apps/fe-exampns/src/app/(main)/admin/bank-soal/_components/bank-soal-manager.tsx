@@ -34,13 +34,16 @@ function normalizeFilterValue(value: string) {
   return value && value !== "all" ? value : undefined;
 }
 
-function buildFilterHref(filters: {
-  search?: string;
-  category?: string;
-  subCategoryId?: string;
-  difficulty?: string;
-  status?: string;
-}) {
+function buildFilterHref(
+  basePath: string,
+  filters: {
+    search?: string;
+    category?: string;
+    subCategoryId?: string;
+    difficulty?: string;
+    status?: string;
+  },
+) {
   const searchParams = new URLSearchParams();
 
   if (filters.search) {
@@ -64,7 +67,7 @@ function buildFilterHref(filters: {
   }
 
   const query = searchParams.toString();
-  return query ? `/admin/bank-soal?${query}` : "/admin/bank-soal";
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 async function fetchQuestions(params: {
@@ -91,6 +94,8 @@ export function BankSoalManager({
   initialOverview,
   initialMetadataOptions,
   initialFilters,
+  readOnly = false,
+  basePath = "/admin/bank-soal",
 }: {
   readonly initialResponse: ClientPaginatedResponse<QuestionListItem[]>;
   readonly initialOverview: QuestionBankOverview;
@@ -102,6 +107,8 @@ export function BankSoalManager({
     difficulty?: string;
     status?: string;
   };
+  readonly readOnly?: boolean;
+  readonly basePath?: string;
 }) {
   const [response, setResponse] = useState(initialResponse);
   const [appliedFilters, setAppliedFilters] = useState(initialFilters);
@@ -142,7 +149,7 @@ export function BankSoalManager({
         });
         setAppliedFilters(nextFilters);
         setResponse(nextResponse);
-        window.history.replaceState(null, "", buildFilterHref(nextFilters));
+        window.history.replaceState(null, "", buildFilterHref(basePath, nextFilters));
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Gagal memuat soal.");
       }
@@ -199,88 +206,97 @@ export function BankSoalManager({
     searchInput,
   ]);
 
+  const filtersToolbar = (
+    <form
+      className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        handleApply();
+      }}
+    >
+      <Input
+        value={searchInput}
+        onChange={(event) => setSearchInput(event.target.value)}
+        placeholder="Cari soal, sub-kategori atau topik tag"
+        className="min-w-[14rem] flex-1 rounded-xl border-slate-200 bg-white"
+      />
+      <Select value={categoryInput} onValueChange={setCategoryInput}>
+        <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
+          <SelectValue placeholder="Kategori" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="all">Semua Kategori</SelectItem>
+          {initialMetadataOptions.categories.map((category) => (
+            <SelectItem key={category.code} value={category.code}>
+              {category.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <div className="w-56 min-w-[12rem]">
+        <ItemCombobox
+          id="bank-soal-sub-category-filter"
+          value={subCategoryInput}
+          onValueChange={setSubCategoryInput}
+          placeholder="Semua Sub-kategori"
+          emptyMessage="Sub-kategori tidak ditemukan."
+          options={[
+            { value: "all", label: "Semua Sub-kategori" },
+            ...visibleSubCategories.map((item) => ({
+              value: item.id,
+              label: `${item.category} - ${item.name}`,
+            })),
+          ]}
+        />
+      </div>
+      <Select value={difficultyInput} onValueChange={setDifficultyInput}>
+        <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
+          <SelectValue placeholder="Kesulitan" />
+        </SelectTrigger>
+        <SelectContent>
+          {difficultyOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Select value={statusInput} onValueChange={setStatusInput}>
+        <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          {statusOptions.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
+        <Filter className="mr-2 size-4" />
+        {isPending ? "Memuat..." : "Terapkan"}
+      </Button>
+      <Button type="button" variant="ghost" className="rounded-xl text-slate-600" disabled={isPending} onClick={handleReset}>
+        Reset
+      </Button>
+    </form>
+  );
+
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
-      <form
-        className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
-        onSubmit={(event) => {
-          event.preventDefault();
-          handleApply();
-        }}
-      >
-        <Input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder="Cari soal, sub-kategori atau topik tag"
-          className="min-w-[14rem] flex-1 rounded-xl border-slate-200"
-        />
-        <Select value={categoryInput} onValueChange={setCategoryInput}>
-          <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Kategori" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Kategori</SelectItem>
-            {initialMetadataOptions.categories.map((category) => (
-              <SelectItem key={category.code} value={category.code}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="w-56 min-w-[12rem]">
-          <ItemCombobox
-            id="bank-soal-sub-category-filter"
-            value={subCategoryInput}
-            onValueChange={setSubCategoryInput}
-            placeholder="Semua Sub-kategori"
-            emptyMessage="Sub-kategori tidak ditemukan."
-            options={[
-              { value: "all", label: "Semua Sub-kategori" },
-              ...visibleSubCategories.map((item) => ({
-                value: item.id,
-                label: `${item.category} - ${item.name}`,
-              })),
-            ]}
-          />
-        </div>
-        <Select value={difficultyInput} onValueChange={setDifficultyInput}>
-          <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Kesulitan" />
-          </SelectTrigger>
-          <SelectContent>
-            {difficultyOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={statusInput} onValueChange={setStatusInput}>
-          <SelectTrigger className="w-40 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-          <Filter className="mr-2 size-4" />
-          {isPending ? "Memuat..." : "Terapkan"}
-        </Button>
-        <Button type="button" variant="ghost" className="rounded-xl text-slate-600" disabled={isPending} onClick={handleReset}>
-          Reset
-        </Button>
-      </form>
-
       <BankSoalKpiCards overview={initialOverview} />
 
       <BankSoalOverviewPanel initialOverview={initialOverview} categories={initialMetadataOptions.categories} />
 
-      <QuestionsTable initialResponse={response} filters={appliedFilters} onResponseChange={setResponse} />
+      <QuestionsTable
+        initialResponse={response}
+        filters={appliedFilters}
+        onResponseChange={setResponse}
+        readOnly={readOnly}
+        basePath={basePath}
+        toolbar={filtersToolbar}
+      />
     </div>
   );
 }

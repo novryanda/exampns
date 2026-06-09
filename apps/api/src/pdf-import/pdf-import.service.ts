@@ -506,6 +506,20 @@ export class PdfImportService {
         ),
       });
 
+      const topicTag = await tx.questionTopicTag.findUnique({
+        where: { id: resolvedTopicTagId },
+        select: { name: true },
+      });
+
+      if (topicTag?.name) {
+        await tx.questionTag.create({
+          data: {
+            questionId: question.id,
+            tag: topicTag.name,
+          },
+        });
+      }
+
       await tx.parsedQuestionReview.update({
         where: { id: parsedQuestionId },
         data: {

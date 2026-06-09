@@ -199,18 +199,15 @@ export function QuestionEditorForm({
 
         <div className="grid gap-2">
           <div className="space-y-1">
-            <Label htmlFor="competencyArea">Area Kompetensi (Opsional)</Label>
-            <p className="text-slate-500 text-sm">
-              Opsional. Dipakai untuk mengelompokkan materi yang lebih luas, misalnya &quot;Nasionalisme&quot;,
-              &quot;Penalaran Umum&quot;, atau &quot;Pelayanan Publik&quot;.
-            </p>
+            <Label htmlFor="tags">Tag Soal (Opsional)</Label>
+            <p className="text-slate-500 text-sm">Pisahkan beberapa tag dengan koma, misalnya &quot;nasionalisme, pelayanan publik&quot;.</p>
           </div>
           <Input
-            id="competencyArea"
-            name="competencyArea"
-            defaultValue={question?.competencyArea ?? ""}
+            id="tags"
+            name="tags"
+            defaultValue={question?.tags.join(", ") ?? ""}
             className="rounded-xl border-slate-200 bg-white"
-            placeholder="Contoh: Nasionalisme"
+            placeholder="Contoh: nasionalisme, pelayanan publik"
           />
         </div>
       </FormSection>

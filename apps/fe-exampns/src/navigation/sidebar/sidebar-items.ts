@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombined,
   FileSearch,
   Files,
+  FileText,
   History,
   LayoutDashboard,
   LogOut,
@@ -181,6 +182,11 @@ export const superAdminSidebarItems: NavGroup[] = [
     id: 3,
     label: "Content",
     items: [
+      {
+        title: "Bank Soal",
+        url: "/super-admin/bank-soal",
+        icon: FileText,
+      },
       {
         title: "Tryout Catalog",
         url: "/super-admin/tryout-catalog",

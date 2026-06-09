@@ -65,3 +65,23 @@ export const normalizeTags = (tags?: string[]) => {
 
   return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))];
 };
+
+export const resolveQuestionDisplayTags = (storedTags: string[], topicTagName: string) => {
+  const normalized = [...new Set(storedTags.map((tag) => tag.trim()).filter(Boolean))];
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  const fallback = topicTagName.trim();
+  return fallback ? [fallback] : [];
+};
+
+export const resolveQuestionTagsForWrite = (payloadTags: string[] | undefined, topicTagName: string) => {
+  const normalized = normalizeTags(payloadTags) ?? [];
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  const fallback = topicTagName.trim();
+  return fallback ? [fallback] : [];
+};

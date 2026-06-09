@@ -25,6 +25,15 @@ function optionalString(value: FormDataEntryValue | null) {
   return text.length > 0 ? text : undefined;
 }
 
+function parseTags(value: FormDataEntryValue | null) {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return [];
+  }
+
+  return [...new Set(text.split(",").map((tag) => tag.trim()).filter(Boolean))];
+}
+
 function buildParsedQuestionUpdatePayload(formData: FormData) {
   const categoryCode = String(formData.get("category") ?? "");
   const answerMode = String(formData.get("answerMode") ?? "single_correct");
@@ -56,7 +65,7 @@ function buildQuestionPayload(formData: FormData) {
     categoryCode,
     subCategoryId: String(formData.get("subCategoryId") ?? "").trim(),
     topicTagId: String(formData.get("topicTagId") ?? "").trim(),
-    competencyArea: optionalString(formData.get("competencyArea")) ?? "",
+    tags: parseTags(formData.get("tags")),
     difficulty: String(formData.get("difficulty") ?? "medium"),
     status: String(formData.get("status") ?? "draft"),
     explanation: optionalString(formData.get("explanation")) ?? "",

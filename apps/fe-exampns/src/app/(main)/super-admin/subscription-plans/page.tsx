@@ -10,7 +10,7 @@ export default async function SubscriptionPlansPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Subscription Plans"
-        description="Kelola tier trial, standard, dan premium sebagai offering SaaS platform."
+        description="Kelola paket subscription dan hak akses pengguna dengan mudah."
       />
       <SubscriptionPlansManager plans={plans} />
     </div>

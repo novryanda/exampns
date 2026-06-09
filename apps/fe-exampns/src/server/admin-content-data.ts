@@ -81,6 +81,7 @@ export interface QuestionListItem {
   difficulty: "easy" | "medium" | "hard";
   status: "draft" | "pending_review" | "active" | "archived";
   sourceType: "manual" | "pdf_import";
+  tags?: string[];
   updatedAt: string;
 }
 

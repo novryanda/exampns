@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { proxyBackendRequest, SERVER_BACKEND_API_URL } from "@/lib/api/backend-proxy";
 
 const FORWARD_REQUEST_HEADERS = ["content-type"] as const;
 
@@ -20,20 +20,12 @@ async function proxyPublicRequest(
   }
 
   const query = request.nextUrl.search || "";
-  const backendResponse = await fetch(`${BACKEND_API_URL}/api/v1/public/${path.join("/")}${query}`, {
+  const targetUrl = `${SERVER_BACKEND_API_URL}/api/v1/public/${path.join("/")}${query}`;
+
+  return proxyBackendRequest(targetUrl, {
     method,
     headers,
     body: method === "GET" ? undefined : await request.text(),
-    cache: "no-store",
-  });
-
-  const responseHeaders = new Headers(backendResponse.headers);
-  const body = await backendResponse.arrayBuffer();
-
-  return new NextResponse(body, {
-    status: backendResponse.status,
-    statusText: backendResponse.statusText,
-    headers: responseHeaders,
   });
 }
 

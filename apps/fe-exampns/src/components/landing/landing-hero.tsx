@@ -3,23 +3,65 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+import {
+  fetchPublicSampleQuestions,
+  type PublicSampleQuestionsResponse,
+} from "@/lib/api/public-sample";
+
 import { LandingHeroMiniTryout } from "./landing-hero-mini-tryout";
 import { LANDING_ASSETS } from "./landing-asset-kit";
 import { landingTheme } from "./landing-theme";
 
-function HeroVisualPanel() {
+interface HeroMiniTryoutState {
+  initialData: PublicSampleQuestionsResponse | null;
+  initialError: string | null;
+  initialIsEmpty: boolean;
+}
+
+async function loadHeroMiniTryoutState(): Promise<HeroMiniTryoutState> {
+  try {
+    const data = await fetchPublicSampleQuestions();
+
+    if (data.questions.length === 0) {
+      return {
+        initialData: null,
+        initialError: null,
+        initialIsEmpty: true,
+      };
+    }
+
+    return {
+      initialData: data,
+      initialError: null,
+      initialIsEmpty: false,
+    };
+  } catch (error) {
+    return {
+      initialData: null,
+      initialError: error instanceof Error ? error.message : "Gagal memuat soal",
+      initialIsEmpty: false,
+    };
+  }
+}
+
+function HeroVisualPanel({ miniTryoutState }: { readonly miniTryoutState: HeroMiniTryoutState }) {
   return (
     <div className="relative mx-auto w-full max-w-[500px] lg:max-w-none">
       <div className="relative min-h-[340px] overflow-hidden rounded-2xl border border-[#bfdbfe]/60 bg-gradient-to-b from-[#eef6ff] via-[#e8f2ff] to-[#dbeafe] shadow-[0_4px_24px_rgba(59,130,246,0.08)] sm:min-h-[420px] sm:rounded-3xl lg:min-h-[540px]">
         <div className="absolute inset-1.5 overflow-hidden rounded-xl bg-white shadow-sm sm:inset-3 sm:rounded-2xl">
-          <LandingHeroMiniTryout />
+          <LandingHeroMiniTryout
+            initialData={miniTryoutState.initialData}
+            initialError={miniTryoutState.initialError}
+            initialIsEmpty={miniTryoutState.initialIsEmpty}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-export function LandingHero() {
+export async function LandingHero() {
+  const miniTryoutState = await loadHeroMiniTryoutState();
   return (
     <section id="beranda" className="relative overflow-hidden bg-[#bfdbfe]">
       <Image
@@ -73,7 +115,7 @@ export function LandingHero() {
           </div>
         </div>
 
-        <HeroVisualPanel />
+        <HeroVisualPanel miniTryoutState={miniTryoutState} />
       </div>
     </section>
   );

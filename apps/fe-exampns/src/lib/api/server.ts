@@ -2,7 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 
 export interface ApiSuccessResponse<T> {
   success: true;
@@ -43,7 +43,7 @@ async function getRequestHeaders() {
 }
 
 async function apiFetch<T>(path: string) {
-  const response = await fetch(`${BACKEND_API_URL}${path}`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}${path}`, {
     method: "GET",
     headers: await getRequestHeaders(),
     cache: "no-store",

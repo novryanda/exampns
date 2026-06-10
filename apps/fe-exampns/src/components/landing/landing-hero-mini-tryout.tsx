@@ -80,12 +80,24 @@ interface CheckResponse {
   results: CheckResultItem[];
 }
 
-export function LandingHeroMiniTryout() {
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [isEmpty, setIsEmpty] = React.useState(false);
-  const [sessionToken, setSessionToken] = React.useState<string | null>(null);
-  const [questions, setQuestions] = React.useState<SampleQuestion[]>([]);
+interface LandingHeroMiniTryoutProps {
+  readonly initialData?: SampleQuestionsResponse | null;
+  readonly initialError?: string | null;
+  readonly initialIsEmpty?: boolean;
+}
+
+export function LandingHeroMiniTryout({
+  initialData = null,
+  initialError = null,
+  initialIsEmpty = false,
+}: LandingHeroMiniTryoutProps) {
+  const hasInitialState = initialData !== null || initialError !== null || initialIsEmpty;
+
+  const [loading, setLoading] = React.useState(!hasInitialState);
+  const [error, setError] = React.useState<string | null>(initialError);
+  const [isEmpty, setIsEmpty] = React.useState(initialIsEmpty);
+  const [sessionToken, setSessionToken] = React.useState<string | null>(initialData?.sessionToken ?? null);
+  const [questions, setQuestions] = React.useState<SampleQuestion[]>(initialData?.questions ?? []);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [answers, setAnswers] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
@@ -129,8 +141,12 @@ export function LandingHeroMiniTryout() {
   }, []);
 
   React.useEffect(() => {
+    if (hasInitialState) {
+      return;
+    }
+
     void loadQuestions();
-  }, [loadQuestions]);
+  }, [hasInitialState, loadQuestions]);
 
   const restartCurrentQuestions = () => {
     setResult(null);

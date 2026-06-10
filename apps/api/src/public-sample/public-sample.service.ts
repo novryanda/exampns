@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { QuestionStatus } from '../../generated/prisma/client.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
@@ -47,10 +47,11 @@ export class PublicSampleService {
     });
 
     if (questions.length === 0) {
-      throw new NotFoundException({
-        success: false,
-        message: 'Belum ada soal aktif di bank soal',
-      });
+      return {
+        sessionToken: null,
+        totalQuestions: 0,
+        questions: [],
+      };
     }
 
     const selected = shuffle(questions).slice(0, SAMPLE_QUESTION_COUNT);

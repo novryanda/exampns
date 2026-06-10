@@ -20,9 +20,49 @@ interface SampleQuestion {
 }
 
 interface SampleQuestionsResponse {
-  sessionToken: string;
+  sessionToken: string | null;
   totalQuestions: number;
   questions: SampleQuestion[];
+}
+
+function extractApiErrorMessage(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== "object") {
+    return fallback;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const message = record.message;
+
+  if (typeof message === "string" && message.trim()) {
+    return message;
+  }
+
+  if (message && typeof message === "object") {
+    const nested = message as Record<string, unknown>;
+    if (typeof nested.message === "string" && nested.message.trim()) {
+      return nested.message;
+    }
+  }
+
+  return fallback;
+}
+
+async function readApiData<T>(response: Response): Promise<T> {
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("Gagal memuat mini tryout");
+  }
+
+  const record = payload as { success?: boolean; data?: T };
+
+  if (!response.ok || record.success === false || record.data === undefined) {
+    throw new Error(extractApiErrorMessage(payload, "Gagal memuat mini tryout"));
+  }
+
+  return record.data;
 }
 
 interface CheckResultItem {
@@ -40,19 +80,10 @@ interface CheckResponse {
   results: CheckResultItem[];
 }
 
-async function readApiData<T>(response: Response): Promise<T> {
-  const payload = (await response.json()) as { success: boolean; data?: T; message?: string };
-
-  if (!response.ok || !payload.success || !payload.data) {
-    throw new Error(payload.message ?? "Gagal memuat mini tryout");
-  }
-
-  return payload.data;
-}
-
 export function LandingHeroMiniTryout() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isEmpty, setIsEmpty] = React.useState(false);
   const [sessionToken, setSessionToken] = React.useState<string | null>(null);
   const [questions, setQuestions] = React.useState<SampleQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -63,6 +94,7 @@ export function LandingHeroMiniTryout() {
   const loadQuestions = React.useCallback(async () => {
     setLoading(true);
     setError(null);
+    setIsEmpty(false);
     setResult(null);
     setAnswers({});
     setCurrentIndex(0);
@@ -70,10 +102,25 @@ export function LandingHeroMiniTryout() {
     try {
       const response = await fetch("/api/public/sample-questions", { cache: "no-store" });
       const data = await readApiData<SampleQuestionsResponse>(response);
+
+      if (data.questions.length === 0) {
+        setIsEmpty(true);
+        setQuestions([]);
+        setSessionToken(null);
+        return;
+      }
+
       setSessionToken(data.sessionToken);
       setQuestions(data.questions);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Gagal memuat soal");
+      const message =
+        loadError instanceof TypeError && loadError.message === "Failed to fetch"
+          ? "Tidak dapat terhubung ke server. Coba lagi nanti."
+          : loadError instanceof Error
+            ? loadError.message
+            : "Gagal memuat soal";
+
+      setError(message);
       setQuestions([]);
       setSessionToken(null);
     } finally {
@@ -145,6 +192,20 @@ export function LandingHeroMiniTryout() {
     return (
       <div className="flex h-full min-h-[300px] items-center justify-center p-4 sm:min-h-[360px] sm:p-6">
         <p className="text-[#64748b] text-sm">Memuat soal...</p>
+      </div>
+    );
+  }
+
+  if (isEmpty) {
+    return (
+      <div className="flex h-full min-h-[300px] flex-col items-center justify-center gap-2 p-4 text-center sm:min-h-[360px] sm:p-6">
+        <p className="font-semibold text-[#0f172a] text-sm">Soal belum ada</p>
+        <p className="max-w-[240px] text-[#64748b] text-xs leading-relaxed">
+          Mini tryout akan tersedia setelah admin menambahkan soal aktif ke bank soal.
+        </p>
+        <Button asChild size="sm" className="mt-2 bg-[#1d4ed8] hover:bg-[#1e40af]">
+          <Link href="/auth/register">Daftar untuk Info Terbaru</Link>
+        </Button>
       </div>
     );
   }

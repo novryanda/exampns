@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 
+import { LandingAnchorLink } from "./landing-anchor-link";
 import { LANDING_ASSETS } from "./landing-asset-kit";
 
 export function LandingCta() {
@@ -51,7 +52,7 @@ export function LandingCta() {
                   variant="outline"
                   className="w-full rounded-full border-white/60 bg-transparent px-6 text-white hover:bg-white/10 sm:w-auto"
                 >
-                  <Link href="#paket">Lihat Paket</Link>
+                  <LandingAnchorLink href="#paket">Lihat Paket</LandingAnchorLink>
                 </Button>
               </div>
             </div>

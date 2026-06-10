@@ -7,7 +7,7 @@ import { landingTheme } from "./landing-theme";
 
 export function LandingSteps() {
   return (
-    <section id="cara-kerja" className={cn(landingTheme.sectionAlt, "py-16 sm:py-20")}>
+    <section id="cara-kerja" className={cn(landingTheme.sectionAlt, "scroll-mt-16 py-16 sm:py-20")}>
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className={landingTheme.sectionLabel}>Cara Kerja</p>

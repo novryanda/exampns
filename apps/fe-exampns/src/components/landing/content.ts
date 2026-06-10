@@ -10,10 +10,10 @@ export const NAV_LINKS = [
 ] as const;
 
 export const STATS = [
-  { value: "250K+", label: "Pengguna Aktif" },
-  { value: "10.000+", label: "Soal Berkualitas" },
-  { value: "98%", label: "Tingkat Kepuasan" },
-  { value: "85%", label: "Berhasil Meningkatkan Skor" },
+  { value: 250, suffix: "K+", label: "Pengguna Aktif" },
+  { value: 10_000, suffix: "+", label: "Soal Berkualitas", locale: "id-ID" },
+  { value: 98, suffix: "%", label: "Tingkat Kepuasan" },
+  { value: 85, suffix: "%", label: "Berhasil Meningkatkan Skor" },
 ] as const;
 
 export const FEATURES = [

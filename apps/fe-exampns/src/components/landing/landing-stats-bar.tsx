@@ -3,6 +3,7 @@ import { BookOpen, Star, TrendingUp, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { STATS } from "./content";
+import { LandingStatValue } from "./landing-stat-value";
 
 const STAT_ICONS = [Users, BookOpen, Star, TrendingUp] as const;
 
@@ -29,9 +30,12 @@ export function LandingStatsBar() {
                     <Icon className="size-4 text-[#1d4ed8] sm:size-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="font-bold text-[#1d4ed8] text-lg leading-tight sm:text-2xl">
-                      {stat.value}
-                    </p>
+                    <LandingStatValue
+                      value={stat.value}
+                      suffix={stat.suffix}
+                      locale={"locale" in stat ? stat.locale : undefined}
+                      delay={index * 0.15}
+                    />
                     <p className="mt-0.5 text-[#64748b] text-[11px] leading-snug sm:text-sm">
                       {stat.label}
                     </p>

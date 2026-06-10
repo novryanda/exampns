@@ -8,6 +8,7 @@ import {
   type PublicSampleQuestionsResponse,
 } from "@/lib/api/public-sample";
 
+import { LandingAnchorLink } from "./landing-anchor-link";
 import { LandingHeroMiniTryout } from "./landing-hero-mini-tryout";
 import { LANDING_ASSETS } from "./landing-asset-kit";
 import { landingTheme } from "./landing-theme";
@@ -63,20 +64,18 @@ function HeroVisualPanel({ miniTryoutState }: { readonly miniTryoutState: HeroMi
 export async function LandingHero() {
   const miniTryoutState = await loadHeroMiniTryoutState();
   return (
-    <section id="beranda" className="relative overflow-hidden bg-[#bfdbfe]">
+    <section id="beranda" className="relative scroll-mt-16 overflow-hidden bg-[#e8f2ff]">
       <Image
         src={LANDING_ASSETS.heroSectionBackground}
         alt=""
         fill
         priority
-        className="object-cover object-center saturate-[1.08]"
+        className="object-cover object-center"
         sizes="100vw"
       />
-      <div className="pointer-events-none absolute inset-0 bg-[#3b82f6]/12 lg:bg-[#3b82f6]/18" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/96 via-white/92 to-[#dbeafe]/80 lg:bg-gradient-to-r lg:from-white/82 lg:via-[#dbeafe]/65 lg:to-[#93c5fd]/45" />
 
-      <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-6 px-4 pt-8 pb-10 sm:gap-8 sm:px-6 sm:pt-16 sm:pb-16 lg:grid-cols-2 lg:gap-10 lg:px-8 lg:pt-32 lg:pb-28">
-        <div className="z-10 space-y-4 text-center sm:space-y-6 lg:text-left">
+      <div className="relative z-10 mx-auto grid max-w-6xl items-start gap-6 px-4 pt-3 pb-10 sm:gap-8 sm:px-6 sm:pt-6 sm:pb-16 lg:grid-cols-2 lg:gap-10 lg:px-8 lg:pt-12 lg:pb-28">
+        <div className="z-10 space-y-3 text-center sm:space-y-5 lg:text-left">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#dbeafe] px-3 py-1 font-semibold text-[#1d4ed8] text-[11px] uppercase tracking-wide sm:px-4 sm:py-1.5 sm:text-xs">
             Platform #1 Persiapan CAT CPNS
           </span>
@@ -91,7 +90,7 @@ export async function LandingHero() {
             <span className="text-[#1d4ed8]">Siap Bersaing!</span>
           </h1>
 
-          <p className={cn(landingTheme.body, "mx-auto max-w-xl text-sm leading-relaxed sm:text-base lg:mx-0 lg:text-lg")}>
+          <p className="mx-auto max-w-xl font-semibold text-[#1e293b] text-sm leading-relaxed sm:text-base lg:mx-0 lg:text-lg [text-shadow:0_1px_8px_rgba(255,255,255,0.85)]">
             Ribuan soal berkualitas, simulasi CAT sesungguhnya, dan analisis mendalam untuk
             memaksimalkan peluang lolos SKD CPNS Anda.
           </p>
@@ -110,7 +109,7 @@ export async function LandingHero() {
               variant="outline"
               className="w-full rounded-full border-[#cbd5e1] bg-white px-6 text-[#334155] shadow-sm hover:bg-[#f8fafc] sm:w-auto"
             >
-              <Link href="#paket">Lihat Paket</Link>
+              <LandingAnchorLink href="#paket">Lihat Paket</LandingAnchorLink>
             </Button>
           </div>
         </div>

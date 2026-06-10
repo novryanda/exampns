@@ -13,7 +13,7 @@ import { landingTheme } from "./landing-theme";
 
 export function LandingFaq() {
   return (
-    <section id="faq" className={cn(landingTheme.sectionAlt, "py-16 sm:py-20")}>
+    <section id="faq" className={cn(landingTheme.sectionAlt, "scroll-mt-16 py-16 sm:py-20")}>
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           <p className={landingTheme.sectionLabel}>FAQ</p>

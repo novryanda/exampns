@@ -1,36 +1,37 @@
 import type { ReactNode } from "react";
 
-import { GraduationCap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 
-import { Separator } from "@/components/ui/separator";
-import { APP_CONFIG } from "@/config/app-config";
+import { Button } from "@/components/ui/button";
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <main>
-      <div className="grid h-dvh justify-center p-2 lg:grid-cols-2">
-        <div className="relative order-2 hidden h-full rounded-3xl bg-linear-to-br from-blue-700 via-blue-600 to-sky-500 lg:flex">
-          <div className="absolute top-10 space-y-1 px-10 text-primary-foreground">
-            <GraduationCap className="size-10" />
-            <h1 className="font-medium text-2xl">{APP_CONFIG.name}</h1>
-            <p className="text-sm">Kelola tryout, pengguna, dan insight platform dalam satu workspace.</p>
+    <main className="bg-white">
+      <div className="grid h-dvh justify-center gap-2 p-2 lg:grid-cols-2">
+        <div className="relative order-1 flex h-full overflow-hidden rounded-3xl bg-white">
+          <div className="absolute top-5 left-5 z-10 sm:top-6 sm:left-6">
+            <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <Link href="/">
+                <ArrowLeft className="size-4" />
+                Kembali ke halaman utama
+              </Link>
+            </Button>
           </div>
-
-          <div className="absolute bottom-10 flex w-full justify-between px-10">
-            <div className="flex-1 space-y-1 text-primary-foreground">
-              <h2 className="font-medium">Auth-first workspace</h2>
-              <p className="text-sm">Session, profile, dan proteksi route disambungkan langsung ke Better Auth di backend NestJS.</p>
-            </div>
-            <Separator orientation="vertical" className="mx-3 h-auto!" />
-            <div className="flex-1 space-y-1 text-primary-foreground">
-              <h2 className="font-medium">Butuh bantuan?</h2>
-              <p className="text-sm">
-                Setelah daftar, link aktivasi dikirim ke email Anda. Buka link tersebut sebelum login pertama kali.
-              </p>
-            </div>
-          </div>
+          {children}
         </div>
-        <div className="relative order-1 flex h-full">{children}</div>
+
+        <div className="relative order-2 hidden h-full overflow-hidden rounded-3xl bg-[#eef6ff] lg:block">
+          <Image
+            src="/auth/authlayout.png"
+            alt="ExamCPNS - Persiapan CAT CPNS"
+            fill
+            priority
+            className="object-cover object-center"
+            sizes="50vw"
+          />
+        </div>
       </div>
     </main>
   );

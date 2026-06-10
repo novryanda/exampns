@@ -84,7 +84,7 @@ export function LandingFooter() {
         </div>
 
         <div className="mt-10 border-[#e2e8f0] border-t pt-6 text-center text-[#94a3b8] text-sm">
-          © 2024 {APP_CONFIG.name}. All rights reserved.
+          © 2026 {APP_CONFIG.name}. All rights reserved.
         </div>
       </div>
     </footer>

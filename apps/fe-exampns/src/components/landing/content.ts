@@ -9,12 +9,6 @@ export const NAV_LINKS = [
   { label: "FAQ", href: "#faq" },
 ] as const;
 
-export const HERO_TRUST_ITEMS = [
-  { icon: LANDING_ASSETS.badges[0], label: "Soal sesuai standar BKN" },
-  { icon: LANDING_ASSETS.badges[1], label: "Update rutin" },
-  { icon: LANDING_ASSETS.badges[2], label: "Aman & Terpercaya" },
-] as const;
-
 export const STATS = [
   { value: "250K+", label: "Pengguna Aktif" },
   { value: "10.000+", label: "Soal Berkualitas" },
@@ -92,21 +86,42 @@ export const TESTIMONIALS = [
       "Setelah 3 bulan rutin tryout di ExamCPNS, skor TIU saya naik 25 poin. Akhirnya lolos CPNS 2023 di Kemenkeu!",
     name: "Rina Wulandari",
     role: "Lolos CPNS 2023 — Kemenkeu",
-    avatar: LANDING_ASSETS.avatars[0],
+    avatar: LANDING_ASSETS.avatarFemale,
   },
   {
     quote:
       "Simulasi CAT-nya sangat mirip aslinya. Saya jadi tidak kaget saat ujian SKD dan bisa mengatur waktu dengan baik.",
     name: "Ahmad Fauzi",
     role: "Lolos CPNS 2024 — Kemendagri",
-    avatar: LANDING_ASSETS.avatars[1],
+    avatar: LANDING_ASSETS.avatarMale,
   },
   {
     quote:
       "Fitur analisis skornya luar biasa. Saya tahu persis materi mana yang harus diperbaiki. Sangat worth it!",
     name: "Dewi Kartika",
     role: "Lolos CPNS 2023 — BKN",
-    avatar: LANDING_ASSETS.avatars[0],
+    avatar: LANDING_ASSETS.avatarFemale,
+  },
+  {
+    quote:
+      "Platform ini membantu saya fokus latihan TWK. Materi pembahasannya lengkap dan mudah dipahami.",
+    name: "Budi Santoso",
+    role: "Lolos CPNS 2024 — Kemenhub",
+    avatar: LANDING_ASSETS.avatarMale,
+  },
+  {
+    quote:
+      "Tryout mingguannya jadi rutinitas saya. Progress skor terlihat jelas setiap minggu.",
+    name: "Siti Nurhaliza",
+    role: "Lolos CPNS 2024 — Kemensos",
+    avatar: LANDING_ASSETS.avatarFemale,
+  },
+  {
+    quote:
+      "Rekomendasi latihan dari AI sangat akurat. Skor TKP saya naik signifikan dalam 2 bulan.",
+    name: "Rizki Mahendra",
+    role: "Lolos CPNS 2023 — KKP",
+    avatar: LANDING_ASSETS.avatarMale,
   },
 ] as const;
 

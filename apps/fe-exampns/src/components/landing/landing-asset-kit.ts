@@ -3,6 +3,8 @@ export const LANDING_ASSETS = {
   heroHouse: "/landing/herocardhouse2.png",
   heroPeople: "/landing/herocardpeople.png",
   cta: "/landing/sectioncard.png",
+  ctaBackground: "/landing/backgroundsectiond.png",
+  heroSectionBackground: "/landing/herosectioncard.png",
   icons: [
     "/landing/icon1.png",
     "/landing/icon2.png",
@@ -24,5 +26,6 @@ export const LANDING_ASSETS = {
     "/landing/badge4.png",
     "/landing/badge5.png",
   ] as const,
-  avatars: ["/landing/avatar1.png", "/landing/avatar2.png"] as const,
+  avatarMale: "/landing/avatar1cowo.png",
+  avatarFemale: "/landing/avatar2cewek.png",
 } as const;

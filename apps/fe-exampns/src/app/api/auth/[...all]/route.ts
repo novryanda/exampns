@@ -1,6 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { buildForwardHeaders, proxyBackendRequest, SERVER_BACKEND_API_URL } from "@/lib/api/backend-proxy";
 
 const FORWARD_REQUEST_HEADERS = [
   "cookie",
@@ -14,15 +14,8 @@ const FORWARD_REQUEST_HEADERS = [
 
 async function proxyAuth(request: NextRequest, segments: string[]) {
   const path = segments.join("/");
-  const targetUrl = `${BACKEND_API_URL}/api/auth/${path}${request.nextUrl.search}`;
-
-  const headers = new Headers();
-  for (const name of FORWARD_REQUEST_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) {
-      headers.set(name, value);
-    }
-  }
+  const targetUrl = `${SERVER_BACKEND_API_URL}/api/auth/${path}${request.nextUrl.search}`;
+  const headers = buildForwardHeaders(request, FORWARD_REQUEST_HEADERS);
 
   const init: RequestInit = {
     method: request.method,
@@ -34,15 +27,7 @@ async function proxyAuth(request: NextRequest, segments: string[]) {
     init.body = await request.arrayBuffer();
   }
 
-  const backendResponse = await fetch(targetUrl, init);
-  const responseHeaders = new Headers(backendResponse.headers);
-  const body = await backendResponse.arrayBuffer();
-
-  return new NextResponse(body, {
-    status: backendResponse.status,
-    statusText: backendResponse.statusText,
-    headers: responseHeaders,
-  });
+  return proxyBackendRequest(targetUrl, init, { rewriteCookies: true });
 }
 
 type RouteContext = {

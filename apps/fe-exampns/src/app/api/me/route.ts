@@ -1,31 +1,14 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { buildForwardHeaders, proxyBackendRequest, SERVER_BACKEND_API_URL } from "@/lib/api/backend-proxy";
 
 const FORWARD_REQUEST_HEADERS = ["cookie", "origin", "referer", "user-agent"] as const;
 
 export async function GET(request: NextRequest) {
-  const headers = new Headers();
+  const headers = buildForwardHeaders(request, FORWARD_REQUEST_HEADERS);
 
-  for (const name of FORWARD_REQUEST_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) {
-      headers.set(name, value);
-    }
-  }
-
-  const backendResponse = await fetch(`${BACKEND_API_URL}/api/v1/me`, {
+  return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/me`, {
     method: "GET",
     headers,
-    cache: "no-store",
-  });
-
-  const responseHeaders = new Headers(backendResponse.headers);
-  const body = await backendResponse.arrayBuffer();
-
-  return new NextResponse(body, {
-    status: backendResponse.status,
-    statusText: backendResponse.statusText,
-    headers: responseHeaders,
   });
 }

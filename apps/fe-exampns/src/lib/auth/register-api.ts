@@ -1,4 +1,3 @@
-import { BACKEND_API_URL } from "@/lib/auth/config";
 
 export interface RegisterPayload {
   fullName: string;
@@ -56,11 +55,12 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export async function registerUser(payload: RegisterPayload) {
-  const response = await fetch(`${BACKEND_API_URL}/api/v1/auth/register`, {
+  const response = await fetch("/api/register", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "same-origin",
     body: JSON.stringify(payload),
   });
 

@@ -2,7 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 
 export interface ApiSuccessResponse<T> {
   success: true;
@@ -25,7 +25,7 @@ export async function serverApiFetch<T>(path: string, init?: RequestInit): Promi
   const requestHeaders = await headers();
   const cookie = requestHeaders.get("cookie");
 
-  const response = await fetch(`${BACKEND_API_URL}${path}`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}${path}`, {
     ...init,
     headers: {
       ...(cookie ? { cookie } : {}),
@@ -54,7 +54,7 @@ export async function serverApiUpload<T>(path: string, formData: FormData): Prom
   const requestHeaders = await headers();
   const cookie = requestHeaders.get("cookie");
 
-  const response = await fetch(`${BACKEND_API_URL}${path}`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}${path}`, {
     method: "POST",
     headers: cookie ? { cookie } : undefined,
     body: formData,

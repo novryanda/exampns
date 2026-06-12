@@ -3,7 +3,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 
 interface BetterAuthSessionPayload {
   session: {
@@ -54,7 +54,7 @@ async function getRequestCookieHeader() {
 async function fetchJson<T>(path: string) {
   const cookie = await getRequestCookieHeader();
 
-  const response = await fetch(`${BACKEND_API_URL}${path}`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}${path}`, {
     method: "GET",
     headers: cookie ? { cookie } : undefined,
     cache: "no-store",

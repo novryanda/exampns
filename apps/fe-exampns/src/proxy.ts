@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 import { AUTH_COOKIE_PREFIX } from "@/lib/auth/config";
+import { getPostAuthRedirectPath } from "@/lib/auth/post-auth-redirect";
 
 const guestOnlyAuthRoutes = new Set([
   "/auth/login",
@@ -20,7 +21,7 @@ interface ProxySessionPayload {
 async function getSessionPayload(request: NextRequest) {
   const cookieHeader = request.headers.get("cookie");
 
-  const response = await fetch(`${BACKEND_API_URL}/api/auth/get-session`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}/api/auth/get-session`, {
     method: "GET",
     headers: cookieHeader ? { cookie: cookieHeader } : undefined,
     cache: "no-store",
@@ -52,7 +53,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (sessionCookie && guestOnlyAuthRoutes.has(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const session = await getSessionPayload(request);
+    const redirectPath = getPostAuthRedirectPath(session?.user?.role);
+    return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
   if (

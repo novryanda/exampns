@@ -1,6 +1,6 @@
 import "server-only";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 import {
   type ApiPaginatedResponse,
   type ApiSuccessResponse,
@@ -401,7 +401,7 @@ export async function getExamResultRanking(examResultId: string) {
 export async function getExamAiRecommendation(examResultId: string) {
   const requestHeaders = await import("next/headers").then((mod) => mod.headers());
   const cookie = requestHeaders.get("cookie");
-  const response = await fetch(`${BACKEND_API_URL}/api/v1/results/${examResultId}/ai-recommendation`, {
+  const response = await fetch(`${SERVER_BACKEND_API_URL}/api/v1/results/${examResultId}/ai-recommendation`, {
     method: "GET",
     headers: cookie ? { cookie } : undefined,
     cache: "no-store",

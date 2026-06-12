@@ -5,7 +5,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
 import type { ResourceActionState } from "@/server/admin-action-state";
 import { type ApiSuccessResponse, serverApiFetch } from "@/server/api-client";
 
@@ -326,7 +326,7 @@ export async function uploadPdfAction(
   try {
     const requestHeaders = await headers();
     const cookie = requestHeaders.get("cookie") ?? "";
-    const response = await fetch(`${BACKEND_API_URL}/api/v1/admin/pdf-imports`, {
+    const response = await fetch(`${SERVER_BACKEND_API_URL}/api/v1/admin/pdf-imports`, {
       method: "POST",
       headers: cookie ? { cookie } : undefined,
       body: formData,

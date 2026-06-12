@@ -1,28 +1,14 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-import { BACKEND_API_URL } from "@/lib/auth/config";
+import { buildForwardHeaders, proxyBackendRequest, SERVER_BACKEND_API_URL } from "@/lib/api/backend-proxy";
 
 const FORWARD_REQUEST_HEADERS = ["cookie", "origin", "referer", "user-agent"] as const;
 
-function buildForwardHeaders(request: NextRequest) {
-  const headers = new Headers();
-
-  for (const name of FORWARD_REQUEST_HEADERS) {
-    const value = request.headers.get(name);
-    if (value) {
-      headers.set(name, value);
-    }
-  }
-
-  return headers;
-}
-
 async function proxyToBackend(request: NextRequest, method: "POST" | "DELETE") {
-  const headers = buildForwardHeaders(request);
+  const headers = buildForwardHeaders(request, FORWARD_REQUEST_HEADERS);
   const init: RequestInit = {
     method,
     headers,
-    cache: "no-store",
   };
 
   if (method === "POST") {
@@ -33,15 +19,7 @@ async function proxyToBackend(request: NextRequest, method: "POST" | "DELETE") {
     }
   }
 
-  const backendResponse = await fetch(`${BACKEND_API_URL}/api/v1/me/avatar`, init);
-  const responseHeaders = new Headers(backendResponse.headers);
-  const body = await backendResponse.arrayBuffer();
-
-  return new NextResponse(body, {
-    status: backendResponse.status,
-    statusText: backendResponse.statusText,
-    headers: responseHeaders,
-  });
+  return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/me/avatar`, init);
 }
 
 export async function POST(request: NextRequest) {

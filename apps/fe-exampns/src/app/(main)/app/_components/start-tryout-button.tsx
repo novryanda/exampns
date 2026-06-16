@@ -5,10 +5,11 @@ import { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { ArrowUpRight, Play, RotateCcw } from "lucide-react";
+import { ArrowUpRight, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ExamInstructionModal } from "@/components/exam/exam-instruction-modal";
 
 export function StartTryoutButton({
   tryoutCatalogId,
@@ -23,8 +24,9 @@ export function StartTryoutButton({
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  const handleClick = async () => {
+  const handleStartExam = async () => {
     setIsPending(true);
     try {
       const response = await fetch("/api/exams/start", {
@@ -49,6 +51,7 @@ export function StartTryoutButton({
       toast.error(error instanceof Error ? error.message : "Gagal memulai tryout.");
     } finally {
       setIsPending(false);
+      setShowModal(false);
     }
   };
 
@@ -64,15 +67,24 @@ export function StartTryoutButton({
   }
 
   return (
-    <Button
-      type="button"
-      onClick={handleClick}
-      disabled={isPending || hasActiveExam}
-      className="rounded-xl bg-blue-600 hover:bg-blue-700"
-      title={hasActiveExam ? "Selesaikan atau lanjutkan sesi aktif terlebih dulu." : undefined}
-    >
-      {hasActiveExam ? <RotateCcw className="mr-2 size-4" /> : <Play className="mr-2 size-4" />}
-      {isPending ? "Memulai..." : hasActiveExam ? "Sesi Aktif Berjalan" : "Mulai Ujian"}
-    </Button>
+    <>
+      <Button
+        type="button"
+        onClick={() => setShowModal(true)}
+        disabled={isPending || hasActiveExam}
+        className="rounded-xl bg-blue-600 hover:bg-blue-700"
+        title={hasActiveExam ? "Selesaikan atau lanjutkan sesi aktif terlebih dulu." : undefined}
+      >
+        {hasActiveExam ? <RotateCcw className="mr-2 size-4" /> : null}
+        {hasActiveExam ? "Sesi Aktif Berjalan" : "Mulai Ujian"}
+      </Button>
+
+      <ExamInstructionModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleStartExam}
+        isPending={isPending}
+      />
+    </>
   );
 }

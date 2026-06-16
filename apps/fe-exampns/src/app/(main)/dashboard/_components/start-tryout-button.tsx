@@ -4,10 +4,11 @@ import { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Play, RotateCcw } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ExamInstructionModal } from "@/components/exam/exam-instruction-modal";
 
 export function StartTryoutButton({
   tryoutCatalogId,
@@ -22,8 +23,9 @@ export function StartTryoutButton({
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  const handleClick = async () => {
+  const handleStartExam = async () => {
     setIsPending(true);
     try {
       const response = await fetch("/api/exams/start", {
@@ -48,25 +50,35 @@ export function StartTryoutButton({
       toast.error(error instanceof Error ? error.message : "Gagal memulai tryout.");
     } finally {
       setIsPending(false);
+      setShowModal(false);
     }
   };
 
   return (
-    <Button
-      type="button"
-      onClick={handleClick}
-      disabled={isPending || !canStart || hasActiveExam}
-      className="rounded-xl bg-blue-600 hover:bg-blue-700"
-      title={
-        hasActiveExam
-          ? "Selesaikan atau lanjutkan sesi aktif terlebih dulu."
-          : !canStart
-            ? (lockedReason ?? "Akses tryout tidak tersedia")
-            : undefined
-      }
-    >
-      {hasActiveExam ? <RotateCcw className="mr-2 size-4" /> : <Play className="mr-2 size-4" />}
-      {isPending ? "Memulai..." : hasActiveExam ? "Sesi Aktif Berjalan" : "Mulai Tryout"}
-    </Button>
+    <>
+      <Button
+        type="button"
+        onClick={() => setShowModal(true)}
+        disabled={isPending || !canStart || hasActiveExam}
+        className="rounded-xl bg-blue-600 hover:bg-blue-700"
+        title={
+          hasActiveExam
+            ? "Selesaikan atau lanjutkan sesi aktif terlebih dulu."
+            : !canStart
+              ? (lockedReason ?? "Akses tryout tidak tersedia")
+              : undefined
+        }
+      >
+        {hasActiveExam ? <RotateCcw className="mr-2 size-4" /> : null}
+        {isPending ? "Memulai..." : hasActiveExam ? "Sesi Aktif Berjalan" : "Mulai Tryout"}
+      </Button>
+
+      <ExamInstructionModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        onConfirm={handleStartExam}
+        isPending={isPending}
+      />
+    </>
   );
 }

@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverActions: {
-    // Profil mengizinkan foto hingga 2 MB; default Next.js hanya 1 MB.
-    bodySizeLimit: "4mb",
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
   },
   reactCompiler: true,
   compiler: {

@@ -263,6 +263,8 @@ export type ExamSessionDetail =
       startedAt: string;
       expiresAt: string;
       timerRemainingSeconds: number;
+      /** Jumlah pelanggaran yang tersimpan di DB — tidak akan reset saat refresh */
+      tabSwitchCount: number;
       questions: Array<{
         examSessionQuestionId: string;
         number: number;

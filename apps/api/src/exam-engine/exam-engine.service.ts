@@ -309,6 +309,7 @@ export class ExamEngineService {
         0,
         Math.floor((session.expiresAt.getTime() - Date.now()) / 1000),
       ),
+      tabSwitchCount: session.tabSwitchCount,
       questions,
       summary: {
         answeredCount,

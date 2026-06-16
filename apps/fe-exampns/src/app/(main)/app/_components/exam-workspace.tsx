@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { AlertCircle, CheckCircle2, Flag, Loader2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Flag, Loader2, Maximize } from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
+import { ExamIntegrityWarning } from "@/app/(main)/app/_components/exam-integrity-warning";
+import { useExamIntegrityGuard } from "@/hooks/use-exam-integrity-guard";
 import {
   Dialog,
   DialogContent,
@@ -87,11 +89,13 @@ export function ExamWorkspace({
   const [timerRemaining, setTimerRemaining] = useState(
     "timerRemainingSeconds" in initialDetail ? initialDetail.timerRemainingSeconds : 0,
   );
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const questionListRef = useRef<HTMLDivElement>(null);
 
   const isSubmitted = "score" in detail;
   const activeDetail = (!isSubmitted ? detail : null) as ActiveExamDetail | null;
   const currentQuestion = activeDetail?.questions[currentIndex] ?? null;
+  const examSessionId = activeDetail?.examSessionId ?? "";
 
   useEffect(() => {
     if (isSubmitted && "examResultId" in detail) {
@@ -161,44 +165,80 @@ export function ExamWorkspace({
     activeButton?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [currentIndex]);
 
-  const submitExam = useCallback(async () => {
-    if (!activeDetail) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`/api/exams/${activeDetail.examSessionId}/submit`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ submitType: "manual" }),
-      });
-
-      const payload = (await response.json()) as {
-        message?: string;
-        code?: string;
-        data?: { examResultId?: string };
-      };
-
-      if (!response.ok || !payload.data?.examResultId) {
-        if (payload.code === "EXAM_INCOMPLETE_ANSWERS") {
-          setShowSubmitDialog(false);
-          setShowUnansweredDialog(true);
-        }
-
-        throw new Error(payload.message ?? "Gagal mengumpulkan ujian.");
+  const submitExam = useCallback(
+    async (submitType: "manual" | "auto" = "manual") => {
+      if (!activeDetail) {
+        return;
       }
 
-      toast.success("Ujian berhasil dikumpulkan.");
-      router.push(`/app/result/${payload.data.examResultId}`);
-      router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Gagal mengumpulkan ujian.");
-    } finally {
-      setIsSubmitting(false);
-      setShowSubmitDialog(false);
-    }
-  }, [activeDetail, router]);
+      setIsSubmitting(true);
+      try {
+        const response = await fetch(`/api/exams/${activeDetail.examSessionId}/submit`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ submitType }),
+        });
+
+        const payload = (await response.json()) as {
+          message?: string;
+          code?: string;
+          data?: { examResultId?: string };
+        };
+
+        if (!response.ok || !payload.data?.examResultId) {
+          if (payload.code === "EXAM_INCOMPLETE_ANSWERS") {
+            setShowSubmitDialog(false);
+            setShowUnansweredDialog(true);
+          }
+
+          throw new Error(payload.message ?? "Gagal mengumpulkan ujian.");
+        }
+
+        if (submitType === "auto") {
+          toast.info("Ujian dikumpulkan otomatis karena terlalu sering meninggalkan halaman.");
+        } else {
+          toast.success("Ujian berhasil dikumpulkan.");
+        }
+        router.push(`/app/result/${payload.data.examResultId}`);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Gagal mengumpulkan ujian.");
+      } finally {
+        setIsSubmitting(false);
+        setShowSubmitDialog(false);
+      }
+    },
+    [activeDetail, router],
+  );
+
+  // Callback khusus untuk auto-submit dari integrity guard
+  const autoSubmitExam = useCallback(async () => {
+    await submitExam("auto");
+  }, [submitExam]);
+
+  // ── Exam Integrity Guard ────────────────────────────────────────────────────
+  const {
+    violationCount,
+    showWarning: showIntegrityWarning,
+    dismissWarning: dismissIntegrityWarning,
+    isAutoSubmitting,
+    requestFullscreen,
+  } = useExamIntegrityGuard({
+    examSessionId,
+    isActive: Boolean(activeDetail) && !isSubmitting,
+    onAutoSubmit: autoSubmitExam,
+    initialViolationCount:
+      "tabSwitchCount" in initialDetail ? initialDetail.tabSwitchCount : 0,
+  });
+
+  // Pantau status fullscreen untuk menampilkan tombol "Masuk Fullscreen"
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
 
   useEffect(() => {
     if (!activeDetail || timerRemaining > 0 || isSubmitting) {
@@ -211,7 +251,7 @@ export function ExamWorkspace({
       return;
     }
 
-    void submitExam();
+    void submitExam("auto");
   }, [activeDetail, isSubmitting, submitExam, timerRemaining, unansweredCount]);
 
   async function saveAnswer(questionId: string, selectedLabel: "A" | "B" | "C" | "D" | "E" | null) {
@@ -319,14 +359,36 @@ export function ExamWorkspace({
 
   return (
     <>
+      {/* Overlay peringatan exam browser — muncul di atas seluruh UI */}
+      {showIntegrityWarning || isAutoSubmitting ? (
+        <ExamIntegrityWarning
+          violationCount={violationCount}
+          onDismiss={dismissIntegrityWarning}
+          isAutoSubmitting={isAutoSubmitting}
+        />
+      ) : null}
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
         <div>
           <div className="text-slate-500 text-xs uppercase tracking-wide">Tryout</div>
           <div className="font-semibold text-slate-950">{tryoutName ?? "Sesi Tryout"}</div>
         </div>
-        <div className="text-right">
-          <div className="text-slate-500 text-xs uppercase tracking-wide">Autosaved</div>
-          <div className="font-semibold text-emerald-600 text-sm">Aktif</div>
+        <div className="flex items-center gap-3">
+          {/* Tombol kembali ke fullscreen jika user sudah keluar */}
+          {!isFullscreen && activeDetail ? (
+            <button
+              type="button"
+              onClick={requestFullscreen}
+              className="flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-1.5 text-amber-700 text-xs font-medium transition-colors hover:bg-amber-100"
+            >
+              <Maximize className="size-3.5" />
+              Layar Penuh
+            </button>
+          ) : null}
+          <div className="text-right">
+            <div className="text-slate-500 text-xs uppercase tracking-wide">Autosaved</div>
+            <div className="font-semibold text-emerald-600 text-sm">Aktif</div>
+          </div>
         </div>
       </div>
 
@@ -488,7 +550,7 @@ export function ExamWorkspace({
                     type="button"
                     className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
                     onClick={handleCollectClick}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isAutoSubmitting}
                   >
                     Kumpulkan Ujian
                   </Button>

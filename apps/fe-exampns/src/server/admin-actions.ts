@@ -402,6 +402,9 @@ export async function saveSubscriptionPlanAction(
       price: parseNumber(formData.get("price"), 0),
       currency: String(formData.get("currency") ?? "IDR").trim() || "IDR",
       isActive: parseBoolean(formData.get("isActive")),
+      isPopular: parseBoolean(formData.get("isPopular")),
+      showOnLandingPage: parseBoolean(formData.get("showOnLandingPage")),
+      features: JSON.parse(String(formData.get("features") ?? "[]")),
       ...(tier === "trial"
         ? {
             trialTryoutLimit: parseNumber(formData.get("trialTryoutLimit"), 0),

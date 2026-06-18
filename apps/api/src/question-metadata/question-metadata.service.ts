@@ -49,6 +49,7 @@ export class QuestionMetadataService {
         },
         orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
         select: {
+          id: true,
           code: true,
           name: true,
           answerMode: true,

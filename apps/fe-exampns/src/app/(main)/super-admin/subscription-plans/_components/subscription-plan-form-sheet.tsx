@@ -28,6 +28,9 @@ export type PlanFormDraft = {
   currency: string;
   trialTryoutLimit: number;
   trialDayLimit: number;
+  features: string;
+  isPopular: boolean;
+  showOnLandingPage: boolean;
   isActive: boolean;
 };
 
@@ -41,6 +44,9 @@ export function createEmptyPlanDraft(): PlanFormDraft {
     currency: "IDR",
     trialTryoutLimit: 3,
     trialDayLimit: 7,
+    features: "",
+    isPopular: false,
+    showOnLandingPage: false,
     isActive: true,
   };
 }
@@ -56,6 +62,9 @@ export function planToDraft(plan: SubscriptionPlanItem, duplicate = false): Plan
     currency: plan.currency,
     trialTryoutLimit: plan.trialTryoutLimit ?? 3,
     trialDayLimit: plan.trialDayLimit ?? 7,
+    features: plan.features?.join("\n") ?? "",
+    isPopular: duplicate ? false : plan.isPopular,
+    showOnLandingPage: duplicate ? false : plan.showOnLandingPage,
     isActive: duplicate ? false : plan.isActive,
   };
 }
@@ -75,6 +84,9 @@ export function SubscriptionPlanFormSheet({
   const [state, formAction, isPending] = useActionState(saveSubscriptionPlanAction, initialAdminActionState);
   const [tier, setTier] = useState<PlanFormDraft["tier"]>(draft.tier);
   const [description, setDescription] = useState(draft.description);
+  const [featuresText, setFeaturesText] = useState(draft.features);
+  const [isPopular, setIsPopular] = useState(draft.isPopular);
+  const [showOnLandingPage, setShowOnLandingPage] = useState(draft.showOnLandingPage);
   const [isActive, setIsActive] = useState(draft.isActive);
 
   useEffect(() => {
@@ -84,6 +96,9 @@ export function SubscriptionPlanFormSheet({
 
     setTier(draft.tier);
     setDescription(draft.description);
+    setFeaturesText(draft.features);
+    setIsPopular(draft.isPopular);
+    setShowOnLandingPage(draft.showOnLandingPage);
     setIsActive(draft.isActive);
   }, [draft, open]);
 
@@ -225,6 +240,48 @@ export function SubscriptionPlanFormSheet({
                 </div>
               </div>
             ) : null}
+
+            <div className="grid gap-2">
+              <Label htmlFor="plan-features">Fitur Paket (Landing Page)</Label>
+              <Textarea
+                id="plan-features"
+                name="featuresText"
+                value={featuresText}
+                onChange={(event) => setFeaturesText(event.target.value)}
+                className="min-h-32 rounded-xl border-slate-200"
+                placeholder="Fitur A&#10;Fitur B&#10;Fitur C"
+              />
+              <span className="text-slate-500 text-xs">Pisahkan setiap fitur dengan baris baru (Enter).</span>
+              <input type="hidden" name="features" value={JSON.stringify(featuresText.split("\n").map(f => f.trim()).filter(Boolean))} />
+            </div>
+
+            <label className="flex items-start gap-3 rounded-2xl border border-slate-100 px-4 py-3">
+              <input
+                name="showOnLandingPage"
+                type="checkbox"
+                checked={showOnLandingPage}
+                onChange={(event) => setShowOnLandingPage(event.target.checked)}
+                className="mt-0.5 size-4"
+              />
+              <span className="space-y-0.5">
+                <span className="block font-medium text-slate-900 text-sm">Tampilkan di Landing Page</span>
+                <span className="block text-slate-500 text-xs">Paket akan ditampilkan di halaman utama (Landing Page).</span>
+              </span>
+            </label>
+
+            <label className="flex items-start gap-3 rounded-2xl border border-slate-100 px-4 py-3">
+              <input
+                name="isPopular"
+                type="checkbox"
+                checked={isPopular}
+                onChange={(event) => setIsPopular(event.target.checked)}
+                className="mt-0.5 size-4"
+              />
+              <span className="space-y-0.5">
+                <span className="block font-medium text-slate-900 text-sm">Tandai Paling Populer</span>
+                <span className="block text-slate-500 text-xs">Paket akan diberi label 'Paling Populer' di Landing Page.</span>
+              </span>
+            </label>
 
             <label className="flex items-start gap-3 rounded-2xl border border-slate-100 px-4 py-3">
               <input

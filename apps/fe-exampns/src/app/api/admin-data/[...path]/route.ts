@@ -20,7 +20,7 @@ async function proxyAdminRequest(
   return proxyBackendRequest(backendUrl, {
     method,
     headers,
-    body: method === "GET" ? undefined : await request.text(),
+    body: method === "GET" ? undefined : await request.arrayBuffer(),
   });
 }
 
@@ -30,4 +30,12 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
 
 export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxyAdminRequest(request, context, "POST");
+}
+
+export async function PATCH(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  return proxyAdminRequest(request, context, "PATCH");
+}
+
+export async function DELETE(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  return proxyAdminRequest(request, context, "DELETE");
 }

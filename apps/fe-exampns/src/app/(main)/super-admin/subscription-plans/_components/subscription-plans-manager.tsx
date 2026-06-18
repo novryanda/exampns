@@ -222,7 +222,14 @@ export function SubscriptionPlansManager({ plans }: { readonly plans: Subscripti
               paginatedPlans.map((plan) => (
                 <TableRow key={plan.id}>
                   <TableCell className="max-w-[18rem]">
-                    <div className="font-medium text-slate-950">{plan.name}</div>
+                    <div className="font-medium text-slate-950 flex items-center gap-2">
+                      {plan.name}
+                      {plan.showOnLandingPage ? (
+                        <span className="rounded-md bg-blue-100 px-1.5 py-0.5 text-blue-700 text-[10px] font-semibold uppercase tracking-wider">
+                          Landing Page
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="truncate text-slate-500 text-sm">{plan.description ?? "Tanpa deskripsi"}</div>
                   </TableCell>
                   <TableCell>

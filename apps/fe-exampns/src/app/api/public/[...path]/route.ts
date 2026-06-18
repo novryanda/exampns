@@ -25,7 +25,7 @@ async function proxyPublicRequest(
   return proxyBackendRequest(targetUrl, {
     method,
     headers,
-    body: method === "GET" ? undefined : await request.text(),
+    body: method === "GET" ? undefined : await request.arrayBuffer(),
   });
 }
 

@@ -8,6 +8,6 @@ export async function POST(request: NextRequest) {
   return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/auth/register`, {
     method: "POST",
     headers: contentType ? { "content-type": contentType } : undefined,
-    body: await request.text(),
+    body: await request.arrayBuffer(),
   });
 }

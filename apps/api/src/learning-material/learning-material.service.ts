@@ -1,0 +1,412 @@
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { PrismaService } from '../common/prisma.service.js';
+import {
+  MaterialStatus,
+  ModuleType,
+  SubscriptionTier,
+  type Prisma,
+} from '../../generated/prisma/client.js';
+
+@Injectable()
+export class LearningMaterialService {
+  private readonly logger = new Logger(LearningMaterialService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Admin: Material CRUD ──────────────────────────────────────────────────
+
+  async listMaterials(filters?: { status?: MaterialStatus; categoryId?: string }) {
+    const where: Prisma.MaterialWhereInput = {};
+    if (filters?.status) where.status = filters.status;
+    if (filters?.categoryId) where.categoryId = filters.categoryId;
+
+    return this.prisma.material.findMany({
+      where,
+      include: {
+        categoryRef: { select: { id: true, code: true, name: true } },
+        createdByUser: { select: { id: true, name: true } },
+        _count: { select: { modules: true } },
+      },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async getMaterialById(id: string) {
+    const material = await this.prisma.material.findUnique({
+      where: { id },
+      include: {
+        categoryRef: { select: { id: true, code: true, name: true } },
+        createdByUser: { select: { id: true, name: true } },
+        modules: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            _count: { select: { quizQuestions: true, manualQuestions: true } },
+          },
+        },
+      },
+    });
+
+    if (!material) throw new NotFoundException('Material not found');
+    return material;
+  }
+
+  async createMaterial(data: {
+    title: string;
+    description?: string;
+    coverImageUrl?: string;
+    categoryId: string;
+    requiredTier?: SubscriptionTier;
+    createdBy: string;
+  }) {
+    return this.prisma.material.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        coverImageUrl: data.coverImageUrl,
+        categoryId: data.categoryId,
+        requiredTier: data.requiredTier ?? SubscriptionTier.trial,
+        createdBy: data.createdBy,
+      },
+    });
+  }
+
+  async updateMaterial(
+    id: string,
+    data: {
+      title?: string;
+      description?: string;
+      coverImageUrl?: string;
+      categoryId?: string;
+      requiredTier?: SubscriptionTier;
+      sortOrder?: number;
+    },
+  ) {
+    await this.assertMaterialExists(id);
+    return this.prisma.material.update({ where: { id }, data });
+  }
+
+  async publishMaterial(id: string) {
+    const material = await this.assertMaterialExists(id);
+    if (material.status === MaterialStatus.published) {
+      throw new BadRequestException('Material is already published');
+    }
+
+    const moduleCount = await this.prisma.materialModule.count({ where: { materialId: id } });
+    if (moduleCount === 0) {
+      throw new BadRequestException('Cannot publish material without modules');
+    }
+
+    return this.prisma.material.update({
+      where: { id },
+      data: { status: MaterialStatus.published, publishedAt: new Date() },
+    });
+  }
+
+  async archiveMaterial(id: string) {
+    await this.assertMaterialExists(id);
+    return this.prisma.material.update({
+      where: { id },
+      data: { status: MaterialStatus.archived, archivedAt: new Date() },
+    });
+  }
+
+  async deleteMaterial(id: string) {
+    await this.assertMaterialExists(id);
+    return this.prisma.material.delete({ where: { id } });
+  }
+
+  // ─── Admin: Module CRUD ────────────────────────────────────────────────────
+
+  async createModule(
+    materialId: string,
+    data: {
+      title: string;
+      description?: string;
+      moduleType: ModuleType;
+      content?: string;
+      videoUrl?: string;
+      pdfUrl?: string;
+      durationMinutes?: number;
+      manualQuestions?: Array<{
+        questionText: string;
+        options: Array<{ label: string; optionText: string; isCorrect: boolean }>;
+      }>;
+    },
+  ) {
+    await this.assertMaterialExists(materialId);
+
+    const maxOrder = await this.prisma.materialModule.aggregate({
+      where: { materialId },
+      _max: { sortOrder: true },
+    });
+
+    const { manualQuestions, ...rest } = data;
+
+    const newModule = await this.prisma.materialModule.create({
+      data: {
+        ...rest,
+        materialId,
+        sortOrder: (maxOrder._max.sortOrder ?? -1) + 1,
+      },
+    });
+
+    if (newModule.moduleType === ModuleType.quiz && manualQuestions && manualQuestions.length > 0) {
+      await this.setManualQuizQuestions(newModule.id, manualQuestions);
+    }
+
+    return newModule;
+  }
+
+  async updateModule(
+    moduleId: string,
+    data: {
+      title?: string;
+      description?: string;
+      moduleType?: ModuleType;
+      content?: string;
+      videoUrl?: string;
+      pdfUrl?: string;
+      durationMinutes?: number;
+      manualQuestions?: Array<{
+        questionText: string;
+        options: Array<{ label: string; optionText: string; isCorrect: boolean }>;
+      }>;
+    },
+  ) {
+    await this.assertModuleExists(moduleId);
+    const { manualQuestions, ...rest } = data;
+    
+    const updated = await this.prisma.materialModule.update({ where: { id: moduleId }, data: rest });
+
+    if (updated.moduleType === ModuleType.quiz && manualQuestions !== undefined) {
+      await this.setManualQuizQuestions(moduleId, manualQuestions);
+    }
+
+    return updated;
+  }
+
+  async deleteModule(moduleId: string) {
+    await this.assertModuleExists(moduleId);
+    return this.prisma.materialModule.delete({ where: { id: moduleId } });
+  }
+
+  async reorderModules(materialId: string, moduleIds: string[]) {
+    await this.assertMaterialExists(materialId);
+
+    // Two-phase update inside an interactive transaction to avoid the unique
+    // constraint on (materialId, sortOrder). Using a large offset in phase 1
+    // ensures temporary values never collide with the final sequential indexes
+    // set in phase 2.
+    const offset = 1_000_000;
+
+    await this.prisma.$transaction(async (tx) => {
+      // Phase 1 – assign temporary unique high-offset values so existing rows
+      // are safely out of the way before we rewrite them.
+      for (let i = 0; i < moduleIds.length; i++) {
+        await tx.materialModule.update({
+          where: { id: moduleIds[i] },
+          data: { sortOrder: offset + i },
+        });
+      }
+
+      // Phase 2 – assign the final 0-based sequential sort orders.
+      for (let i = 0; i < moduleIds.length; i++) {
+        await tx.materialModule.update({
+          where: { id: moduleIds[i] },
+          data: { sortOrder: i },
+        });
+      }
+    });
+
+    return { success: true };
+  }
+
+  // ─── Admin: Quiz Question Management ───────────────────────────────────────
+
+  async setQuizQuestions(moduleId: string, questionIds: string[]) {
+    const module = await this.assertModuleExists(moduleId);
+    if (module.moduleType !== ModuleType.quiz) {
+      throw new BadRequestException('Module is not a quiz type');
+    }
+
+    await this.prisma.materialModuleQuiz.deleteMany({ where: { moduleId } });
+
+    if (questionIds.length > 0) {
+      await this.prisma.materialModuleQuiz.createMany({
+        data: questionIds.map((questionId, index) => ({
+          moduleId,
+          questionId,
+          questionOrder: index,
+        })),
+      });
+    }
+
+    return { success: true, count: questionIds.length };
+  }
+
+  async setManualQuizQuestions(
+    moduleId: string, 
+    questions: Array<{
+      questionText: string;
+      options: Array<{ label: string; optionText: string; isCorrect: boolean }>;
+    }>
+  ) {
+    const module = await this.assertModuleExists(moduleId);
+    if (module.moduleType !== ModuleType.quiz) {
+      throw new BadRequestException('Module is not a quiz type');
+    }
+
+    // Replace all existing manual questions for this module
+    return this.prisma.$transaction(async (tx) => {
+      await tx.materialModuleManualQuestion.deleteMany({ where: { moduleId } });
+      
+      let count = 0;
+      for (const [index, q] of questions.entries()) {
+        await tx.materialModuleManualQuestion.create({
+          data: {
+            moduleId,
+            questionText: q.questionText,
+            questionOrder: index,
+            options: {
+              create: q.options.map((opt, optIndex) => ({
+                label: opt.label,
+                optionText: opt.optionText,
+                isCorrect: opt.isCorrect,
+                displayOrder: optIndex,
+              })),
+            },
+          },
+        });
+        count++;
+      }
+      return { success: true, count };
+    });
+  }
+
+  // ─── User: List accessible materials ───────────────────────────────────────
+
+  async listPublishedMaterials(userTier: SubscriptionTier | null) {
+    const tierHierarchy: Record<string, number> = {
+      [SubscriptionTier.trial]: 0,
+      [SubscriptionTier.standard]: 1,
+      [SubscriptionTier.premium]: 2,
+    };
+
+    const materials = await this.prisma.material.findMany({
+      where: { status: MaterialStatus.published },
+      include: {
+        categoryRef: { select: { id: true, code: true, name: true } },
+        _count: { select: { modules: true } },
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+
+    const userLevel = userTier ? tierHierarchy[userTier] ?? 0 : 0;
+
+    return materials.map((m) => ({
+      ...m,
+      isAccessible: userLevel >= (tierHierarchy[m.requiredTier] ?? 0),
+    }));
+  }
+
+  // ─── User: Material detail with progress ───────────────────────────────────
+
+  async getMaterialWithProgress(materialId: string, userId: string) {
+    const material = await this.prisma.material.findUnique({
+      where: { id: materialId, status: MaterialStatus.published },
+      include: {
+        categoryRef: { select: { id: true, code: true, name: true } },
+        modules: {
+          orderBy: { sortOrder: 'asc' },
+          include: {
+            _count: { select: { quizQuestions: true, manualQuestions: true } },
+          },
+        },
+      },
+    });
+
+    if (!material) throw new NotFoundException('Material not found');
+
+    const progress = await this.prisma.userMaterialProgress.findMany({
+      where: { userId, materialId },
+      select: { moduleId: true, completedAt: true, quizScore: true },
+    });
+
+    const completedModuleIds = new Set(progress.map((p) => p.moduleId));
+    const progressMap = new Map(progress.map((p) => [p.moduleId, p]));
+
+    const modulesWithProgress = material.modules.map((mod) => ({
+      ...mod,
+      isCompleted: completedModuleIds.has(mod.id),
+      quizScore: progressMap.get(mod.id)?.quizScore ?? null,
+      completedAt: progressMap.get(mod.id)?.completedAt ?? null,
+    }));
+
+    return {
+      ...material,
+      modules: modulesWithProgress,
+      totalModules: material.modules.length,
+      completedModules: completedModuleIds.size,
+      progressPercent:
+        material.modules.length > 0
+          ? Math.round((completedModuleIds.size / material.modules.length) * 100)
+          : 0,
+    };
+  }
+
+  // ─── User: Get module content ──────────────────────────────────────────────
+
+  async getModuleContent(moduleId: string) {
+    const module = await this.prisma.materialModule.findUnique({
+      where: { id: moduleId },
+      include: {
+        quizQuestions: {
+          orderBy: { questionOrder: 'asc' },
+          include: {
+            question: {
+              include: {
+                options: { orderBy: { displayOrder: 'asc' } },
+                categoryRef: { select: { code: true, name: true } },
+              },
+            },
+          },
+        },
+        manualQuestions: {
+          orderBy: { questionOrder: 'asc' },
+          include: {
+            options: { orderBy: { displayOrder: 'asc' } },
+          },
+        },
+      },
+    });
+
+    if (!module) throw new NotFoundException('Module not found');
+    return module;
+  }
+
+  // ─── User: Mark module complete ────────────────────────────────────────────
+
+  async markModuleComplete(userId: string, materialId: string, moduleId: string, quizScore?: number) {
+    await this.assertModuleExists(moduleId);
+
+    return this.prisma.userMaterialProgress.upsert({
+      where: { userId_moduleId: { userId, moduleId } },
+      create: { userId, materialId, moduleId, quizScore },
+      update: { quizScore, completedAt: new Date() },
+    });
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+
+  private async assertMaterialExists(id: string) {
+    const material = await this.prisma.material.findUnique({ where: { id } });
+    if (!material) throw new NotFoundException('Material not found');
+    return material;
+  }
+
+  private async assertModuleExists(id: string) {
+    const module = await this.prisma.materialModule.findUnique({ where: { id } });
+    if (!module) throw new NotFoundException('Module not found');
+    return module;
+  }
+}

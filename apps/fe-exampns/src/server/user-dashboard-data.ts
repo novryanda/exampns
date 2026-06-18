@@ -216,6 +216,8 @@ export interface SubscriptionPlanItem {
   currency: string;
   isTrial: boolean;
   isActive: boolean;
+  features: string[];
+  isPopular: boolean;
 }
 
 export interface MySubscription {
@@ -421,8 +423,10 @@ export async function getExamAiRecommendation(examResultId: string) {
   return payload.data;
 }
 
-export async function getSubscriptionPlans() {
-  const response = await serverApiFetch<ApiSuccessResponse<SubscriptionPlanItem[]>>("/api/v1/subscription-plans");
+export async function getSubscriptionPlans(landingPage?: boolean) {
+  const response = await serverApiFetch<ApiSuccessResponse<SubscriptionPlanItem[]>>(
+    `/api/v1/subscription-plans${landingPage ? "?landingPage=true" : ""}`
+  );
   return response.data;
 }
 
@@ -458,4 +462,96 @@ export async function getMyPaymentHistory(params?: { page?: number; limit?: numb
       },
     };
   }
+}
+
+export interface UserLearningMaterialItem {
+  id: string;
+  title: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  categoryId: string;
+  categoryRef: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  requiredTier: "trial" | "standard" | "premium";
+  createdAt: string;
+  updatedAt: string;
+  isAccessible: boolean;
+  _count: {
+    modules: number;
+  };
+}
+
+export async function getLearningMaterials(params?: { categoryId?: string }) {
+  const response = await serverApiFetch<ApiSuccessResponse<UserLearningMaterialItem[]>>(
+    "/api/v1/user/learning-materials${toQueryString({ categoryId: params?.categoryId })}"
+  );
+  return response.data;
+}
+
+export interface UserMaterialModule {
+  id: string;
+  title: string;
+  description: string | null;
+  moduleType: "video" | "text" | "pdf" | "quiz";
+  durationMinutes: number | null;
+  sortOrder: number;
+  isCompleted: boolean;
+  quizScore: number | null;
+  completedAt: string | null;
+  _count: {
+    quizQuestions: number;
+    manualQuestions: number;
+  };
+}
+
+export interface UserLearningMaterialDetail extends UserLearningMaterialItem {
+  modules: UserMaterialModule[];
+  totalModules: number;
+  completedModules: number;
+  progressPercent: number;
+}
+
+export async function getLearningMaterialDetail(materialId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<UserLearningMaterialDetail>>(
+    `/api/v1/user/learning-materials/${materialId}`
+  );
+  return response.data;
+}
+
+export interface MaterialModuleQuizQuestion {
+  id: string;
+  questionOrder: number;
+  question: {
+    id: string;
+    questionText: string;
+    difficulty: string;
+    options: Array<{
+      id: string;
+      label: "A" | "B" | "C" | "D" | "E";
+      text: string;
+      displayOrder: number;
+    }>;
+    categoryRef: {
+      code: string;
+      name: string;
+    };
+  };
+}
+
+export interface UserModuleContentDetail extends UserMaterialModule {
+  content: string | null;
+  videoUrl: string | null;
+  pdfUrl: string | null;
+  quizQuestions: MaterialModuleQuizQuestion[];
+  manualQuestions: any[];
+}
+
+export async function getLearningMaterialModuleContent(materialId: string, moduleId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<UserModuleContentDetail>>(
+    `/api/v1/user/learning-materials/${materialId}/modules/${moduleId}`
+  );
+  return response.data;
 }

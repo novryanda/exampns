@@ -1,0 +1,131 @@
+﻿Created At: 2026-06-18T15:07:29Z
+Completed At: 2026-06-18T15:07:29Z
+File Path: `file:///c:/Users/Netkrida-server/Documents/exampns/apps/fe-exampns/src/server/user-dashboard-data.ts`
+Total Lines: 559
+Total Bytes: 14820
+Showing lines 1 to 559
+The following code has been modified to include a line number before every line, in the format: <line_number>: <original_line>. Please note that any changes targeting the original code should remove the line number, colon, and leading space.
+1: import "server-only";
+2: 
+3: import { SERVER_BACKEND_API_URL } from "@/lib/api/backend-url";
+4: import {
+5:   type ApiPaginatedResponse,
+6:   type ApiSuccessResponse,
+7:   serverApiFetch,
+8:   toQueryString,
+9: } from "@/server/api-client";
+10: 
+11: export interface CategoryScoreSummary {
+12:   categoryCode: string;
+13:   categoryName: string;
+14:   score: number;
+15:   minScore: number;
+16:   passed: boolean;
+17: }
+18: 
+19: export interface UserDashboardSummary {
+20:   greetingName: string;
+21:   accessStatus: {
+22:     type: "trial" | "standard" | "premium" | "expired";
+23:     source: string;
+24:     status: string;
+25:     tryoutRemaining: number | null;
+26:     daysRemaining: number;
+27:     endDate: string | null;
+28:     tier: "trial" | "standard" | "premium" | null;
+29:   };
+30:   lastResult: {
+31:     examResultId: string;
+32:     examDate: string;
+33:     totalScore: number;
+34:     categoryScores: CategoryScoreSummary[];
+35:     overallPassed: boolean;
+36:   } | null;
+37:   latestRecommendation: {
+38:     summary: string | null;
+39:     priorityTopic: string | null;
+40:   } | null;
+41:   weakAreas: Array<{
+42:     category: string;
+43:     subCategory: string;
+44:     topicTag: string;
+45:     accuracy: number | null;
+46:   }>;
+47:   recentExams: Array<{
+48:     examResultId: string;
+49:     examSessionId: string;
+50:     tryoutName: string;
+51:     examDate: string;
+52:     totalScore: number;
+53:     categoryScores: Array<{
+54:       categoryCode: string;
+55:       categ
+<truncated 13977 bytes>
+4:   }
+495: }
+496: 
+497: export interface UserMaterialModule {
+498:   id: string;
+499:   title: string;
+500:   description: string | null;
+501:   moduleType: "video" | "text" | "pdf" | "quiz";
+502:   durationMinutes: number | null;
+503:   sortOrder: number;
+504:   isCompleted: boolean;
+505:   quizScore: number | null;
+506:   completedAt: string | null;
+507:   _count: {
+508:     quizQuestions: number;
+509:   };
+510: }
+511: 
+512: export interface UserLearningMaterialDetail extends UserLearningMaterialItem {
+513:   modules: UserMaterialModule[];
+514:   totalModules: number;
+515:   completedModules: number;
+516:   progressPercent: number;
+517: }
+518: 
+519: export async function getLearningMaterialDetail(materialId: string) {
+520:   const response = await serverApiFetch<ApiSuccessResponse<UserLearningMaterialDetail>>(
+521:     `/api/v1/user/learning-materials/${materialId}`,
+522:   );
+523:   return response.data;
+524: }
+525: 
+526: export interface MaterialModuleQuizQuestion {
+527:   id: string;
+528:   questionOrder: number;
+529:   question: {
+530:     id: string;
+531:     questionText: string;
+532:     difficulty: string;
+533:     options: Array<{
+534:       id: string;
+535:       label: "A" | "B" | "C" | "D" | "E";
+536:       text: string;
+537:       displayOrder: number;
+538:     }>;
+539:     categoryRef: {
+540:       code: string;
+541:       name: string;
+542:     };
+543:   };
+544: }
+545: 
+546: export interface UserModuleContentDetail extends UserMaterialModule {
+547:   content: string | null;
+548:   videoUrl: string | null;
+549:   pdfUrl: string | null;
+550:   quizQuestions: MaterialModuleQuizQuestion[];
+551: }
+552: 
+553: export async function getLearningMaterialModuleContent(materialId: string, moduleId: string) {
+554:   const response = await serverApiFetch<ApiSuccessResponse<UserModuleContentDetail>>(
+555:     `/api/v1/user/learning-materials/${materialId}/modules/${moduleId}`,
+556:   );
+557:   return response.data;
+558: }
+559: 
+The above content shows the entire, complete file contents of the requested file.
+

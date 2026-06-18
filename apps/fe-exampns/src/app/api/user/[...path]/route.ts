@@ -20,10 +20,10 @@ async function proxyUserRequest(
   const headers = buildForwardHeaders(request, FORWARD_REQUEST_HEADERS);
   const query = request.nextUrl.search || "";
 
-  return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/${path.join("/")}${query}`, {
+  return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/user/${path.join("/")}${query}`, {
     method,
     headers,
-    body: method === "GET" ? undefined : await request.text(),
+    body: method === "GET" ? undefined : await request.arrayBuffer(),
   });
 }
 

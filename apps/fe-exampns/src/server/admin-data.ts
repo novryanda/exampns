@@ -172,6 +172,9 @@ export interface SubscriptionPlanItem {
   isTrial: boolean;
   trialTryoutLimit: number | null;
   trialDayLimit: number | null;
+  features: string[];
+  isPopular: boolean;
+  showOnLandingPage: boolean;
   createdAt: string;
   updatedAt: string;
 }

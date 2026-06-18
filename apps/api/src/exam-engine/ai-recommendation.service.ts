@@ -161,24 +161,28 @@ export class AiRecommendationService {
         normalized.recommendations,
       );
 
-      await this.prisma.aIRecommendation.update({
-        where: { id: recommendation.id },
-        data: {
-          status: AIRecommendationStatus.completed,
-          isFallback: false,
-          summary: normalized.summary,
-          overallAssessment: normalized.overallAssessment,
-          nextTryoutStrategy: normalized.nextTryoutStrategy,
-          rawRequestPayload: toInputJson(payload),
-          rawAiResponse: toInputJson(responseJson),
-          errorMessage: null,
-          generatedAt: new Date(),
-          items: {
-            deleteMany: {},
-            create: mergedItems,
+      await this.prisma.$transaction([
+        this.prisma.aIRecommendationItem.deleteMany({
+          where: { aiRecommendationId: recommendation.id },
+        }),
+        this.prisma.aIRecommendation.update({
+          where: { id: recommendation.id },
+          data: {
+            status: AIRecommendationStatus.completed,
+            isFallback: false,
+            summary: normalized.summary,
+            overallAssessment: normalized.overallAssessment,
+            nextTryoutStrategy: normalized.nextTryoutStrategy,
+            rawRequestPayload: toInputJson(payload),
+            rawAiResponse: toInputJson(responseJson),
+            errorMessage: null,
+            generatedAt: new Date(),
+            items: {
+              create: mergedItems,
+            },
           },
-        },
-      });
+        }),
+      ]);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Terjadi kegagalan saat memanggil N8N webhook';
@@ -258,24 +262,28 @@ export class AiRecommendationService {
       rawAiResponse: params.rawAiResponse,
     });
 
-    await this.prisma.aIRecommendation.update({
-      where: { id: recommendationId },
-      data: {
-        status: fallback.status,
-        isFallback: fallback.isFallback,
-        summary: fallback.summary,
-        overallAssessment: fallback.overallAssessment,
-        nextTryoutStrategy: fallback.nextTryoutStrategy,
-        rawRequestPayload: fallback.rawRequestPayload,
-        rawAiResponse: fallback.rawAiResponse,
-        errorMessage: fallback.errorMessage,
-        generatedAt: fallback.generatedAt,
-        items: {
-          deleteMany: {},
-          create: fallback.items,
+    await this.prisma.$transaction([
+      this.prisma.aIRecommendationItem.deleteMany({
+        where: { aiRecommendationId: recommendationId },
+      }),
+      this.prisma.aIRecommendation.update({
+        where: { id: recommendationId },
+        data: {
+          status: fallback.status,
+          isFallback: fallback.isFallback,
+          summary: fallback.summary,
+          overallAssessment: fallback.overallAssessment,
+          nextTryoutStrategy: fallback.nextTryoutStrategy,
+          rawRequestPayload: fallback.rawRequestPayload,
+          rawAiResponse: fallback.rawAiResponse,
+          errorMessage: fallback.errorMessage,
+          generatedAt: fallback.generatedAt,
+          items: {
+            create: fallback.items,
+          },
         },
-      },
-    });
+      }),
+    ]);
   }
 
   private resolveWebhookUrl() {

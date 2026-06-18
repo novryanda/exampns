@@ -997,6 +997,9 @@ export class OperationsService {
       isTrial: plan.isTrial,
       trialTryoutLimit: plan.trialTryoutLimit,
       trialDayLimit: plan.trialDayLimit,
+      features: plan.features,
+      isPopular: plan.isPopular,
+      showOnLandingPage: plan.showOnLandingPage,
       createdAt: plan.createdAt,
       updatedAt: plan.updatedAt,
     }));
@@ -1004,7 +1007,17 @@ export class OperationsService {
 
   async createSubscriptionPlan(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(createSubscriptionPlanSchema, rawBody);
-    this.assertPlanTierRules(payload);
+    this.assertPlanTierRules({
+      name: payload.name,
+      description: payload.description,
+      tier: payload.tier,
+      durationDays: payload.durationDays,
+      price: payload.price,
+      currency: payload.currency,
+      isActive: payload.isActive,
+      trialTryoutLimit: payload.trialTryoutLimit,
+      trialDayLimit: payload.trialDayLimit,
+    });
 
     const created = await this.prisma.subscriptionPlan.create({
       data: {
@@ -1015,6 +1028,9 @@ export class OperationsService {
         price: payload.price,
         currency: payload.currency,
         isActive: payload.isActive,
+        features: payload.features ?? [],
+        isPopular: payload.isPopular ?? false,
+        showOnLandingPage: payload.showOnLandingPage ?? false,
         isTrial: payload.tier === SubscriptionTier.trial,
         trialTryoutLimit:
           payload.tier === SubscriptionTier.trial ? payload.trialTryoutLimit ?? 0 : null,
@@ -1067,6 +1083,9 @@ export class OperationsService {
         ...(payload.price !== undefined ? { price: payload.price } : {}),
         ...(payload.currency !== undefined ? { currency: payload.currency } : {}),
         ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
+        ...(payload.features !== undefined ? { features: payload.features } : {}),
+        ...(payload.isPopular !== undefined ? { isPopular: payload.isPopular } : {}),
+        ...(payload.showOnLandingPage !== undefined ? { showOnLandingPage: payload.showOnLandingPage } : {}),
         ...(payload.tier !== undefined ? { isTrial: payload.tier === SubscriptionTier.trial } : {}),
         ...(payload.tier === SubscriptionTier.trial || (payload.tier === undefined && existing.tier === SubscriptionTier.trial)
           ? {

@@ -16,6 +16,7 @@ import { QuestionBankModule } from './question-bank/question-bank.module.js';
 import { PublicSampleModule } from './public-sample/public-sample.module.js';
 import { QuestionMetadataModule } from './question-metadata/question-metadata.module.js';
 import { TryoutManagementModule } from './tryout-management/tryout-management.module.js';
+import { LearningMaterialModule } from './learning-material/learning-material.module.js';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { TryoutManagementModule } from './tryout-management/tryout-management.mo
     QuestionMetadataModule,
     PublicSampleModule,
     TryoutManagementModule,
+    LearningMaterialModule,
     BootstrapModule,
   ],
   controllers: [AppController],

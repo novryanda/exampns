@@ -16,7 +16,7 @@ async function proxyExamRequest(
   return proxyBackendRequest(`${SERVER_BACKEND_API_URL}/api/v1/exams/${path.join("/")}${query}`, {
     method,
     headers,
-    body: method === "GET" ? undefined : await request.text(),
+    body: method === "GET" ? undefined : await request.arrayBuffer(),
   });
 }
 

@@ -1,6 +1,7 @@
 import {
   Bot,
   BookCopy,
+  BookOpen,
   ChartNoAxesCombined,
   FileSearch,
   Files,
@@ -88,6 +89,12 @@ export const adminSidebarItems: NavGroup[] = [
         icon: BookCopy,
       },
       {
+        title: "Materi Pembelajaran",
+        url: "/admin/materi",
+        icon: BookOpen,
+        isNew: true,
+      },
+      {
         title: "Audit Aktivitas",
         url: "/admin/audit-aktivitas",
         icon: ScrollText,
@@ -111,6 +118,12 @@ export const userSidebarItems: NavGroup[] = [
     id: 2,
     label: "Belajar",
     items: [
+      {
+        title: "Materi",
+        url: "/app/materi",
+        icon: BookOpen,
+        isNew: true,
+      },
       {
         title: "Tryout",
         url: "/app/tryout",

@@ -211,6 +211,8 @@ model User {
   revokedAccessOverrides    UserAccessOverride[]   @relation("UserAccessOverrideRevokedBy")
   paymentTransactions       PaymentTransaction[]
   auditLogs                 AuditLog[]             @relation("AuditActor")
+  createdMaterials           Material[]             @relation("MaterialCreatedBy")
+  materialProgress           UserMaterialProgress[]
 
   @@index([role], map: "idx_users_role")
   @@index([deletedAt])
@@ -279,6 +281,7 @@ model QuestionCategory {
   questions               Question[]
   tryoutRuleSections      TryoutRuleSection[]
   passingGradeConfigItems PassingGradeConfigItem[]
+  materials               Material[]
 
   @@index([isActive, sortOrder], map: "idx_question_categories_active")
   @@map("question_categories")
@@ -311,6 +314,7 @@ model Question {
   parsedReviews          ParsedQuestionReview[]
   manualQuestionSetItems ManualQuestionSetItem[]
   examSessionQuestions   ExamSessionQuestion[]
+  materialModuleQuizzes  MaterialModuleQuiz[]
 
   @@index([status, categoryId], map: "idx_questions_active_category")
   @@index([topicTagId], map: "idx_questions_topic")
@@ -716,6 +720,9 @@ model SubscriptionPlan {
   isActive            Boolean              @default(true) @map("is_active")
   isTrial             Boolean              @default(false) @map("is_trial")
   tier                SubscriptionTier     @default(standard)
+  features            Json                 @default("[]")
+  isPopular           Boolean              @default(false) @map("is_popular")
+  showOnLandingPage   Boolean              @default(false) @map("show_on_landing_page")
   trialTryoutLimit    Int?                 @map("trial_tryout_limit")
   trialDayLimit       Int?                 @map("trial_day_limit")
   createdAt           DateTime             @default(now()) @map("created_at")
@@ -894,4 +901,124 @@ model AuditLog {
   @@index([actorUserId, createdAt], map: "idx_audit_actor_date")
   @@index([module, action, createdAt])
   @@map("audit_logs")
+}
+
+// ─── Learning Material ────────────────────────────────────────────────────────
+
+enum MaterialStatus {
+  draft
+  published
+  archived
+}
+
+enum ModuleType {
+  video
+  text
+  pdf
+  quiz
+}
+
+model Material {
+  id                String             @id @default(uuid())
+  title             String             @db.VarChar(200)
+  description       String?
+  coverImageUrl     String?            @map("cover_image_url")
+  categoryId        String             @map("category_id")
+  requiredTier      SubscriptionTier   @default(trial) @map("required_tier")
+  status            MaterialStatus     @default(draft)
+  sortOrder         Int                @default(0) @map("sort_order")
+  createdBy         String             @map("created_by")
+  publishedAt       DateTime?          @map("published_at")
+  archivedAt        DateTime?          @map("archived_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  categoryRef       QuestionCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdByUser     User               @relation("MaterialCreatedBy", fields: [createdBy], references: [id])
+  modules           MaterialModule[]
+  userProgress      UserMaterialProgress[]
+
+  @@index([status, requiredTier, sortOrder])
+  @@index([categoryId, status])
+  @@map("materials")
+}
+
+model MaterialModule {
+  id            String           @id @default(uuid())
+  materialId    String           @map("material_id")
+  title         String           @db.VarChar(200)
+  description   String?
+  moduleType    ModuleType       @map("module_type")
+  content       String?          // markdown/rich text for 'text' type
+  videoUrl      String?          @map("video_url")  // embed URL for 'video' type
+  pdfUrl        String?          @map("pdf_url")    // link for 'pdf' type
+  durationMinutes Int?           @map("duration_minutes")
+  sortOrder     Int              @default(0) @map("sort_order")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  material      Material         @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  quizQuestions MaterialModuleQuiz[]
+  manualQuestions MaterialModuleManualQuestion[]
+  userProgress  UserMaterialProgress[]
+
+  @@unique([materialId, sortOrder], map: "uq_material_module_order")
+  @@index([materialId, sortOrder])
+  @@map("material_modules")
+}
+
+model MaterialModuleQuiz {
+  id              String         @id @default(uuid())
+  moduleId        String         @map("module_id")
+  questionId      String         @map("question_id")
+  questionOrder   Int            @map("question_order")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  module          MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  question        Question       @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([moduleId, questionId], map: "uq_material_module_quiz_question")
+  @@unique([moduleId, questionOrder], map: "uq_material_module_quiz_order")
+  @@map("material_module_quizzes")
+}
+
+model MaterialModuleManualQuestion {
+  id              String         @id @default(uuid())
+  moduleId        String         @map("module_id")
+  questionText    String         @map("question_text")
+  questionOrder   Int            @map("question_order")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  module          MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  options         MaterialModuleManualQuestionOption[]
+
+  @@index([moduleId, questionOrder])
+  @@map("material_module_manual_questions")
+}
+
+model MaterialModuleManualQuestionOption {
+  id              String         @id @default(uuid())
+  questionId      String         @map("question_id")
+  label           String         @db.VarChar(1)
+  optionText      String         @map("option_text")
+  isCorrect       Boolean        @default(false) @map("is_correct")
+  displayOrder    Int            @map("display_order")
+  question        MaterialModuleManualQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, label], map: "uq_material_manual_option_label")
+  @@index([questionId, displayOrder])
+  @@map("material_module_manual_options")
+}
+
+model UserMaterialProgress {
+  id            String         @id @default(uuid())
+  userId        String         @map("user_id")
+  materialId    String         @map("material_id")
+  moduleId      String         @map("module_id")
+  completedAt   DateTime       @default(now()) @map("completed_at")
+  quizScore     Int?           @map("quiz_score") // score if module type is quiz
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  module        MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId], map: "uq_user_material_progress")
+  @@index([userId, materialId])
+  @@map("user_material_progress")
 }

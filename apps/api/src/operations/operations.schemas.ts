@@ -40,6 +40,9 @@ export const createSubscriptionPlanSchema = z.object({
   price: z.coerce.number().nonnegative(),
   currency: z.preprocess(emptyToUndefined, z.string().min(3).max(10).default('IDR')),
   isActive: z.boolean().default(true),
+  features: z.array(z.string()).default([]),
+  isPopular: z.boolean().default(false),
+  showOnLandingPage: z.boolean().default(false),
   trialTryoutLimit: z.coerce.number().int().min(0).max(1000).nullable().optional(),
   trialDayLimit: z.coerce.number().int().min(1).max(365).nullable().optional(),
 });

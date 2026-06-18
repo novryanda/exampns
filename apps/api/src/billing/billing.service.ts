@@ -40,13 +40,11 @@ export class BillingService {
     private readonly validationService: ValidationService,
   ) {}
 
-  async listSubscriptionPlans() {
+  async listSubscriptionPlans(showOnLandingPage?: boolean) {
     const plans = await this.prisma.subscriptionPlan.findMany({
       where: {
         isActive: true,
-        tier: {
-          in: [SubscriptionTier.standard, SubscriptionTier.premium],
-        },
+        ...(showOnLandingPage ? { showOnLandingPage: true } : {}),
       },
       orderBy: [{ price: 'asc' }, { createdAt: 'asc' }],
     });
@@ -60,6 +58,8 @@ export class BillingService {
       currency: plan.currency,
       isTrial: plan.isTrial,
       isActive: plan.isActive,
+      features: plan.features,
+      isPopular: plan.isPopular,
     }));
   }
 

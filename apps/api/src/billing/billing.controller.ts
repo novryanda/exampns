@@ -29,8 +29,11 @@ export class BillingController {
 
   @Public()
   @Get('subscription-plans')
-  async listSubscriptionPlans(): Promise<ApiSuccessResponse<unknown[]>> {
-    return apiData(await this.billingService.listSubscriptionPlans());
+  async listSubscriptionPlans(
+    @Query('landingPage') landingPage?: string,
+  ): Promise<ApiSuccessResponse<unknown[]>> {
+    const showOnLandingPage = landingPage === 'true';
+    return apiData(await this.billingService.listSubscriptionPlans(showOnLandingPage));
   }
 
   @Get('subscriptions/me')

@@ -541,3 +541,57 @@ export async function getAdminAuditActivity(params?: Record<string, string | num
     `/api/v1/admin/audit-logs/me${toQueryString(params ?? {})}`,
   );
 }
+
+// ─── Admin Learning Materials ──────────────────────────────────────────────
+
+export interface AdminLearningMaterialItem {
+  id: string;
+  title: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  categoryId: string;
+  requiredTier: "trial" | "standard" | "premium";
+  status: "draft" | "published" | "archived";
+  sortOrder: number;
+  createdBy: string;
+  publishedAt: string | null;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  categoryRef: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  createdByUser: {
+    id: string;
+    name: string;
+  };
+  _count: {
+    modules: number;
+  };
+}
+
+export async function getAdminLearningMaterials(params?: {
+  status?: string;
+  categoryId?: string;
+}) {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem[]>>(
+      `/api/v1/admin/learning-materials${toQueryString({
+        status: params?.status,
+        categoryId: params?.categoryId,
+      })}`,
+    );
+    return response.data;
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminLearningMaterialDetail(materialId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem & { modules: any[] }>>(
+    `/api/v1/admin/learning-materials/${materialId}`,
+  );
+  return response.data;
+}

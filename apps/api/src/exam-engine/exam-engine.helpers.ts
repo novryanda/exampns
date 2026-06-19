@@ -1,5 +1,4 @@
 import {
-  AccessType,
   AIRecommendationStatus,
   Prisma,
   PriorityLevel,
@@ -11,7 +10,6 @@ import {
   TryoutType,
   UserRole,
 } from '../../generated/prisma/client.js';
-import type { EffectiveAccessLevel } from '../common/access-control.helpers.js';
 
 export interface QuestionSnapshotOption {
   label: string;
@@ -186,24 +184,6 @@ export const sanitizeQuestionOptionsForActiveExam = (
 
 export const resolveTryoutCatalogId = (payload: { tryoutCatalogId?: string; examConfigId?: string }) =>
   payload.tryoutCatalogId ?? payload.examConfigId!;
-
-export const ensureUserCanAccessTryout = (
-  accessType: AccessType,
-  accessLevel: EffectiveAccessLevel,
-) => {
-  switch (accessType) {
-    case AccessType.trial_only:
-      return accessLevel === 'trial';
-    case AccessType.paid_only:
-      return accessLevel === 'standard' || accessLevel === 'premium';
-    case AccessType.premium_only:
-      return accessLevel === 'premium';
-    case AccessType.trial_and_paid:
-      return accessLevel !== 'expired';
-    default:
-      return false;
-  }
-};
 
 export const computeAccuracy = (correctAnswers: number, totalQuestions: number) =>
   totalQuestions === 0 ? 0 : Math.round((correctAnswers / totalQuestions) * 100);

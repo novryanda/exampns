@@ -84,7 +84,7 @@ function buildTryoutDraftPayload(formData: FormData) {
     name: String(formData.get("name") ?? "").trim(),
     description: optionalString(formData.get("description")) ?? "",
     tryoutType: String(formData.get("tryoutType") ?? "generated"),
-    accessType: String(formData.get("accessType") ?? "trial_and_paid"),
+    requiredSubscriptionPlanId: optionalString(formData.get("requiredSubscriptionPlanId")) ?? "",
     status: String(formData.get("status") ?? "draft"),
     isFeatured: parseBoolean(formData.get("isFeatured")),
     isPublic: false,
@@ -652,13 +652,13 @@ export async function submitTryoutDraftForReviewAction(
 
     return {
       status: "success",
-      message: "Tryout draft berhasil dikirim untuk review.",
+      message: "Tryout berhasil dipublish dan siap digunakan.",
       resourceId: tryoutDraftId,
     };
   } catch (error) {
     return {
       status: "error",
-      message: error instanceof Error ? error.message : "Gagal mengirim tryout draft untuk review.",
+      message: error instanceof Error ? error.message : "Gagal mempublish tryout.",
     };
   }
 }
@@ -745,6 +745,18 @@ export async function archiveTryoutCatalogAction(
       message: error instanceof Error ? error.message : "Gagal mengarsipkan tryout.",
     };
   }
+}
+
+export async function setTryoutCatalogPublishStateAction(tryoutDraftId: string, shouldPublish: boolean) {
+  await serverApiFetch<{ success: true; message?: string }>(
+    `/api/v1/super-admin/tryout-catalogs/${tryoutDraftId}/${shouldPublish ? "publish" : "archive"}`,
+    {
+      method: "POST",
+    },
+  );
+
+  revalidateTryoutBuilderPaths("super-admin", tryoutDraftId);
+  revalidatePath("/admin/tryout-drafts");
 }
 
 export async function duplicateTryoutDraftAction(tryoutDraftId: string) {

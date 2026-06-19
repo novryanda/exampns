@@ -82,7 +82,7 @@ export class TryoutCatalogController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ApiMessageResponse> {
     await this.tryoutManagementService.submitTryoutCatalogForReview(tryoutCatalogId, actor);
-    return apiMessage('Tryout catalog berhasil diajukan ke review');
+    return apiMessage('Tryout catalog berhasil dipublish');
   }
 
   @Post(':tryoutCatalogId/publish')

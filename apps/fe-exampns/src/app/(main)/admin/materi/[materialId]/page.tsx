@@ -3,6 +3,7 @@ import { BookOpen } from "lucide-react";
 
 import { PageHeader } from "@/app/(main)/_components/page-shell";
 import { getAdminLearningMaterialDetail, getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
+import { getSubscriptionPlans } from "@/server/user-dashboard-data";
 import { MaterialForm } from "../_components/material-form";
 import { ModuleManager } from "../_components/module-manager";
 import { MaterialActions } from "../_components/material-actions";
@@ -15,7 +16,10 @@ export default async function AdminMateriDetailPage({
   const { materialId } = await params;
 
   let material;
-  const metadataOptions = await getAdminQuestionMetadataOptions();
+  const [metadataOptions, subscriptionPlans] = await Promise.all([
+    getAdminQuestionMetadataOptions(),
+    getSubscriptionPlans(),
+  ]);
   
   try {
     material = await getAdminLearningMaterialDetail(materialId);
@@ -39,7 +43,11 @@ export default async function AdminMateriDetailPage({
               <BookOpen className="size-5" />
               Detail Materi
             </h2>
-            <MaterialForm categories={metadataOptions.categories} initialData={material} />
+            <MaterialForm
+              categories={metadataOptions.categories}
+              subscriptionPlans={subscriptionPlans}
+              initialData={material}
+            />
           </div>
         </div>
 

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 import { StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { formatAccessTypeLabel, formatTryoutTypeLabel } from "@/lib/user-app/labels";
+import { formatRequiredPlanLabel, formatTryoutTypeLabel } from "@/lib/user-app/labels";
 import type { QuestionCategoryItem, UserTryoutCatalogItem } from "@/server/user-dashboard-data";
 
 import { StartTryoutButton } from "./start-tryout-button";
@@ -69,7 +69,7 @@ export function TryoutCatalog({
             <article key={tryout.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center gap-2">
                 {tryout.isFeatured ? <StatusBadge tone="brand">Unggulan</StatusBadge> : null}
-                <StatusBadge tone="neutral">{formatAccessTypeLabel(tryout.accessType)}</StatusBadge>
+                <StatusBadge tone="neutral">{formatRequiredPlanLabel(tryout.requiredSubscriptionPlan)}</StatusBadge>
                 <StatusBadge tone={tryout.canStart ? "success" : "warning"}>
                   {formatTryoutTypeLabel(tryout.tryoutType)}
                 </StatusBadge>

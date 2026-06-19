@@ -149,13 +149,13 @@ export function TryoutDraftsManager({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Draft Tryout"
-        description="Buat draft sebelum diterbitkan oleh super admin."
+        title="Tryout Admin"
+        description="Susun, publish, dan arsipkan tryout dari workspace admin."
         actions={
           <Button asChild className="rounded-xl bg-blue-600 hover:bg-blue-700">
             <Link href="/admin/tryout-drafts/new">
               <Plus className="mr-2 size-4" />
-              Buat Draft
+              Buat Tryout
             </Link>
           </Button>
         }
@@ -193,7 +193,8 @@ export function TryoutDraftsManager({
           <SelectContent>
             <SelectItem value="all">Semua Status</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="review">Review</SelectItem>
+            <SelectItem value="review">Review Lama</SelectItem>
+            <SelectItem value="published">Published</SelectItem>
           </SelectContent>
         </Select>
         <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white" disabled={isPending}>
@@ -202,8 +203,8 @@ export function TryoutDraftsManager({
       </form>
 
       <SectionCard
-        title="Daftar Draft"
-        description={`Menampilkan ${response.data.length} dari ${response.meta.totalItems.toLocaleString("id-ID")} draft tryout.`}
+        title="Daftar Tryout"
+        description={`Menampilkan ${response.data.length} dari ${response.meta.totalItems.toLocaleString("id-ID")} tryout admin.`}
       >
         <Table>
           <TableHeader>
@@ -230,11 +231,23 @@ export function TryoutDraftsManager({
                 <TableRow key={draft.id} className={isPending ? "opacity-80 transition-opacity" : undefined}>
                   <TableCell className="font-medium text-slate-950">{draft.name}</TableCell>
                   <TableCell>{toLabel(draft.tryoutType)}</TableCell>
-                  <TableCell>{toLabel(draft.accessType)}</TableCell>
+                  <TableCell>
+                    {draft.requiredSubscriptionPlan
+                      ? `${draft.requiredSubscriptionPlan.name} (${draft.requiredSubscriptionPlan.tier})`
+                      : "Belum dipilih"}
+                  </TableCell>
                   <TableCell>{draft.totalQuestions}</TableCell>
                   <TableCell>{draft.durationMinutes} menit</TableCell>
                   <TableCell>
-                    <StatusBadge tone={draft.status === "review" ? "warning" : "neutral"}>
+                    <StatusBadge
+                      tone={
+                        draft.status === "published"
+                          ? "success"
+                          : draft.status === "review"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    >
                       {toLabel(draft.status)}
                     </StatusBadge>
                   </TableCell>
@@ -253,11 +266,11 @@ export function TryoutDraftsManager({
                           Duplikasi
                         </Button>
                       </form>
-                      {draft.status === "draft" ? (
+                      {draft.status !== "published" ? (
                         <form action={submitTryoutDraftAction.bind(null, draft.id)}>
                           <Button size="sm" className="rounded-lg bg-blue-600 hover:bg-blue-700">
                             <Send className="mr-1 size-4" />
-                            Ajukan
+                            Publish
                           </Button>
                         </form>
                       ) : null}

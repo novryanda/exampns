@@ -1,14 +1,12 @@
-export type TryoutAccessType = "trial_only" | "paid_only" | "trial_and_paid" | "premium_only";
+export function formatRequiredPlanLabel(plan: {
+  name: string;
+  tier: "trial" | "standard" | "premium";
+} | null) {
+  if (!plan) {
+    return "Plan belum diatur";
+  }
 
-const accessTypeLabels: Record<TryoutAccessType, string> = {
-  trial_only: "Trial",
-  paid_only: "Berbayar",
-  trial_and_paid: "Trial & Berbayar",
-  premium_only: "Premium",
-};
-
-export function formatAccessTypeLabel(value: TryoutAccessType) {
-  return accessTypeLabels[value];
+  return `${plan.name} (${plan.tier})`;
 }
 
 export function formatTryoutTypeLabel(value: string) {

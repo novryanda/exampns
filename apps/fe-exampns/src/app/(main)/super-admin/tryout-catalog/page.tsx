@@ -1,20 +1,16 @@
-import Link from "next/link";
-
 import { CheckCircle2, ClipboardList, FileText, Layers2, Search } from "lucide-react";
 
 import { MetricCard, PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getTryoutCatalogs } from "@/server/admin-data";
+import { TryoutPublishSwitch } from "./_components/tryout-publish-switch";
 
 const statIcons = [ClipboardList, CheckCircle2, FileText, Layers2] as const;
 const statTints = ["blue", "green", "amber", "violet"] as const;
 
 function toLabel(value: string) {
-  if (value === "trial_and_paid") return "Semua Pengguna Aktif";
-  if (value === "paid_only") return "Semua Berbayar";
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -34,18 +30,17 @@ function toneForStatus(status: string) {
   return "neutral";
 }
 
-function toneForAccess(accessType: string) {
-  if (accessType === "trial_and_paid") return "success";
-  if (accessType === "premium_only" || accessType === "paid_only") return "warning";
-  return "brand";
+function formatRequiredPlan(plan: { name: string; tier: string } | null) {
+  if (!plan) return "Belum dipilih";
+  return `${plan.name} (${plan.tier})`;
 }
 
 export default async function SuperAdminTryoutCatalogPage() {
-  const [allTryouts, publishedTryouts, draftTryouts, reviewTryouts] = await Promise.all([
+  const [allTryouts, publishedTryouts, draftTryouts, archivedTryouts] = await Promise.all([
     getTryoutCatalogs({ limit: 10 }),
     getTryoutCatalogs({ status: "published", limit: 1 }),
     getTryoutCatalogs({ status: "draft", limit: 1 }),
-    getTryoutCatalogs({ status: "review", limit: 1 }),
+    getTryoutCatalogs({ status: "archived", limit: 1 }),
   ]);
 
   const metrics = [
@@ -71,10 +66,10 @@ export default async function SuperAdminTryoutCatalogPage() {
       direction: "neutral" as const,
     },
     {
-      title: "Review",
-      value: reviewTryouts.meta.totalItems.toLocaleString("id-ID"),
+      title: "Archived",
+      value: archivedTryouts.meta.totalItems.toLocaleString("id-ID"),
       delta: "",
-      deltaLabel: "menunggu finalisasi",
+      deltaLabel: "sementara tidak aktif",
       direction: "neutral" as const,
     },
   ];
@@ -83,12 +78,7 @@ export default async function SuperAdminTryoutCatalogPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Tryout Catalog"
-        description="Kelola publish flow dan katalog tryout untuk pengguna platform."
-        actions={
-          <Button asChild className="rounded-xl bg-blue-600 hover:bg-blue-700">
-            <Link href="/super-admin/tryout-catalog/new">Buat Tryout Baru</Link>
-          </Button>
-        }
+        description="Pantau katalog tryout dan ubah status publish/archive tanpa masuk ke builder."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -106,18 +96,6 @@ export default async function SuperAdminTryoutCatalogPage() {
             <SelectItem value="manual">Manual</SelectItem>
             <SelectItem value="hybrid">Hybrid</SelectItem>
             <SelectItem value="adaptive">Adaptive</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select defaultValue="all-access">
-          <SelectTrigger className="w-44 rounded-xl border-slate-200 bg-white">
-            <SelectValue placeholder="Akses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all-access">Semua Akses</SelectItem>
-            <SelectItem value="trial_and_paid">Semua Pengguna Aktif</SelectItem>
-            <SelectItem value="paid_only">Semua Berbayar</SelectItem>
-            <SelectItem value="premium_only">Premium Only</SelectItem>
-            <SelectItem value="trial_only">Trial Only</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -146,13 +124,13 @@ export default async function SuperAdminTryoutCatalogPage() {
             <TableRow>
               <TableHead>Nama Tryout</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Akses</TableHead>
+              <TableHead>Plan Akses</TableHead>
               <TableHead>Jumlah Soal</TableHead>
               <TableHead>Durasi</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Updated At</TableHead>
-              <TableHead className="text-right">Aksi</TableHead>
+              <TableHead className="text-right">Publish</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -175,7 +153,7 @@ export default async function SuperAdminTryoutCatalogPage() {
                     <StatusBadge tone="brand">{toLabel(tryout.tryoutType)}</StatusBadge>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge tone={toneForAccess(tryout.accessType)}>{toLabel(tryout.accessType)}</StatusBadge>
+                    <StatusBadge tone="neutral">{formatRequiredPlan(tryout.requiredSubscriptionPlan)}</StatusBadge>
                   </TableCell>
                   <TableCell>{tryout.totalQuestions}</TableCell>
                   <TableCell>{tryout.durationMinutes} menit</TableCell>
@@ -189,9 +167,10 @@ export default async function SuperAdminTryoutCatalogPage() {
                   </TableCell>
                   <TableCell>{formatDate(tryout.updatedAt)}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" className="rounded-lg border-slate-200 bg-white" asChild>
-                      <Link href={`/super-admin/tryout-catalog/${tryout.id}/edit`}>Buka Builder</Link>
-                    </Button>
+                    <TryoutPublishSwitch
+                      tryoutId={tryout.id}
+                      initialChecked={tryout.status === "published"}
+                    />
                   </TableCell>
                 </TableRow>
               ))

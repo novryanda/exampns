@@ -78,7 +78,12 @@ export interface UserTryoutCatalogItem {
   name: string;
   description: string | null;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  accessType: "trial_only" | "paid_only" | "trial_and_paid" | "premium_only";
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
   isFeatured: boolean;
   durationMinutes: number;
   totalQuestions: number;
@@ -211,6 +216,7 @@ export interface SubscriptionPlanItem {
   id: string;
   name: string;
   description: string | null;
+  tier: "trial" | "standard" | "premium";
   durationDays: number;
   price: number;
   currency: string;
@@ -475,7 +481,13 @@ export interface UserLearningMaterialItem {
     code: string;
     name: string;
   };
-  requiredTier: "trial" | "standard" | "premium";
+  requiredSubscriptionPlanId: string | null;
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
   createdAt: string;
   updatedAt: string;
   isAccessible: boolean;
@@ -486,7 +498,7 @@ export interface UserLearningMaterialItem {
 
 export async function getLearningMaterials(params?: { categoryId?: string }) {
   const response = await serverApiFetch<ApiSuccessResponse<UserLearningMaterialItem[]>>(
-    "/api/v1/user/learning-materials${toQueryString({ categoryId: params?.categoryId })}"
+    `/api/v1/user/learning-materials${toQueryString({ categoryId: params?.categoryId })}`
   );
   return response.data;
 }

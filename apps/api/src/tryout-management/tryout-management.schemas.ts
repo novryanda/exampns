@@ -48,6 +48,7 @@ export const listTryoutCatalogsQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   tryoutType: z.preprocess(emptyToUndefined, z.nativeEnum(TryoutType).optional()),
   accessType: z.preprocess(emptyToUndefined, z.nativeEnum(AccessType).optional()),
+  requiredSubscriptionPlanId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.nativeEnum(TryoutStatus).optional()),
   isPublic: z.preprocess(
     (value) => (value === 'true' ? true : value === 'false' ? false : value),
@@ -61,8 +62,8 @@ export const createTryoutCatalogSchema = z.object({
   name: z.string().trim().min(1).max(150),
   description: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   tryoutType: z.nativeEnum(TryoutType),
-  accessType: z.nativeEnum(AccessType),
   status: z.nativeEnum(TryoutStatus),
+  requiredSubscriptionPlanId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   isPublic: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
   sortOrder: z.number().int().min(0).default(0),

@@ -17,9 +17,9 @@ import type {
 } from './tryout-management.schemas.js';
 
 export const assertTryoutCatalogRules = (payload: CreateTryoutCatalogInput) => {
-  if (payload.status === TryoutStatus.published || payload.status === TryoutStatus.archived) {
+  if (payload.status !== TryoutStatus.draft) {
     throw new BadRequestException(
-      'Tryout catalog must be created as draft or review before publish/archive actions',
+      'Tryout catalog must be created as draft before publish/archive actions',
     );
   }
 };

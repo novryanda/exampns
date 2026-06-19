@@ -15,7 +15,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { LearningMaterialService } from './learning-material.service.js';
 import { saveMaterialFile, type UploadedMaterialFile } from './learning-material.storage.js';
-import { MaterialStatus, ModuleType, SubscriptionTier } from '../../generated/prisma/client.js';
+import { MaterialStatus, ModuleType } from '../../generated/prisma/client.js';
 
 @Controller('admin/learning-materials')
 @Roles('ADMIN', 'SUPER_ADMIN')
@@ -52,7 +52,7 @@ export class LearningMaterialAdminController {
       description?: string;
       coverImageUrl?: string;
       categoryId: string;
-      requiredTier?: SubscriptionTier;
+      requiredSubscriptionPlanId?: string;
     },
   ) {
     const data = await this.service.createMaterial({
@@ -71,7 +71,7 @@ export class LearningMaterialAdminController {
       description?: string;
       coverImageUrl?: string;
       categoryId?: string;
-      requiredTier?: SubscriptionTier;
+      requiredSubscriptionPlanId?: string;
       sortOrder?: number;
     },
   ) {

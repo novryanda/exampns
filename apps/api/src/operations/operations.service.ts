@@ -21,7 +21,7 @@ import { auth } from '../auth/auth.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AccessResolverService } from '../common/access-resolver.service.js';
 import {
-  canAccessTryout,
+  canAccessRequiredPlanTier,
   getSubscriptionTierSnapshot,
 } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
@@ -215,13 +215,20 @@ export class OperationsService {
         name: true,
         description: true,
         tryoutType: true,
-        accessType: true,
         isFeatured: true,
         durationMinutes: true,
         totalQuestions: true,
         showResultImmediately: true,
         showAnswerReview: true,
         publishedAt: true,
+        requiredSubscriptionPlan: {
+          select: {
+            id: true,
+            name: true,
+            tier: true,
+            isActive: true,
+          },
+        },
         generationRule: {
           select: {
             sections: {
@@ -245,20 +252,18 @@ export class OperationsService {
     });
 
     return tryouts.map((tryout) => {
-      const canStart = canAccessTryout(
-        tryout.accessType,
-        accessResolution.effectiveAccessLevel,
-      );
+      const canStart = tryout.requiredSubscriptionPlan
+        ? canAccessRequiredPlanTier(
+            tryout.requiredSubscriptionPlan.tier,
+            accessResolution.effectiveAccessLevel,
+          )
+        : false;
 
       const lockedReason = canStart
         ? null
-        : tryout.accessType === 'premium_only'
-          ? 'Butuh plan premium aktif'
-          : tryout.accessType === 'paid_only'
-            ? 'Butuh subscription berbayar aktif'
-            : tryout.accessType === 'trial_only'
-              ? 'Khusus user trial aktif'
-              : 'Akses subscription tidak aktif';
+        : tryout.requiredSubscriptionPlan
+          ? `Butuh paket ${tryout.requiredSubscriptionPlan.name} atau tier yang lebih tinggi`
+          : 'Tryout ini belum memiliki paket akses';
 
       const composition =
         tryout.generationRule?.sections.map((section) => ({
@@ -276,7 +281,7 @@ export class OperationsService {
         name: tryout.name,
         description: tryout.description,
         tryoutType: tryout.tryoutType,
-        accessType: tryout.accessType,
+        requiredSubscriptionPlan: tryout.requiredSubscriptionPlan,
         isFeatured: tryout.isFeatured,
         durationMinutes: tryout.durationMinutes,
         totalQuestions: tryout.totalQuestions,

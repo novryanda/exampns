@@ -108,13 +108,18 @@ export interface TryoutCatalogItem {
   id: string;
   name: string;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  accessType: "trial_only" | "paid_only" | "trial_and_paid" | "premium_only";
   status: "draft" | "review" | "published" | "archived";
   isPublic: boolean;
   isFeatured: boolean;
   totalQuestions: number;
   durationMinutes: number;
   updatedAt: string;
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
 }
 
 export interface AiRecommendationSettings {

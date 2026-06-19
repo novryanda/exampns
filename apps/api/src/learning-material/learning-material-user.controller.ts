@@ -7,12 +7,10 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { LearningMaterialService } from './learning-material.service.js';
-import type { SubscriptionTier } from '../../generated/prisma/client.js';
 
 interface AuthUser {
   id: string;
   role: string;
-  // The user's effective tier is resolved by frontend/proxy; for now we accept it
 }
 
 @Controller('user/learning-materials')
@@ -20,8 +18,8 @@ export class LearningMaterialUserController {
   constructor(private readonly service: LearningMaterialService) {}
 
   @Get()
-  async list(@CurrentUser() user: AuthUser & { tier?: SubscriptionTier | null }) {
-    const data = await this.service.listPublishedMaterials(user.tier ?? null);
+  async list(@CurrentUser() user: AuthUser) {
+    const data = await this.service.listPublishedMaterials(user.id);
     return { data };
   }
 
@@ -35,8 +33,11 @@ export class LearningMaterialUserController {
   }
 
   @Get(':materialId/modules/:moduleId')
-  async getModuleContent(@Param('moduleId') moduleId: string) {
-    const data = await this.service.getModuleContent(moduleId);
+  async getModuleContent(
+    @Param('moduleId') moduleId: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    const data = await this.service.getModuleContent(moduleId, user.id);
     return { data };
   }
 

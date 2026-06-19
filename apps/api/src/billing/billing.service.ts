@@ -53,6 +53,7 @@ export class BillingService {
       id: plan.id,
       name: plan.name,
       description: plan.description,
+      tier: plan.tier,
       durationDays: plan.durationDays,
       price: Number(plan.price),
       currency: plan.currency,

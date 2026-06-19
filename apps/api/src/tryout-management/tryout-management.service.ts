@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AccessType,
   ManualQuestionSetStatus,
   Prisma,
   QuestionStatus,
   RandomizationMode,
+  SubscriptionTier,
   TryoutStatus,
   TryoutType,
 } from '../../generated/prisma/client.js';
@@ -34,13 +36,20 @@ const catalogListSelect = {
   id: true,
   name: true,
   tryoutType: true,
-  accessType: true,
   status: true,
   isPublic: true,
   isFeatured: true,
   totalQuestions: true,
   durationMinutes: true,
   updatedAt: true,
+  requiredSubscriptionPlan: {
+    select: {
+      id: true,
+      name: true,
+      tier: true,
+      isActive: true,
+    },
+  },
 } as const;
 
 const catalogDetailSelect = {
@@ -48,7 +57,6 @@ const catalogDetailSelect = {
   name: true,
   description: true,
   tryoutType: true,
-  accessType: true,
   status: true,
   isPublic: true,
   isFeatured: true,
@@ -63,6 +71,14 @@ const catalogDetailSelect = {
   archivedAt: true,
   createdAt: true,
   updatedAt: true,
+  requiredSubscriptionPlan: {
+    select: {
+      id: true,
+      name: true,
+      tier: true,
+      isActive: true,
+    },
+  },
   generationRule: {
     select: {
       id: true,
@@ -191,6 +207,9 @@ export class TryoutManagementService {
         : {}),
       ...(query.tryoutType ? { tryoutType: query.tryoutType } : {}),
       ...(query.accessType ? { accessType: query.accessType } : {}),
+      ...(query.requiredSubscriptionPlanId
+        ? { requiredSubscriptionPlanId: query.requiredSubscriptionPlanId }
+        : {}),
       ...(query.status ? { status: query.status } : {}),
       ...(query.isPublic !== undefined ? { isPublic: query.isPublic } : {}),
     };
@@ -222,12 +241,17 @@ export class TryoutManagementService {
     const payload = this.validationService.validate(createTryoutCatalogSchema, rawBody);
     assertTryoutCatalogRules(payload);
 
+    const requiredSubscriptionPlan = await this.ensureSubscriptionPlanExists(
+      payload.requiredSubscriptionPlanId,
+    );
     await this.ensurePassingGradeExists(payload.passingGradeConfigId);
 
     const created = await this.prisma.tryoutCatalog.create({
       data: {
         ...payload,
+        accessType: this.toLegacyAccessType(requiredSubscriptionPlan?.tier),
         description: payload.description ?? null,
+        requiredSubscriptionPlanId: payload.requiredSubscriptionPlanId ?? null,
         passingGradeConfigId: payload.passingGradeConfigId ?? null,
         createdBy: actor.id,
       },
@@ -265,6 +289,10 @@ export class TryoutManagementService {
   ) {
     const payload = this.validationService.validate(updateTryoutCatalogSchema, rawBody);
     await this.ensureTryoutCatalogExists(tryoutCatalogId);
+    const requiredSubscriptionPlan =
+      payload.requiredSubscriptionPlanId !== undefined
+        ? await this.ensureSubscriptionPlanExists(payload.requiredSubscriptionPlanId)
+        : null;
     await this.ensurePassingGradeExists(payload.passingGradeConfigId);
 
     await this.prisma.tryoutCatalog.update({
@@ -273,7 +301,12 @@ export class TryoutManagementService {
         ...(payload.name !== undefined ? { name: payload.name } : {}),
         ...(payload.description !== undefined ? { description: payload.description ?? null } : {}),
         ...(payload.tryoutType !== undefined ? { tryoutType: payload.tryoutType } : {}),
-        ...(payload.accessType !== undefined ? { accessType: payload.accessType } : {}),
+        ...(payload.requiredSubscriptionPlanId !== undefined
+          ? {
+              requiredSubscriptionPlanId: payload.requiredSubscriptionPlanId,
+              accessType: this.toLegacyAccessType(requiredSubscriptionPlan?.tier),
+            }
+          : {}),
         ...(payload.status !== undefined ? { status: payload.status } : {}),
         ...(payload.isPublic !== undefined ? { isPublic: payload.isPublic } : {}),
         ...(payload.isFeatured !== undefined ? { isFeatured: payload.isFeatured } : {}),
@@ -347,6 +380,7 @@ export class TryoutManagementService {
           description: catalog.description,
           tryoutType: catalog.tryoutType,
           accessType: catalog.accessType,
+          requiredSubscriptionPlanId: catalog.requiredSubscriptionPlanId,
           status: TryoutStatus.draft,
           isPublic: false,
           isFeatured: false,
@@ -427,20 +461,11 @@ export class TryoutManagementService {
     }
 
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
-    if (catalog.accessType === 'premium_only') {
-      const premiumPlanCount = await this.prisma.subscriptionPlan.count({
-        where: {
-          isActive: true,
-          tier: 'premium',
-        },
+    if (!catalog.requiredSubscriptionPlan) {
+      throw new BadRequestException({
+        code: 'SUBSCRIPTION_PLAN_REQUIRED',
+        message: 'Tryout tidak bisa dipublish tanpa subscription plan akses.',
       });
-
-      if (premiumPlanCount === 0) {
-        throw new BadRequestException({
-          code: 'PREMIUM_PLAN_REQUIRED',
-          message: 'Tryout premium tidak bisa dipublish sebelum ada plan premium aktif.',
-        });
-      }
     }
 
     const effectivePassingGradeConfigId =
@@ -510,13 +535,14 @@ export class TryoutManagementService {
     if (
       query.status &&
       query.status !== TryoutStatus.draft &&
-      query.status !== TryoutStatus.review
+      query.status !== TryoutStatus.review &&
+      query.status !== TryoutStatus.published
     ) {
-      throw new BadRequestException('Admin drafts only support draft or review status');
+      throw new BadRequestException('Admin tryouts only support draft, review, or published status');
     }
 
     const where: Prisma.TryoutCatalogWhereInput = {
-      status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.review] },
+      status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.review, TryoutStatus.published] },
       ...(query.search
         ? {
             OR: [
@@ -527,6 +553,9 @@ export class TryoutManagementService {
         : {}),
       ...(query.tryoutType ? { tryoutType: query.tryoutType } : {}),
       ...(query.accessType ? { accessType: query.accessType } : {}),
+      ...(query.requiredSubscriptionPlanId
+        ? { requiredSubscriptionPlanId: query.requiredSubscriptionPlanId }
+        : {}),
     };
 
     const skip = (query.page - 1) * query.limit;
@@ -606,7 +635,7 @@ export class TryoutManagementService {
 
   async submitAdminTryoutDraft(tryoutCatalogId: string, actor: AuthenticatedUser) {
     const catalog = await this.ensureAdminEditableDraft(tryoutCatalogId);
-    if (catalog.status === TryoutStatus.review) {
+    if (catalog.status === TryoutStatus.published) {
       return;
     }
 
@@ -617,29 +646,12 @@ export class TryoutManagementService {
     if (!builderStatus.isStructurallyValid) {
       throw new BadRequestException({
         code: 'TRYOUT_DRAFT_INCOMPLETE',
-        message: 'Tryout draft belum memenuhi struktur minimal untuk diajukan',
+        message: 'Tryout draft belum memenuhi struktur minimal untuk dipublish',
         missingParts: builderStatus.missingParts,
       });
     }
 
-    await this.prisma.tryoutCatalog.update({
-      where: { id: tryoutCatalogId },
-      data: {
-        status: TryoutStatus.review,
-        isPublic: false,
-      },
-    });
-
-    await this.auditLogService.create({
-      actor,
-      action: 'SUBMIT_TRYOUT_DRAFT',
-      module: 'tryout_draft',
-      targetType: 'tryout_catalog',
-      targetId: tryoutCatalogId,
-      metadata: {
-        builderWarnings: builderStatus.modeSpecificWarnings,
-      },
-    });
+    await this.publishTryoutCatalog(tryoutCatalogId, actor);
   }
 
   async getAdminDraftGenerationRule(tryoutCatalogId: string) {
@@ -682,7 +694,7 @@ export class TryoutManagementService {
 
   async submitTryoutCatalogForReview(tryoutCatalogId: string, actor: AuthenticatedUser) {
     const catalog = await this.ensureBuilderEditableCatalog(tryoutCatalogId);
-    if (catalog.status === TryoutStatus.review) {
+    if (catalog.status === TryoutStatus.published) {
       return;
     }
 
@@ -693,29 +705,12 @@ export class TryoutManagementService {
     if (!builderStatus.isStructurallyValid) {
       throw new BadRequestException({
         code: 'TRYOUT_DRAFT_INCOMPLETE',
-        message: 'Tryout draft belum memenuhi struktur minimal untuk diajukan',
+        message: 'Tryout draft belum memenuhi struktur minimal untuk dipublish',
         missingParts: builderStatus.missingParts,
       });
     }
 
-    await this.prisma.tryoutCatalog.update({
-      where: { id: tryoutCatalogId },
-      data: {
-        status: TryoutStatus.review,
-        isPublic: false,
-      },
-    });
-
-    await this.auditLogService.create({
-      actor,
-      action: 'SUBMIT_TRYOUT_DRAFT',
-      module: 'tryout_draft',
-      targetType: 'tryout_catalog',
-      targetId: tryoutCatalogId,
-      metadata: {
-        builderWarnings: builderStatus.modeSpecificWarnings,
-      },
-    });
+    await this.publishTryoutCatalog(tryoutCatalogId, actor);
   }
 
   async getWorkingManualQuestionSetForBuilder(tryoutCatalogId: string) {
@@ -1292,8 +1287,16 @@ export class TryoutManagementService {
         id: true,
         totalQuestions: true,
         tryoutType: true,
-        accessType: true,
         passingGradeConfigId: true,
+        requiredSubscriptionPlanId: true,
+        requiredSubscriptionPlan: {
+          select: {
+            id: true,
+            name: true,
+            tier: true,
+            isActive: true,
+          },
+        },
       },
     });
 
@@ -1306,8 +1309,12 @@ export class TryoutManagementService {
 
   private async ensureAdminEditableDraft(tryoutCatalogId: string) {
     const catalog = await this.ensureBuilderEditableCatalog(tryoutCatalogId);
-    if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
-      throw new BadRequestException('Admin can only access draft or review tryouts');
+    if (
+      catalog.status !== TryoutStatus.draft &&
+      catalog.status !== TryoutStatus.review &&
+      catalog.status !== TryoutStatus.published
+    ) {
+      throw new BadRequestException('Admin can only access non-archived tryouts');
     }
 
     return catalog;
@@ -1326,8 +1333,12 @@ export class TryoutManagementService {
       throw new NotFoundException('Tryout catalog not found');
     }
 
-    if (catalog.status !== TryoutStatus.draft && catalog.status !== TryoutStatus.review) {
-      throw new BadRequestException('Builder hanya bisa digunakan untuk tryout draft atau review');
+    if (
+      catalog.status !== TryoutStatus.draft &&
+      catalog.status !== TryoutStatus.review &&
+      catalog.status !== TryoutStatus.published
+    ) {
+      throw new BadRequestException('Builder hanya bisa digunakan untuk tryout yang belum diarsipkan');
     }
 
     return catalog;
@@ -1351,6 +1362,7 @@ export class TryoutManagementService {
   ) {
     return {
       ...catalog,
+      requiredSubscriptionPlanId: catalog.requiredSubscriptionPlan?.id ?? null,
       manualQuestionSets: catalog.manualQuestionSets.map((item) => ({
         id: item.id,
         name: item.name,
@@ -1369,6 +1381,7 @@ export class TryoutManagementService {
   ) {
     return {
       ...this.formatCatalogDetail(catalog),
+      requiredSubscriptionPlanId: catalog.requiredSubscriptionPlan?.id ?? null,
       workingManualQuestionSetSummary: workingManualQuestionSet
         ? {
             id: workingManualQuestionSet.id,
@@ -1552,8 +1565,8 @@ export class TryoutManagementService {
   }
 
   private assertAdminDraftStatus(status: TryoutStatus) {
-    if (status !== TryoutStatus.draft && status !== TryoutStatus.review) {
-      throw new BadRequestException('Admin drafts can only be saved as draft or review');
+    if (status !== TryoutStatus.draft) {
+      throw new BadRequestException('Admin tryouts can only be saved as draft before publish');
     }
   }
 
@@ -1636,6 +1649,40 @@ export class TryoutManagementService {
     }
 
     return new Map(categories.map((item) => [item.code, item.id]));
+  }
+
+  private async ensureSubscriptionPlanExists(requiredSubscriptionPlanId?: string) {
+    if (!requiredSubscriptionPlanId) {
+      return null;
+    }
+
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { id: requiredSubscriptionPlanId },
+      select: {
+        id: true,
+        name: true,
+        tier: true,
+        isActive: true,
+      },
+    });
+
+    if (!plan) {
+      throw new BadRequestException('Subscription plan akses tidak ditemukan');
+    }
+
+    return plan;
+  }
+
+  private toLegacyAccessType(requiredTier?: SubscriptionTier | null) {
+    switch (requiredTier) {
+      case SubscriptionTier.premium:
+        return AccessType.premium_only;
+      case SubscriptionTier.standard:
+        return AccessType.paid_only;
+      case SubscriptionTier.trial:
+      default:
+        return AccessType.trial_and_paid;
+    }
   }
 
   private async ensurePassingGradeExists(passingGradeConfigId?: string) {

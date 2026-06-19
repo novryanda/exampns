@@ -230,13 +230,18 @@ export interface AdminTryoutDraftItem {
   id: string;
   name: string;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  accessType: "trial_only" | "paid_only" | "trial_and_paid" | "premium_only";
   status: "draft" | "review" | "published" | "archived";
   isPublic: boolean;
   isFeatured: boolean;
   totalQuestions: number;
   durationMinutes: number;
   updatedAt: string;
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
 }
 
 export interface AdminTryoutDraftDetail {
@@ -244,7 +249,13 @@ export interface AdminTryoutDraftDetail {
   name: string;
   description: string | null;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  accessType: "trial_only" | "paid_only" | "trial_and_paid" | "premium_only";
+  requiredSubscriptionPlanId: string | null;
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
   status: "draft" | "review" | "published" | "archived";
   isFeatured: boolean;
   sortOrder: number;
@@ -550,7 +561,7 @@ export interface AdminLearningMaterialItem {
   description: string | null;
   coverImageUrl: string | null;
   categoryId: string;
-  requiredTier: "trial" | "standard" | "premium";
+  requiredSubscriptionPlanId: string | null;
   status: "draft" | "published" | "archived";
   sortOrder: number;
   createdBy: string;
@@ -567,6 +578,12 @@ export interface AdminLearningMaterialItem {
     id: string;
     name: string;
   };
+  requiredSubscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  } | null;
   _count: {
     modules: number;
   };

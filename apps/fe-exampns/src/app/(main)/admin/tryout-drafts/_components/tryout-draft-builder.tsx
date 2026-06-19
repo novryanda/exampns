@@ -11,14 +11,17 @@ import {
   CheckCircle2,
   Database,
   ListChecks,
+  Plus,
   Search,
   Send,
   Settings2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -40,6 +43,7 @@ import type {
   QuestionCategorySummary,
   QuestionMetadataOptions,
 } from "@/server/admin-content-data";
+import type { SubscriptionPlanItem } from "@/server/user-dashboard-data";
 
 import { TryoutDraftForm } from "./tryout-draft-form";
 
@@ -84,59 +88,25 @@ function formatTopicDistribution(value: Array<{ topicTag: string; questionCount:
   return (value ?? []).map((item) => `${item.topicTag}: ${item.questionCount}`).join("\n");
 }
 
-function distributeByWeights(total: number, weights: number[]) {
-  const exact = weights.map((weight) => (total * weight) / 100);
-  const base = exact.map((value) => Math.floor(value));
-  let remainder = total - base.reduce((sum, value) => sum + value, 0);
-
-  const ranking = exact
-    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
-    .sort((left, right) => right.fraction - left.fraction);
-
-  for (const item of ranking) {
-    if (remainder <= 0) {
-      break;
-    }
-
-    base[item.index] += 1;
-    remainder -= 1;
-  }
-
-  return base;
-}
-
-function buildDefaultSections(totalQuestions: number, categories: QuestionCategorySummary[]): StrategySection[] {
-  if (categories.length === 0) {
-    return [];
-  }
-
-  const distributedCounts = distributeByWeights(
-    totalQuestions,
-    categories.map(() => 100 / categories.length),
-  );
-  const toDifficulty = (count: number) => {
-    const [easy, medium, hard] = distributeByWeights(count, [30, 50, 20]);
-    return { easy, medium, hard };
+function createEmptySection(category: string, sortOrder: number): StrategySection {
+  return {
+    category,
+    questionCount: 0,
+    easy: 0,
+    medium: 0,
+    hard: 0,
+    topicDistributionText: "",
+    sortOrder,
   };
-
-  return categories.map((category, index) => {
-    const questionCount = distributedCounts[index] ?? 0;
-    return {
-      category: category.code,
-      questionCount,
-      sortOrder: index,
-      topicDistributionText: "",
-      ...toDifficulty(questionCount),
-    };
-  });
 }
 
 function toStrategySections(draft: AdminTryoutDraftDetail, categories: QuestionCategorySummary[]): StrategySection[] {
   if (!draft.generationRule || draft.generationRule.sections.length === 0) {
-    return buildDefaultSections(draft.totalQuestions, categories);
+    return [];
   }
 
-  return draft.generationRule.sections.map((section, index) => ({
+  return draft.generationRule.sections
+    .map((section, index) => ({
     category: section.category,
     questionCount: section.questionCount,
     easy: section.difficultyDistributionJson?.easy ?? 0,
@@ -144,7 +114,8 @@ function toStrategySections(draft: AdminTryoutDraftDetail, categories: QuestionC
     hard: section.difficultyDistributionJson?.hard ?? 0,
     topicDistributionText: formatTopicDistribution(section.topicDistributionJson),
     sortOrder: section.sortOrder ?? index,
-  }));
+    }))
+    .sort((left, right) => left.sortOrder - right.sortOrder);
 }
 
 function getDefaultRandomizationMode(draft: AdminTryoutDraftDetail) {
@@ -175,10 +146,12 @@ const stepItems: Array<{ id: BuilderStep; label: string; icon: typeof Settings2 
 export function TryoutDraftBuilder({
   draft,
   metadataOptions,
+  subscriptionPlans,
   scope = "admin",
 }: {
   readonly draft: AdminTryoutDraftDetail;
   readonly metadataOptions: QuestionMetadataOptions;
+  readonly subscriptionPlans: SubscriptionPlanItem[];
   readonly scope?: "admin" | "super-admin";
 }) {
   const router = useRouter();
@@ -187,6 +160,10 @@ export function TryoutDraftBuilder({
     scope === "super-admin" ? `/super-admin/tryout-catalog/${draft.id}/edit` : `/admin/tryout-drafts/${draft.id}/edit`;
   const builderSteps = scope === "super-admin" ? stepItems.filter((item) => item.id !== "validasi") : stepItems;
   const [activeStep, setActiveStep] = useState<BuilderStep>("info");
+  const categoryLookup = useMemo(
+    () => new Map(metadataOptions.categories.map((category) => [category.code, category])),
+    [metadataOptions.categories],
+  );
   const [randomizationMode, setRandomizationMode] = useState(getDefaultRandomizationMode(draft));
   const [questionOrderMode, setQuestionOrderMode] = useState(draft.generationRule?.questionOrderMode ?? "mixed_random");
   const [avoidRecentQuestions, setAvoidRecentQuestions] = useState(draft.generationRule?.avoidRecentQuestions ?? false);
@@ -243,6 +220,7 @@ export function TryoutDraftBuilder({
   );
   const [questionResponse, setQuestionResponse] = useState<ClientPaginatedResponse<QuestionListItem[]> | null>(null);
   const [availability, setAvailability] = useState<AdminTryoutAvailabilityCheck | null>(null);
+  const [categoryToAdd, setCategoryToAdd] = useState("");
   const [questionSearch, setQuestionSearch] = useState("");
   const [questionCategory, setQuestionCategory] = useState<string>("all");
   const [questionDifficulty, setQuestionDifficulty] = useState<"all" | "easy" | "medium" | "hard">("all");
@@ -264,6 +242,11 @@ export function TryoutDraftBuilder({
   const [archiveState, archiveAction] = useActionState(archiveTryoutCatalogAction, initialResourceActionState);
 
   const selectedQuestionIds = useMemo(() => selectedQuestions.map((item) => item.id), [selectedQuestions]);
+  const selectedStrategyCategorySet = useMemo(() => new Set(sections.map((section) => section.category)), [sections]);
+  const availableStrategyCategories = useMemo(
+    () => metadataOptions.categories.filter((item) => !selectedStrategyCategorySet.has(item.code)),
+    [metadataOptions.categories, selectedStrategyCategorySet],
+  );
   const selectedCounts = useMemo(() => {
     return selectedQuestions.reduce<Record<string, number>>((acc, item) => {
       acc[item.category] = (acc[item.category] ?? 0) + 1;
@@ -356,6 +339,19 @@ export function TryoutDraftBuilder({
       setActiveStep("submit");
     }
   }, [activeStep, scope]);
+
+  useEffect(() => {
+    if (availableStrategyCategories.length === 0) {
+      if (categoryToAdd !== "") {
+        setCategoryToAdd("");
+      }
+      return;
+    }
+
+    if (!categoryToAdd || !availableStrategyCategories.some((item) => item.code === categoryToAdd)) {
+      setCategoryToAdd(availableStrategyCategories[0]?.code ?? "");
+    }
+  }, [availableStrategyCategories, categoryToAdd]);
 
   const refreshQuestions = () => {
     startQuestionsTransition(async () => {
@@ -462,6 +458,49 @@ export function TryoutDraftBuilder({
     );
   };
 
+  const addSection = (category: string) => {
+    if (!category || selectedStrategyCategorySet.has(category)) {
+      return;
+    }
+
+    setSections((current) => [...current, createEmptySection(category, current.length)]);
+  };
+
+  const removeSection = (category: string) => {
+    setSections((current) =>
+      current
+        .filter((section) => section.category !== category)
+        .map((section, index) => ({
+          ...section,
+          sortOrder: index,
+        })),
+    );
+  };
+
+  const toggleAllCategories = (checked: boolean) => {
+    if (!checked) {
+      setSections([]);
+      return;
+    }
+
+    setSections(
+      metadataOptions.categories.map((category, index) => {
+        const existing = sections.find((section) => section.category === category.code);
+        return existing
+          ? {
+              ...existing,
+              sortOrder: index,
+            }
+          : createEmptySection(category.code, index);
+      }),
+    );
+  };
+
+  const getCategoryLabel = (categoryCode: string) => {
+    const category = categoryLookup.get(categoryCode);
+    return category ? `${category.name} (${category.code})` : categoryCode;
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
@@ -489,10 +528,16 @@ export function TryoutDraftBuilder({
           description={
             scope === "super-admin"
               ? "Perbarui metadata utama tryout sebelum finalisasi publish."
-              : "Perbarui metadata utama draft sebelum menyusun strategi dan bank soal."
+              : "Perbarui metadata utama tryout sebelum menyusun strategi dan bank soal."
           }
         >
-          <TryoutDraftForm draft={draft} scope={scope} redirectPath={editPath} createRedirectBasePath={listPath} />
+          <TryoutDraftForm
+            draft={draft}
+            subscriptionPlans={subscriptionPlans}
+            scope={scope}
+            redirectPath={editPath}
+            createRedirectBasePath={listPath}
+          />
         </SectionCard>
       ) : null}
 
@@ -639,16 +684,90 @@ export function TryoutDraftBuilder({
               ) : null}
 
               <div className="grid gap-4">
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="grid gap-2">
+                      <h3 className="font-medium text-slate-950">Pilih kategori soal</h3>
+                      <p className="text-slate-500 text-sm">
+                        Tambahkan hanya kategori yang ingin dipakai di tryout ini, lalu isi jumlah soal per kategori.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                      <div className="grid gap-2">
+                        <Label htmlFor="strategy-category">Kategori</Label>
+                        <Select value={categoryToAdd} onValueChange={setCategoryToAdd}>
+                          <SelectTrigger id="strategy-category" className="min-w-72 rounded-xl border-slate-200 bg-white">
+                            <SelectValue placeholder="Pilih kategori" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableStrategyCategories.length === 0 ? (
+                              <SelectItem value="__empty__" disabled>
+                                Semua kategori sudah dipilih
+                              </SelectItem>
+                            ) : (
+                              availableStrategyCategories.map((item) => (
+                                <SelectItem key={item.code} value={item.code}>
+                                  {item.name} ({item.code})
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="rounded-xl border-slate-200 bg-white"
+                        onClick={() => addSection(categoryToAdd)}
+                        disabled={!categoryToAdd || availableStrategyCategories.length === 0}
+                      >
+                        <Plus className="mr-2 size-4" />
+                        Tambah Kategori
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                      <Checkbox
+                        checked={sections.length > 0 && sections.length === metadataOptions.categories.length}
+                        onCheckedChange={(checked) => toggleAllCategories(Boolean(checked))}
+                      />
+                      Pilih semua kategori
+                    </label>
+                    <StatusBadge tone="neutral">{sections.length} kategori dipilih</StatusBadge>
+                  </div>
+                </div>
+
+                {sections.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-600 text-sm">
+                    Belum ada kategori yang dipilih. Tambahkan kategori soal terlebih dahulu untuk mulai mengatur target
+                    jumlah, distribusi difficulty, dan topik.
+                  </div>
+                ) : null}
+
                 {sections.map((section) => (
-                  <div key={section.category} className="rounded-2xl border border-slate-200 p-4">
+                  <div key={`${section.category}-${section.sortOrder}`} className="rounded-2xl border border-slate-200 p-4">
                     <div className="mb-4 flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-slate-950">{section.category}</h3>
+                        <h3 className="font-medium text-slate-950">{getCategoryLabel(section.category)}</h3>
                         <p className="text-slate-500 text-sm">
                           Atur target kategori, distribusi difficulty, dan optional topic target.
                         </p>
                       </div>
-                      <StatusBadge tone="neutral">{section.questionCount} soal</StatusBadge>
+                      <div className="flex items-center gap-2">
+                        <StatusBadge tone="neutral">{section.questionCount} soal</StatusBadge>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg border-slate-200 bg-white"
+                          onClick={() => removeSection(section.category)}
+                        >
+                          <Trash2 className="mr-1 size-4" />
+                          Hapus
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid gap-4 md:grid-cols-4">
                       <div className="grid gap-2">
@@ -1021,7 +1140,7 @@ export function TryoutDraftBuilder({
       {scope !== "super-admin" && activeStep === "validasi" ? (
         <SectionCard
           title="Validasi Draft"
-          description="Cek kelengkapan struktur draft untuk review dan lihat kesiapan publish/start dari availability check."
+          description="Cek kelengkapan struktur tryout dan lihat kesiapan publish/start dari availability check."
         >
           <div className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-4">
@@ -1035,8 +1154,8 @@ export function TryoutDraftBuilder({
               </div>
               <p className="text-slate-600 text-sm">
                 {draft.builderStatus.isStructurallyValid
-                  ? "Struktur minimum draft sudah terpenuhi untuk diajukan."
-                  : "Masih ada bagian yang harus dilengkapi sebelum draft bisa diajukan."}
+                  ? "Struktur minimum tryout sudah terpenuhi untuk dipublish."
+                  : "Masih ada bagian yang harus dilengkapi sebelum tryout bisa dipublish."}
               </p>
               <div className="mt-4 grid gap-2 text-sm">
                 {draft.builderStatus.missingParts.length === 0 ? (
@@ -1044,14 +1163,20 @@ export function TryoutDraftBuilder({
                     Tidak ada missing parts.
                   </div>
                 ) : (
-                  draft.builderStatus.missingParts.map((item) => (
-                    <div key={item} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700">
+                  draft.builderStatus.missingParts.map((item, index) => (
+                    <div
+                      key={`${item}-${index}`}
+                      className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700"
+                    >
                       {item}
                     </div>
                   ))
                 )}
-                {draft.builderStatus.modeSpecificWarnings.map((item) => (
-                  <div key={item} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
+                {draft.builderStatus.modeSpecificWarnings.map((item, index) => (
+                  <div
+                    key={`${item}-${index}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                  >
                     {item}
                   </div>
                 ))}
@@ -1091,9 +1216,9 @@ export function TryoutDraftBuilder({
                       Tidak ada issue yang terdeteksi.
                     </div>
                   ) : (
-                    availability.issues.map((issue) => (
+                    availability.issues.map((issue, index) => (
                       <div
-                        key={issue}
+                        key={`${issue}-${index}`}
                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
                       >
                         {issue}
@@ -1109,11 +1234,11 @@ export function TryoutDraftBuilder({
 
       {activeStep === "submit" ? (
         <SectionCard
-          title={scope === "super-admin" ? "Finalisasi Tryout" : "Ajukan Review"}
+          title={scope === "super-admin" ? "Finalisasi Tryout" : "Publish Tryout"}
           description={
             scope === "super-admin"
               ? "Super admin dapat langsung mempublish atau mengarsipkan tryout dari builder yang sama."
-              : "Admin hanya bisa mengirim draft ke status review. Publish final tetap dilakukan super admin."
+              : "Admin dapat langsung mempublish tryout yang sudah lolos validasi struktur dan availability."
           }
         >
           <div className="grid gap-4">
@@ -1148,18 +1273,18 @@ export function TryoutDraftBuilder({
                         Tidak ada missing parts.
                       </div>
                     ) : (
-                      draft.builderStatus.missingParts.map((item) => (
+                      draft.builderStatus.missingParts.map((item, index) => (
                         <div
-                          key={item}
+                          key={`${item}-${index}`}
                           className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700"
                         >
                           {item}
                         </div>
                       ))
                     )}
-                    {draft.builderStatus.modeSpecificWarnings.map((item) => (
+                    {draft.builderStatus.modeSpecificWarnings.map((item, index) => (
                       <div
-                        key={item}
+                        key={`${item}-${index}`}
                         className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
                       >
                         {item}
@@ -1205,9 +1330,9 @@ export function TryoutDraftBuilder({
                           Tidak ada issue yang terdeteksi.
                         </div>
                       ) : (
-                        availability.issues.map((issue) => (
+                        availability.issues.map((issue, index) => (
                           <div
-                            key={issue}
+                            key={`${issue}-${index}`}
                             className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
                           >
                             {issue}
@@ -1258,7 +1383,7 @@ export function TryoutDraftBuilder({
                     disabled={!draft.builderStatus.isStructurallyValid}
                   >
                     <Send className="mr-2 size-4" />
-                    Kirim ke Review
+                    Publish Tryout
                   </Button>
                 </form>
               ) : null}

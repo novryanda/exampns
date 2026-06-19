@@ -450,6 +450,7 @@ model TryoutCatalog {
   description           String?
   tryoutType            TryoutType            @map("tryout_type")
   accessType            AccessType            @map("access_type")
+  requiredSubscriptionPlanId String?          @map("required_subscription_plan_id")
   status                TryoutStatus
   isPublic              Boolean               @default(false) @map("is_public")
   isFeatured            Boolean               @default(false) @map("is_featured")
@@ -468,11 +469,13 @@ model TryoutCatalog {
   passingGradeConfig    PassingGradeConfig?   @relation(fields: [passingGradeConfigId], references: [id], onDelete: SetNull)
   createdByUser         User                  @relation("TryoutCatalogCreatedBy", fields: [createdBy], references: [id])
   approvedByUser        User?                 @relation("TryoutCatalogApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  requiredSubscriptionPlan SubscriptionPlan?  @relation("TryoutCatalogRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
   generationRule        TryoutGenerationRule?
   manualQuestionSets    ManualQuestionSet[]
   examSessions          ExamSession[]
 
   @@index([status, isPublic, accessType])
+  @@index([status, isPublic, requiredSubscriptionPlanId], map: "idx_tryout_catalogs_required_plan")
   @@index([sortOrder])
   @@map("tryout_catalogs")
 }
@@ -727,6 +730,8 @@ model SubscriptionPlan {
   trialDayLimit       Int?                 @map("trial_day_limit")
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
+  requiredTryoutCatalogs TryoutCatalog[]   @relation("TryoutCatalogRequiredPlan")
+  requiredMaterials   Material[]           @relation("MaterialRequiredPlan")
   userSubscriptions   UserSubscription[]
   paymentTransactions PaymentTransaction[]
 
@@ -925,6 +930,7 @@ model Material {
   coverImageUrl     String?            @map("cover_image_url")
   categoryId        String             @map("category_id")
   requiredTier      SubscriptionTier   @default(trial) @map("required_tier")
+  requiredSubscriptionPlanId String?   @map("required_subscription_plan_id")
   status            MaterialStatus     @default(draft)
   sortOrder         Int                @default(0) @map("sort_order")
   createdBy         String             @map("created_by")
@@ -934,10 +940,12 @@ model Material {
   updatedAt         DateTime           @updatedAt @map("updated_at")
   categoryRef       QuestionCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdByUser     User               @relation("MaterialCreatedBy", fields: [createdBy], references: [id])
+  requiredSubscriptionPlan SubscriptionPlan? @relation("MaterialRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
   modules           MaterialModule[]
   userProgress      UserMaterialProgress[]
 
   @@index([status, requiredTier, sortOrder])
+  @@index([status, requiredSubscriptionPlanId, sortOrder], map: "idx_materials_required_plan")
   @@index([categoryId, status])
   @@map("materials")
 }

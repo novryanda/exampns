@@ -19,7 +19,7 @@ import {
 } from '../../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { AccessResolverService } from '../common/access-resolver.service.js';
-import { canAccessTryout } from '../common/access-control.helpers.js';
+import { canAccessRequiredPlanTier } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
 import {
@@ -115,6 +115,14 @@ export class ExamEngineService {
             },
             orderBy: { updatedAt: 'desc' },
           },
+          requiredSubscriptionPlan: {
+            select: {
+              id: true,
+              name: true,
+              tier: true,
+              isActive: true,
+            },
+          },
         },
       }),
     ]);
@@ -123,15 +131,16 @@ export class ExamEngineService {
       throw new NotFoundException('Tryout catalog tidak tersedia');
     }
 
-    if (!canAccessTryout(catalog.accessType, accessResolution.effectiveAccessLevel)) {
-      const message =
-        catalog.accessType === 'premium_only'
-          ? 'Tryout ini hanya tersedia untuk pengguna premium aktif'
-          : catalog.accessType === 'paid_only'
-            ? 'Tryout ini membutuhkan subscription berbayar yang aktif'
-            : catalog.accessType === 'trial_only'
-              ? 'Tryout ini hanya tersedia untuk akses trial aktif'
-              : 'Trial atau subscription Anda tidak aktif untuk tryout ini';
+    if (
+      !catalog.requiredSubscriptionPlan ||
+      !canAccessRequiredPlanTier(
+        catalog.requiredSubscriptionPlan.tier,
+        accessResolution.effectiveAccessLevel,
+      )
+    ) {
+      const message = catalog.requiredSubscriptionPlan
+        ? `Tryout ini membutuhkan paket ${catalog.requiredSubscriptionPlan.name} atau tier yang lebih tinggi`
+        : 'Tryout ini belum memiliki paket akses';
       throw new ForbiddenException({
         code: 'ACCESS_LEVEL_REQUIRED',
         message,
@@ -162,7 +171,13 @@ export class ExamEngineService {
             tryoutCatalogId: catalog.id,
             name: catalog.name,
             tryoutType: catalog.tryoutType,
-            accessType: catalog.accessType,
+            requiredSubscriptionPlan: catalog.requiredSubscriptionPlan
+              ? {
+                  id: catalog.requiredSubscriptionPlan.id,
+                  name: catalog.requiredSubscriptionPlan.name,
+                  tier: catalog.requiredSubscriptionPlan.tier,
+                }
+              : null,
             durationMinutes: catalog.durationMinutes,
             totalQuestions: catalog.totalQuestions,
           },

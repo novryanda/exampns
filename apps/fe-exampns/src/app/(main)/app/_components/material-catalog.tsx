@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Lock, PlayCircle, ShieldAlert } from "lucide-react";
+import { Lock, PlayCircle } from "lucide-react";
 
 import { StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,7 +101,7 @@ export function MaterialCatalog({
                     <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
                       <div className="flex items-center gap-2 rounded-full bg-slate-900/80 px-4 py-2 font-medium text-white text-sm">
                         <Lock className="size-4" />
-                        Terkunci (Paket {material.requiredTier})
+                        Terkunci ({material.requiredSubscriptionPlan?.name ?? "Paket belum diatur"})
                       </div>
                     </div>
                   )}
@@ -110,8 +110,10 @@ export function MaterialCatalog({
                 <div className="flex flex-1 flex-col p-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <StatusBadge tone="brand">{material.categoryRef.code}</StatusBadge>
-                    <StatusBadge tone={material.requiredTier === "trial" ? "success" : "warning"}>
-                      {material.requiredTier === "trial" ? "Gratis" : "Premium"}
+                    <StatusBadge tone={material.requiredSubscriptionPlan?.tier === "trial" ? "success" : "warning"}>
+                      {material.requiredSubscriptionPlan
+                        ? `${material.requiredSubscriptionPlan.name} (${material.requiredSubscriptionPlan.tier})`
+                        : "Plan belum diatur"}
                     </StatusBadge>
                   </div>
                   

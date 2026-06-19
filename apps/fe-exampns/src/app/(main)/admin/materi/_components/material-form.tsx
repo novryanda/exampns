@@ -10,12 +10,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { QuestionCategorySummary } from "@/server/admin-content-data";
+import type { SubscriptionPlanItem } from "@/server/user-dashboard-data";
 
 export function MaterialForm({
   categories,
+  subscriptionPlans,
   initialData,
 }: {
   readonly categories: QuestionCategorySummary[];
+  readonly subscriptionPlans: SubscriptionPlanItem[];
   readonly initialData?: any;
 }) {
   const router = useRouter();
@@ -25,7 +28,8 @@ export function MaterialForm({
     title: initialData?.title || "",
     description: initialData?.description || "",
     categoryId: initialData?.categoryId || categories[0]?.id || "",
-    requiredTier: initialData?.requiredTier || "trial",
+    requiredSubscriptionPlanId:
+      initialData?.requiredSubscriptionPlanId || subscriptionPlans[0]?.id || "",
     coverImageUrl: initialData?.coverImageUrl || "",
   });
 
@@ -109,18 +113,20 @@ export function MaterialForm({
         </div>
 
         <div className="grid gap-3">
-          <Label htmlFor="requiredTier">Akses Plan</Label>
+          <Label htmlFor="requiredSubscriptionPlanId">Akses Subscription Plan</Label>
           <Select
-            value={formData.requiredTier}
-            onValueChange={(val) => setFormData({ ...formData, requiredTier: val })}
+            value={formData.requiredSubscriptionPlanId}
+            onValueChange={(val) => setFormData({ ...formData, requiredSubscriptionPlanId: val })}
           >
-            <SelectTrigger id="requiredTier">
+            <SelectTrigger id="requiredSubscriptionPlanId">
               <SelectValue placeholder="Pilih Akses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="trial">Trial (Gratis)</SelectItem>
-              <SelectItem value="standard">Standard</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
+              {subscriptionPlans.map((plan) => (
+                <SelectItem key={plan.id} value={plan.id}>
+                  {plan.name} ({plan.tier})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

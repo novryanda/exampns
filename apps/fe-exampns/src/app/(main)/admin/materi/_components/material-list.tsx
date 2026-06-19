@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { Eye, Lock, Edit } from "lucide-react";
+import { Edit, Lock } from "lucide-react";
 
 import { StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -52,8 +52,12 @@ export function MaterialList({
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-1.5 text-slate-600">
-                      {material.requiredTier !== "trial" && <Lock className="size-3" />}
-                      <span className="capitalize">{material.requiredTier}</span>
+                      {material.requiredSubscriptionPlan?.tier !== "trial" ? <Lock className="size-3" /> : null}
+                      <span>
+                        {material.requiredSubscriptionPlan
+                          ? `${material.requiredSubscriptionPlan.name} (${material.requiredSubscriptionPlan.tier})`
+                          : "Belum dipilih"}
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">

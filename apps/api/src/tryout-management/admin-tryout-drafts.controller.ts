@@ -82,7 +82,7 @@ export class AdminTryoutDraftsController {
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<ApiMessageResponse> {
     await this.tryoutManagementService.submitAdminTryoutDraft(tryoutDraftId, actor);
-    return apiMessage('Tryout draft berhasil dikirim untuk review');
+    return apiMessage('Tryout berhasil dipublish dan siap digunakan');
   }
 
   @Post(':tryoutDraftId/archive')

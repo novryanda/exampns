@@ -45,6 +45,13 @@ const tierRank: Record<SubscriptionTier, number> = {
   premium: 3,
 };
 
+const effectiveAccessRank: Record<EffectiveAccessLevel, number> = {
+  expired: 0,
+  trial: 1,
+  standard: 2,
+  premium: 3,
+};
+
 export const toEffectiveAccessLevel = (tier: SubscriptionTier): EffectiveAccessLevel => tier;
 
 export const getSubscriptionTierSnapshot = (subscription: {
@@ -161,3 +168,8 @@ export const canAccessTryout = (
       return false;
   }
 };
+
+export const canAccessRequiredPlanTier = (
+  requiredTier: SubscriptionTier,
+  effectiveAccessLevel: EffectiveAccessLevel,
+) => effectiveAccessRank[effectiveAccessLevel] >= tierRank[requiredTier];

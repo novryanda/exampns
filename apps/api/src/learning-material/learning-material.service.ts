@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
+import { AccessResolverService } from '../common/access-resolver.service.js';
+import { canAccessRequiredPlanTier } from '../common/access-control.helpers.js';
 import { PrismaService } from '../common/prisma.service.js';
 import {
   MaterialStatus,
@@ -11,7 +13,10 @@ import {
 export class LearningMaterialService {
   private readonly logger = new Logger(LearningMaterialService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accessResolverService: AccessResolverService,
+  ) {}
 
   // ─── Admin: Material CRUD ──────────────────────────────────────────────────
 
@@ -25,6 +30,7 @@ export class LearningMaterialService {
       include: {
         categoryRef: { select: { id: true, code: true, name: true } },
         createdByUser: { select: { id: true, name: true } },
+        requiredSubscriptionPlan: { select: { id: true, name: true, tier: true, isActive: true } },
         _count: { select: { modules: true } },
       },
       orderBy: { sortOrder: 'asc' },
@@ -37,6 +43,7 @@ export class LearningMaterialService {
       include: {
         categoryRef: { select: { id: true, code: true, name: true } },
         createdByUser: { select: { id: true, name: true } },
+        requiredSubscriptionPlan: { select: { id: true, name: true, tier: true, isActive: true } },
         modules: {
           orderBy: { sortOrder: 'asc' },
           include: {
@@ -55,16 +62,19 @@ export class LearningMaterialService {
     description?: string;
     coverImageUrl?: string;
     categoryId: string;
-    requiredTier?: SubscriptionTier;
+    requiredSubscriptionPlanId?: string;
     createdBy: string;
   }) {
+    const requiredSubscriptionPlan = await this.ensureSubscriptionPlanExists(data.requiredSubscriptionPlanId);
+
     return this.prisma.material.create({
       data: {
         title: data.title,
         description: data.description,
         coverImageUrl: data.coverImageUrl,
         categoryId: data.categoryId,
-        requiredTier: data.requiredTier ?? SubscriptionTier.trial,
+        requiredTier: requiredSubscriptionPlan?.tier ?? SubscriptionTier.trial,
+        requiredSubscriptionPlanId: data.requiredSubscriptionPlanId ?? null,
         createdBy: data.createdBy,
       },
     });
@@ -77,12 +87,28 @@ export class LearningMaterialService {
       description?: string;
       coverImageUrl?: string;
       categoryId?: string;
-      requiredTier?: SubscriptionTier;
+      requiredSubscriptionPlanId?: string;
       sortOrder?: number;
     },
   ) {
     await this.assertMaterialExists(id);
-    return this.prisma.material.update({ where: { id }, data });
+    const requiredSubscriptionPlan =
+      data.requiredSubscriptionPlanId !== undefined
+        ? await this.ensureSubscriptionPlanExists(data.requiredSubscriptionPlanId)
+        : null;
+
+    return this.prisma.material.update({
+      where: { id },
+      data: {
+        ...data,
+        ...(data.requiredSubscriptionPlanId !== undefined
+          ? {
+              requiredSubscriptionPlanId: data.requiredSubscriptionPlanId,
+              requiredTier: requiredSubscriptionPlan?.tier ?? SubscriptionTier.trial,
+            }
+          : {}),
+      },
+    });
   }
 
   async publishMaterial(id: string) {
@@ -94,6 +120,10 @@ export class LearningMaterialService {
     const moduleCount = await this.prisma.materialModule.count({ where: { materialId: id } });
     if (moduleCount === 0) {
       throw new BadRequestException('Cannot publish material without modules');
+    }
+
+    if (!material.requiredSubscriptionPlanId) {
+      throw new BadRequestException('Cannot publish material without required subscription plan');
     }
 
     return this.prisma.material.update({
@@ -285,27 +315,26 @@ export class LearningMaterialService {
 
   // ─── User: List accessible materials ───────────────────────────────────────
 
-  async listPublishedMaterials(userTier: SubscriptionTier | null) {
-    const tierHierarchy: Record<string, number> = {
-      [SubscriptionTier.trial]: 0,
-      [SubscriptionTier.standard]: 1,
-      [SubscriptionTier.premium]: 2,
-    };
-
+  async listPublishedMaterials(userId: string) {
+    const accessResolution = await this.accessResolverService.resolveEffectiveAccessLevel(userId);
     const materials = await this.prisma.material.findMany({
       where: { status: MaterialStatus.published },
       include: {
         categoryRef: { select: { id: true, code: true, name: true } },
+        requiredSubscriptionPlan: { select: { id: true, name: true, tier: true, isActive: true } },
         _count: { select: { modules: true } },
       },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
     });
 
-    const userLevel = userTier ? tierHierarchy[userTier] ?? 0 : 0;
-
     return materials.map((m) => ({
       ...m,
-      isAccessible: userLevel >= (tierHierarchy[m.requiredTier] ?? 0),
+      isAccessible: m.requiredSubscriptionPlan
+        ? canAccessRequiredPlanTier(
+            m.requiredSubscriptionPlan.tier,
+            accessResolution.effectiveAccessLevel,
+          )
+        : false,
     }));
   }
 
@@ -316,6 +345,7 @@ export class LearningMaterialService {
       where: { id: materialId, status: MaterialStatus.published },
       include: {
         categoryRef: { select: { id: true, code: true, name: true } },
+        requiredSubscriptionPlan: { select: { id: true, name: true, tier: true, isActive: true } },
         modules: {
           orderBy: { sortOrder: 'asc' },
           include: {
@@ -326,6 +356,7 @@ export class LearningMaterialService {
     });
 
     if (!material) throw new NotFoundException('Material not found');
+    await this.assertUserCanAccessMaterial(userId, material);
 
     const progress = await this.prisma.userMaterialProgress.findMany({
       where: { userId, materialId },
@@ -356,10 +387,15 @@ export class LearningMaterialService {
 
   // ─── User: Get module content ──────────────────────────────────────────────
 
-  async getModuleContent(moduleId: string) {
+  async getModuleContent(moduleId: string, userId?: string) {
     const module = await this.prisma.materialModule.findUnique({
       where: { id: moduleId },
       include: {
+        material: {
+          include: {
+            requiredSubscriptionPlan: { select: { id: true, name: true, tier: true, isActive: true } },
+          },
+        },
         quizQuestions: {
           orderBy: { questionOrder: 'asc' },
           include: {
@@ -381,6 +417,9 @@ export class LearningMaterialService {
     });
 
     if (!module) throw new NotFoundException('Module not found');
+    if (userId) {
+      await this.assertUserCanAccessMaterial(userId, module.material);
+    }
     return module;
   }
 
@@ -402,6 +441,56 @@ export class LearningMaterialService {
     const material = await this.prisma.material.findUnique({ where: { id } });
     if (!material) throw new NotFoundException('Material not found');
     return material;
+  }
+
+  private async ensureSubscriptionPlanExists(requiredSubscriptionPlanId?: string) {
+    if (!requiredSubscriptionPlanId) {
+      return null;
+    }
+
+    const plan = await this.prisma.subscriptionPlan.findUnique({
+      where: { id: requiredSubscriptionPlanId },
+      select: {
+        id: true,
+        name: true,
+        tier: true,
+        isActive: true,
+      },
+    });
+
+    if (!plan) {
+      throw new BadRequestException('Subscription plan akses materi tidak ditemukan');
+    }
+
+    return plan;
+  }
+
+  private async assertUserCanAccessMaterial(
+    userId: string,
+    material: {
+      requiredSubscriptionPlan: {
+        id: string;
+        name: string;
+        tier: SubscriptionTier;
+        isActive: boolean;
+      } | null;
+    },
+  ) {
+    if (!material.requiredSubscriptionPlan) {
+      throw new ForbiddenException('Materi ini belum memiliki subscription plan akses.');
+    }
+
+    const accessResolution = await this.accessResolverService.resolveEffectiveAccessLevel(userId);
+    const canAccess = canAccessRequiredPlanTier(
+      material.requiredSubscriptionPlan.tier,
+      accessResolution.effectiveAccessLevel,
+    );
+
+    if (!canAccess) {
+      throw new ForbiddenException(
+        `Materi ini membutuhkan paket ${material.requiredSubscriptionPlan.name} atau tier yang lebih tinggi.`,
+      );
+    }
   }
 
   private async assertModuleExists(id: string) {

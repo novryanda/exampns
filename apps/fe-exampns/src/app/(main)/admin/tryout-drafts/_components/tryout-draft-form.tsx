@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { initialResourceActionState } from "@/server/admin-action-state";
 import { createTryoutDraftAction, updateTryoutDraftAction } from "@/server/admin-content-actions";
 import type { AdminTryoutDraftDetail } from "@/server/admin-content-data";
+import type { SubscriptionPlanItem } from "@/server/user-dashboard-data";
 
 function ToggleField({
   name,
@@ -34,11 +35,13 @@ function ToggleField({
 
 export function TryoutDraftForm({
   draft,
+  subscriptionPlans,
   scope = "admin",
   redirectPath,
   createRedirectBasePath,
 }: {
   readonly draft?: AdminTryoutDraftDetail;
+  readonly subscriptionPlans: SubscriptionPlanItem[];
   readonly scope?: "admin" | "super-admin";
   readonly redirectPath: string;
   readonly createRedirectBasePath?: string;
@@ -68,6 +71,7 @@ export function TryoutDraftForm({
     <form action={formAction} className="grid gap-6">
       {draft ? <input type="hidden" name="tryoutDraftId" value={draft.id} /> : null}
       <input type="hidden" name="scope" value={scope} />
+      <input type="hidden" name="status" value="draft" />
 
       <div className="grid gap-2">
         <Label htmlFor="name">Nama Draft</Label>
@@ -106,28 +110,20 @@ export function TryoutDraftForm({
           </Select>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="accessType">Akses</Label>
-          <Select name="accessType" defaultValue={draft?.accessType ?? "trial_and_paid"}>
-            <SelectTrigger id="accessType" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Pilih akses" />
+          <Label htmlFor="requiredSubscriptionPlanId">Akses Subscription Plan</Label>
+          <Select
+            name="requiredSubscriptionPlanId"
+            defaultValue={draft?.requiredSubscriptionPlanId ?? subscriptionPlans[0]?.id ?? ""}
+          >
+            <SelectTrigger id="requiredSubscriptionPlanId" className="rounded-xl border-slate-200 bg-white">
+              <SelectValue placeholder="Pilih plan" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="trial_and_paid">Semua Pengguna Aktif</SelectItem>
-              <SelectItem value="paid_only">Semua Berbayar</SelectItem>
-              <SelectItem value="premium_only">Premium Saja</SelectItem>
-              <SelectItem value="trial_only">Trial Saja</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="status">Status</Label>
-          <Select name="status" defaultValue={draft?.status ?? "draft"}>
-            <SelectTrigger id="status" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="review">Review</SelectItem>
+              {subscriptionPlans.map((plan) => (
+                <SelectItem key={plan.id} value={plan.id}>
+                  {plan.name} ({plan.tier})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -178,7 +174,7 @@ export function TryoutDraftForm({
 
       <div className="flex flex-wrap gap-2">
         <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isPending}>
-          {isPending ? "Menyimpan..." : draft ? "Simpan Draft" : "Buat Draft"}
+          {isPending ? "Menyimpan..." : draft ? "Simpan Tryout" : "Buat Tryout"}
         </Button>
         <Button
           type="button"

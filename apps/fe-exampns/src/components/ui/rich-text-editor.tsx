@@ -320,7 +320,7 @@ export function RichTextEditor({
     if (!editor) return;
     const currentHtml = editor.getHTML();
     if (currentHtml !== value) {
-      editor.commands.setContent(value, false);
+      editor.commands.setContent(value, { emitUpdate: false });
     }
   }, [editor, value]);
 

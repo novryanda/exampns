@@ -1,5 +1,6 @@
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowLeft, ArrowUpRight, Minus } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,15 +12,25 @@ type TrendDirection = "up" | "down" | "neutral";
 export function PageHeader({
   title,
   description,
+  backHref,
   actions,
 }: {
   readonly title: string;
   readonly description?: string;
+  readonly backHref?: string;
   readonly actions?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="space-y-1.5">
+        {backHref ? (
+          <Button asChild variant="outline" size="sm" className="w-fit">
+            <Link href={backHref}>
+              <ArrowLeft className="size-4" />
+              Kembali
+            </Link>
+          </Button>
+        ) : null}
         <h1 className="font-semibold text-3xl text-slate-950 tracking-tight">{title}</h1>
         {description ? <p className="max-w-3xl text-slate-500 text-sm">{description}</p> : null}
       </div>

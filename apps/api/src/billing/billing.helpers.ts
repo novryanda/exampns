@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import {
   PaymentStatus,
   SubscriptionStatus,
@@ -13,31 +13,7 @@ export const buildInvoiceNumber = (sequence: number, now = new Date()) => {
   return `INV-${year}${month}${day}-${paddedSequence}`;
 };
 
-export const buildPaymentUrl = (baseUrl: string, paymentTransactionId: string) =>
-  `${baseUrl.replace(/\/+$/, '')}/pay/${paymentTransactionId}`;
 
-export const buildInternalPaymentPageUrl = (frontendUrl: string, paymentTransactionId: string) =>
-  `${frontendUrl.replace(/\/+$/, '')}/app/langganan/pembayaran/${paymentTransactionId}`;
-
-export const resolveCheckoutPaymentUrl = ({
-  gatewayProvider,
-  paymentBaseUrl,
-  frontendUrl,
-  paymentTransactionId,
-}: {
-  gatewayProvider: string;
-  paymentBaseUrl: string;
-  frontendUrl: string;
-  paymentTransactionId: string;
-}) => {
-  const normalizedBase = paymentBaseUrl.replace(/\/+$/, '');
-
-  if (gatewayProvider === 'manual' || normalizedBase.includes('payment-gateway.example')) {
-    return buildInternalPaymentPageUrl(frontendUrl, paymentTransactionId);
-  }
-
-  return buildPaymentUrl(paymentBaseUrl, paymentTransactionId);
-};
 
 export const computeDaysRemaining = (endDate: Date, now = new Date()) =>
   Math.max(0, Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
@@ -73,18 +49,21 @@ export const mapWebhookStatusToPaymentStatus = (status: string) => {
 };
 
 export const verifyWebhookSignature = (
-  payload: unknown,
-  signature: string | undefined,
-  secret: string | undefined,
+  order_id: string | undefined,
+  status_code: string | undefined,
+  gross_amount: string | undefined,
+  signature_key: string | undefined,
+  server_key: string | undefined,
 ) => {
-  if (!signature || !secret) {
+  if (!order_id || !status_code || !gross_amount || !signature_key || !server_key) {
     return false;
   }
-
-  const body = JSON.stringify(payload);
-  const expectedSignature = createHmac('sha256', secret).update(body).digest('hex');
-  const actual = Buffer.from(signature, 'utf8');
-  const expected = Buffer.from(expectedSignature, 'utf8');
+  
+  // Midtrans signature logic: SHA512(order_id + status_code + gross_amount + server_key)
+  const hash = createHash('sha512').update(`${order_id}${status_code}${gross_amount}${server_key}`).digest('hex');
+  
+  const actual = Buffer.from(signature_key, 'utf8');
+  const expected = Buffer.from(hash, 'utf8');
 
   if (actual.length !== expected.length) {
     return false;

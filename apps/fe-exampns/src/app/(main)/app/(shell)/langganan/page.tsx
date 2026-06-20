@@ -124,7 +124,10 @@ export default async function LanggananPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       {payment.status === "pending" ? (
-                        <ContinuePaymentButton paymentTransactionId={payment.id} />
+                        <ContinuePaymentButton
+                          paymentTransactionId={payment.id}
+                          paymentUrl={payment.paymentUrl}
+                        />
                       ) : (
                         <span className="text-slate-400 text-xs">-</span>
                       )}

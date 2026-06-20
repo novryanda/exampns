@@ -1,32 +1,29 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Loader2, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  checkoutPaymentMethods,
-  type CheckoutPaymentMethod,
-} from "@/lib/user-app/payment-methods";
+
+// Extend Window interface for Midtrans Snap
+declare global {
+  interface Window {
+    snap?: {
+      pay: (
+        token: string,
+        options?: {
+          onSuccess?: (result: Record<string, unknown>) => void;
+          onPending?: (result: Record<string, unknown>) => void;
+          onError?: (result: Record<string, unknown>) => void;
+          onClose?: () => void;
+        },
+      ) => void;
+    };
+  }
+}
 
 function getCheckoutErrorMessage(payload: {
   message?: string;
@@ -37,27 +34,10 @@ function getCheckoutErrorMessage(payload: {
   };
 }) {
   const detailMessage = payload.error?.details?.map((item) => item.message).find(Boolean);
-  if (detailMessage) {
-    return detailMessage;
-  }
-
+  if (detailMessage) return detailMessage;
   const errorCode = payload.error?.code ?? payload.code;
-  if (errorCode && errorCode !== "VALIDATION_ERROR") {
-    return payload.message ?? errorCode;
-  }
-
+  if (errorCode && errorCode !== "VALIDATION_ERROR") return payload.message ?? errorCode;
   return payload.message ?? "Gagal membuat checkout.";
-}
-
-function navigateToPaymentUrl(redirectUrl: string, navigate: (path: string) => void) {
-  const target = new URL(redirectUrl, window.location.origin);
-
-  if (target.origin === window.location.origin) {
-    navigate(`${target.pathname}${target.search}${target.hash}`);
-    return;
-  }
-
-  window.location.assign(redirectUrl);
 }
 
 export function CheckoutPlanButton({
@@ -69,13 +49,43 @@ export function CheckoutPlanButton({
 }) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>("QRIS");
+  const [snapReady, setSnapReady] = useState(false);
+
+  // Load Midtrans Snap.js script on mount
+  useEffect(() => {
+    const clientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY;
+    const isProduction = process.env.NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION === "true";
+    const snapUrl = isProduction
+      ? "https://app.midtrans.com/snap/snap.js"
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
+
+    if (document.getElementById("midtrans-snap-script")) {
+      setSnapReady(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "midtrans-snap-script";
+    script.src = snapUrl;
+    script.setAttribute("data-client-key", clientKey ?? "");
+    script.onload = () => setSnapReady(true);
+    script.onerror = () => console.error("Gagal memuat Midtrans Snap.js");
+    document.head.appendChild(script);
+
+    return () => {
+      // Don't remove script on unmount — keep it for other buttons on same page
+    };
+  }, []);
 
   const handleCheckout = async () => {
+    if (!snapReady || !window.snap) {
+      toast.error("Sistem pembayaran belum siap. Coba lagi dalam beberapa detik.");
+      return;
+    }
+
     setIsPending(true);
     try {
-      const response = await fetch("/api/user/payments/checkout", {
+      const response = await fetch("/api/payments/checkout", {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -83,7 +93,8 @@ export function CheckoutPlanButton({
         },
         body: JSON.stringify({
           subscriptionPlanId: planId,
-          paymentMethod,
+          // Let Midtrans Snap handle all payment methods
+          paymentMethod: "QRIS",
         }),
       });
 
@@ -94,27 +105,49 @@ export function CheckoutPlanButton({
           code?: string;
           details?: Array<{ field?: string; message?: string }>;
         };
-        data?: { paymentUrl?: string | null; paymentTransactionId?: string };
+        data?: {
+          snapToken?: string | null;
+          paymentUrl?: string | null;
+          paymentTransactionId?: string;
+        };
       };
 
       if (!response.ok) {
         throw new Error(getCheckoutErrorMessage(payload));
       }
 
-      setIsDialogOpen(false);
+      const snapToken = payload.data?.snapToken;
+      const paymentTransactionId = payload.data?.paymentTransactionId;
 
-      const redirectUrl =
-        payload.data?.paymentUrl ??
-        (payload.data?.paymentTransactionId
-          ? `/app/langganan/pembayaran/${payload.data.paymentTransactionId}`
-          : null);
-
-      if (redirectUrl) {
-        navigateToPaymentUrl(redirectUrl, (path) => router.push(path));
-        return;
+      if (snapToken) {
+        // Open Midtrans Snap popup directly
+        window.snap.pay(snapToken, {
+          onSuccess: () => {
+            toast.success("Pembayaran berhasil!");
+            router.refresh();
+          },
+          onPending: () => {
+            toast.info("Pembayaran sedang diproses.");
+            router.refresh();
+          },
+          onError: () => {
+            toast.error("Pembayaran gagal. Silakan coba lagi.");
+          },
+          onClose: () => {
+            if (paymentTransactionId) {
+              // User closed popup — they can retry via "Lanjutkan Pembayaran"
+              router.refresh();
+            }
+          },
+        });
+      } else if (payload.data?.paymentUrl) {
+        // Fallback: redirect to payment URL
+        window.location.assign(payload.data.paymentUrl);
+      } else if (paymentTransactionId) {
+        router.push(`/app/langganan/pembayaran/${paymentTransactionId}`);
+      } else {
+        toast.success(`Checkout ${planName} berhasil dibuat.`);
       }
-
-      toast.success(`Checkout ${planName} berhasil dibuat.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Gagal membuat checkout.");
     } finally {
@@ -123,62 +156,24 @@ export function CheckoutPlanButton({
   };
 
   return (
-    <>
-      <Button
-        type="button"
-        className="w-full rounded-xl bg-blue-600 hover:bg-blue-700"
-        onClick={() => setIsDialogOpen(true)}
-        disabled={isPending}
-      >
-        <ShoppingCart className="mr-2 size-4" />
-        Pilih Paket
-      </Button>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Checkout {planName}</DialogTitle>
-            <DialogDescription>
-              Pilih metode pembayaran, lalu lanjutkan ke halaman instruksi pembayaran.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <Label htmlFor={`payment-method-${planId}`}>Metode Pembayaran</Label>
-            <Select
-              value={paymentMethod}
-              onValueChange={(value) => setPaymentMethod(value as CheckoutPaymentMethod)}
-            >
-              <SelectTrigger id={`payment-method-${planId}`} className="rounded-xl">
-                <SelectValue placeholder="Pilih metode pembayaran" />
-              </SelectTrigger>
-              <SelectContent>
-                {checkoutPaymentMethods.map((method) => (
-                  <SelectItem key={method.value} value={method.value}>
-                    {method.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isPending}>
-              Batal
-            </Button>
-            <Button type="button" onClick={() => void handleCheckout()} disabled={isPending}>
-              {isPending ? (
-                <>
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                  Memproses...
-                </>
-              ) : (
-                "Lanjutkan Pembayaran"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Button
+      type="button"
+      id={`checkout-btn-${planId}`}
+      className="w-full rounded-xl bg-blue-600 hover:bg-blue-700"
+      onClick={() => void handleCheckout()}
+      disabled={isPending || !snapReady}
+    >
+      {isPending ? (
+        <>
+          <Loader2 className="mr-2 size-4 animate-spin" />
+          Memproses...
+        </>
+      ) : (
+        <>
+          <ShoppingCart className="mr-2 size-4" />
+          Pilih Paket
+        </>
+      )}
+    </Button>
   );
 }

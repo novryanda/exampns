@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import midtransClient from 'midtrans-client';
 import {
   ActivationSource,
   PaymentStatus,
@@ -23,7 +24,6 @@ import {
   computeTryoutRemaining,
   isSubscriptionCurrentlyActive,
   mapWebhookStatusToPaymentStatus,
-  resolveCheckoutPaymentUrl,
   statusAllowsSubscriptionActivation,
   verifyWebhookSignature,
 } from './billing.helpers.js';
@@ -35,10 +35,18 @@ import {
 
 @Injectable()
 export class BillingService {
+  private readonly snap: midtransClient.Snap;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly validationService: ValidationService,
-  ) {}
+  ) {
+    this.snap = new midtransClient.Snap({
+      isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
+      serverKey: process.env.MIDTRANS_SERVER_KEY || '',
+      clientKey: process.env.MIDTRANS_CLIENT_KEY || '',
+    });
+  }
 
   async listSubscriptionPlans(showOnLandingPage?: boolean) {
     const plans = await this.prisma.subscriptionPlan.findMany({
@@ -179,12 +187,30 @@ export class BillingService {
       });
     }
 
+    // Reuse existing pending invoice for the same plan (avoid duplicate charges)
+    const existingPendingTransaction = await this.prisma.paymentTransaction.findFirst({
+      where: {
+        userId: actor.id,
+        subscriptionPlanId: payload.subscriptionPlanId,
+        status: PaymentStatus.pending,
+        expiredAt: {
+          gt: new Date(),
+        },
+      },
+      include: {
+        subscriptionPlan: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingPendingTransaction) {
+      return this.toCheckoutResponse(existingPendingTransaction);
+    }
+
     const sequence = (await this.prisma.paymentTransaction.count()) + 1;
     const now = new Date();
     const expiredAt = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const gatewayProvider = process.env.PAYMENT_GATEWAY_PROVIDER?.trim() || 'manual';
-    const paymentBaseUrl =
-      process.env.PAYMENT_GATEWAY_BASE_URL?.trim() || 'https://payment-gateway.example';
+    const gatewayProvider = 'midtrans';
     const frontendUrl = process.env.FRONTEND_URL?.trim() || 'http://localhost:3000';
 
     try {
@@ -207,16 +233,37 @@ export class BillingService {
         },
       });
 
-      const paymentUrl = resolveCheckoutPaymentUrl({
-        gatewayProvider,
-        paymentBaseUrl,
-        frontendUrl,
-        paymentTransactionId: transaction.id,
-      });
+      const parameter = {
+        transaction_details: {
+          order_id: transaction.invoiceNumber,
+          gross_amount: Number(transaction.amount),
+        },
+        customer_details: {
+          first_name: actor.name.substring(0, 255),
+          email: actor.email,
+          phone: actor.phone || undefined,
+        },
+        item_details: [
+          {
+            id: plan.id,
+            price: Number(plan.price),
+            quantity: 1,
+            name: plan.name.substring(0, 50),
+          },
+        ],
+        callbacks: {
+          finish: `${frontendUrl}/app/langganan/pembayaran/${transaction.id}`,
+        },
+      };
+
+      const snapResponse = await this.snap.createTransaction(parameter);
+      const paymentUrl = snapResponse.redirect_url;
+
       const updated = await this.prisma.paymentTransaction.update({
         where: { id: transaction.id },
         data: {
           paymentUrl,
+          gatewayTransactionId: snapResponse.token,
         },
         include: {
           subscriptionPlan: true,
@@ -394,11 +441,18 @@ export class BillingService {
     headers: Record<string, string | string[] | undefined>,
   ) {
     const payload = this.validationService.validate(paymentWebhookSchema, rawBody);
-    const signature = this.getHeaderValue(headers, 'x-signature');
-    const gatewayEventId =
-      this.getHeaderValue(headers, 'x-gateway-event-id') || payload.eventId || payload.invoiceNumber;
-    const webhookSecret = process.env.PAYMENT_WEBHOOK_SECRET?.trim();
-    const signatureValid = verifyWebhookSignature(payload, signature, webhookSecret);
+    
+    // Midtrans sends signature in payload.signature_key, we don't need header signature
+    const webhookSecret = process.env.MIDTRANS_SERVER_KEY?.trim();
+    const signatureValid = verifyWebhookSignature(
+      payload.order_id,
+      payload.status_code,
+      payload.gross_amount,
+      payload.signature_key,
+      webhookSecret
+    );
+
+    const gatewayEventId = payload.transaction_id || payload.order_id;
 
     const existingEvent = await this.prisma.paymentWebhookEvent.findUnique({
       where: { gatewayEventId },
@@ -412,20 +466,20 @@ export class BillingService {
     }
 
     const payment = await this.prisma.paymentTransaction.findUnique({
-      where: { invoiceNumber: payload.invoiceNumber },
+      where: { invoiceNumber: payload.order_id },
       include: {
         subscriptionPlan: true,
         userSubscription: true,
       },
     });
 
-    const mappedStatus = mapWebhookStatusToPaymentStatus(payload.status);
+    const mappedStatus = mapWebhookStatusToPaymentStatus(payload.transaction_status);
 
     const webhookEvent = await this.prisma.paymentWebhookEvent.create({
       data: {
         paymentTransactionId: payment?.id ?? null,
         gatewayEventId,
-        eventType: `${provider}.${payload.status}`.slice(0, 100),
+        eventType: `${provider}.${payload.transaction_status}`.slice(0, 100),
         payload: rawBody as Prisma.InputJsonValue,
         signatureValid,
         processed: false,
@@ -465,10 +519,10 @@ export class BillingService {
         where: { id: payment.id },
         data: {
           gatewayProvider: provider.slice(0, 50),
-          gatewayTransactionId: payload.transactionId ?? payment.gatewayTransactionId,
-          paymentMethod: payload.paymentMethod ?? payment.paymentMethod,
+          gatewayTransactionId: payload.transaction_id ?? payment.gatewayTransactionId,
+          paymentMethod: payload.payment_type ?? payment.paymentMethod,
           status: mappedStatus,
-          paidAt: mappedStatus === PaymentStatus.success && payload.paidAt ? new Date(payload.paidAt) : payment.paidAt,
+          paidAt: mappedStatus === PaymentStatus.success && payload.transaction_time ? new Date(payload.transaction_time) : payment.paidAt,
           userSubscriptionId: activatedSubscriptionId,
         },
       });
@@ -582,11 +636,12 @@ export class BillingService {
     payment: {
       id: string;
       invoiceNumber: string;
-      amount: Prisma.Decimal;
+      amount: Prisma.Decimal | number;
       currency: string;
       status: PaymentStatus;
       paymentMethod: string | null;
       paymentUrl: string | null;
+      gatewayTransactionId: string | null;
       expiredAt: Date | null;
     },
   ) {
@@ -598,6 +653,7 @@ export class BillingService {
       status: payment.status,
       paymentMethod: payment.paymentMethod,
       paymentUrl: payment.paymentUrl,
+      snapToken: payment.gatewayTransactionId,
       expiredAt: payment.expiredAt,
     };
   }

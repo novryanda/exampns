@@ -30,8 +30,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { type ClientPaginatedResponse, fetchAdminData } from "@/lib/admin-data-client";
 import { initialResourceActionState } from "@/server/admin-action-state";
 import {
-  archiveTryoutCatalogAction,
-  publishTryoutCatalogAction,
   saveTryoutDraftGenerationRuleAction,
   saveTryoutDraftManualQuestionSetAction,
   submitTryoutDraftForReviewAction,
@@ -124,12 +122,8 @@ function getDefaultRandomizationMode(draft: AdminTryoutDraftDetail) {
   }
 
   switch (draft.tryoutType) {
-    case "hybrid":
-      return "hybrid_manual_and_random";
     case "adaptive":
       return "adaptive_weak_area";
-    case "manual":
-      return "manual_question_set";
     default:
       return "random_by_category_and_difficulty";
   }
@@ -167,7 +161,6 @@ export function TryoutDraftBuilder({
   const [randomizationMode, setRandomizationMode] = useState(getDefaultRandomizationMode(draft));
   const [questionOrderMode, setQuestionOrderMode] = useState(draft.generationRule?.questionOrderMode ?? "mixed_random");
   const [avoidRecentQuestions, setAvoidRecentQuestions] = useState(draft.generationRule?.avoidRecentQuestions ?? false);
-  const [avoidRecentExamCount, setAvoidRecentExamCount] = useState(draft.generationRule?.avoidRecentExamCount ?? 0);
   const [maxWeakAreas, setMaxWeakAreas] = useState(
     typeof draft.generationRule?.rulesJson === "object" &&
       draft.generationRule?.rulesJson &&
@@ -196,17 +189,6 @@ export function TryoutDraftBuilder({
   const [manualSetDescription, setManualSetDescription] = useState(
     draft.workingManualQuestionSetSummary?.description ?? "",
   );
-  const [manualSetStatus, setManualSetStatus] = useState<"draft" | "review" | "approved">(() => {
-    if (draft.workingManualQuestionSetSummary?.status === "approved") {
-      return "approved";
-    }
-
-    if (draft.workingManualQuestionSetSummary?.status === "review") {
-      return "review";
-    }
-
-    return "draft";
-  });
   const [selectedQuestions, setSelectedQuestions] = useState<ManualQuestionItem[]>(
     draft.workingManualQuestionSetSummary?.items.map((item) => ({
       id: item.question.id,
@@ -238,8 +220,6 @@ export function TryoutDraftBuilder({
     initialResourceActionState,
   );
   const [submitState, submitAction] = useActionState(submitTryoutDraftForReviewAction, initialResourceActionState);
-  const [publishState, publishAction] = useActionState(publishTryoutCatalogAction, initialResourceActionState);
-  const [archiveState, archiveAction] = useActionState(archiveTryoutCatalogAction, initialResourceActionState);
 
   const selectedQuestionIds = useMemo(() => selectedQuestions.map((item) => item.id), [selectedQuestions]);
   const selectedStrategyCategorySet = useMemo(() => new Set(sections.map((section) => section.category)), [sections]);
@@ -253,6 +233,20 @@ export function TryoutDraftBuilder({
       return acc;
     }, {});
   }, [selectedQuestions]);
+  const totalTargetQuestions = useMemo(
+    () => sections.reduce((sum, section) => sum + section.questionCount, 0),
+    [sections],
+  );
+  const remainingTargetQuestions = draft.totalQuestions - totalTargetQuestions;
+  const isStrategyQuestionCountComplete = remainingTargetQuestions === 0;
+  const getQuestionCountLimit = (sectionCategory: string) => {
+    const section = sections.find((item) => item.category === sectionCategory);
+    if (!section) {
+      return draft.totalQuestions;
+    }
+
+    return Math.max(0, draft.totalQuestions - (totalTargetQuestions - section.questionCount));
+  };
 
   const availableSubCategories = metadataOptions.subCategories.filter((item) =>
     questionCategory === "all" ? true : item.category === questionCategory,
@@ -299,40 +293,18 @@ export function TryoutDraftBuilder({
   }, [listPath, router, submitState]);
 
   useEffect(() => {
-    if (publishState.status === "success") {
-      toast.success(publishState.message);
-      router.push(listPath);
-      router.refresh();
-    } else if (publishState.status === "error") {
-      toast.error(publishState.message);
-    }
-  }, [listPath, publishState, router]);
-
-  useEffect(() => {
-    if (archiveState.status === "success") {
-      toast.success(archiveState.message);
-      router.push(listPath);
-      router.refresh();
-    } else if (archiveState.status === "error") {
-      toast.error(archiveState.message);
-    }
-  }, [archiveState, listPath, router]);
-
-  useEffect(() => {
-    if (draft.tryoutType === "hybrid") {
-      setRandomizationMode("hybrid_manual_and_random");
-      return;
-    }
-
-    if (draft.tryoutType === "adaptive") {
+    if (draft.tryoutType === "adaptive" && randomizationMode !== "adaptive_weak_area") {
       setRandomizationMode("adaptive_weak_area");
       return;
     }
 
-    if (draft.tryoutType === "manual") {
-      setRandomizationMode("manual_question_set");
+    if (
+      draft.tryoutType === "generated" &&
+      ["adaptive_weak_area", "manual_question_set", "hybrid_manual_and_random"].includes(randomizationMode)
+    ) {
+      setRandomizationMode("random_by_category_and_difficulty");
     }
-  }, [draft.tryoutType]);
+  }, [draft.tryoutType, randomizationMode]);
 
   useEffect(() => {
     if (scope === "super-admin" && activeStep === "validasi") {
@@ -446,16 +418,41 @@ export function TryoutDraftBuilder({
     field: keyof StrategySection,
     value: string | number,
   ) => {
-    setSections((current) =>
-      current.map((section) =>
-        section.category === category
-          ? {
-              ...section,
-              [field]: typeof value === "number" ? value : field === "topicDistributionText" ? value : Number(value),
-            }
-          : section,
-      ),
-    );
+    setSections((current) => {
+      const currentTotal = current.reduce((sum, section) => sum + section.questionCount, 0);
+
+      return current.map((section) => {
+        if (section.category !== category) {
+          return section;
+        }
+
+        if (field === "topicDistributionText") {
+          return {
+            ...section,
+            topicDistributionText: String(value),
+          };
+        }
+
+        const parsedValue = Math.max(0, Number(value) || 0);
+
+        if (field === "questionCount") {
+          const maxAllowed = Math.max(
+            0,
+            draft.totalQuestions - (currentTotal - section.questionCount),
+          );
+
+          return {
+            ...section,
+            questionCount: Math.min(parsedValue, maxAllowed),
+          };
+        }
+
+        return {
+          ...section,
+          [field]: parsedValue,
+        };
+      });
+    });
   };
 
   const addSection = (category: string) => {
@@ -544,14 +541,8 @@ export function TryoutDraftBuilder({
       {activeStep === "strategi" ? (
         <SectionCard
           title="Strategi Tryout"
-          description="Atur generation rule untuk generated, hybrid, atau adaptive. Draft manual tidak membutuhkan generation rule."
+          description="Atur generation rule untuk tipe Otomatis atau Adaptive."
         >
-          {draft.tryoutType === "manual" ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-600 text-sm">
-              Draft manual memakai bank soal yang dipilih pada step berikutnya. Tidak ada generation rule yang wajib
-              disimpan.
-            </div>
-          ) : (
             <form action={strategyAction} className="grid gap-6">
               <input type="hidden" name="tryoutDraftId" value={draft.id} />
               <input type="hidden" name="scope" value={scope} />
@@ -575,8 +566,13 @@ export function TryoutDraftBuilder({
               />
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <input
+                  type="hidden"
+                  name="avoidRecentExamCount"
+                  value={avoidRecentQuestions ? 1 : 0}
+                />
                 <div className="grid gap-2">
-                  <Label htmlFor="randomizationMode">Randomization Mode</Label>
+                  <Label htmlFor="randomizationMode">Mode Pengacakan</Label>
                   <Select
                     name="randomizationMode"
                     value={randomizationMode}
@@ -588,22 +584,19 @@ export function TryoutDraftBuilder({
                     <SelectContent>
                       {draft.tryoutType === "generated" ? (
                         <>
-                          <SelectItem value="random_by_category">By Category</SelectItem>
-                          <SelectItem value="random_by_category_and_difficulty">By Category + Difficulty</SelectItem>
-                          <SelectItem value="random_by_topic_distribution">By Topic Distribution</SelectItem>
+                          <SelectItem value="random_by_category">Per Kategori</SelectItem>
+                          <SelectItem value="random_by_category_and_difficulty">Per Kategori + Tingkat Kesulitan</SelectItem>
+                          <SelectItem value="random_by_topic_distribution">Per Distribusi Topik</SelectItem>
                         </>
                       ) : null}
-                      {draft.tryoutType === "hybrid" ? (
-                        <SelectItem value="hybrid_manual_and_random">Hybrid Manual + Random</SelectItem>
-                      ) : null}
                       {draft.tryoutType === "adaptive" ? (
-                        <SelectItem value="adaptive_weak_area">Adaptive Weak Area</SelectItem>
+                        <SelectItem value="adaptive_weak_area">Adaptive Area Lemah</SelectItem>
                       ) : null}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="questionOrderMode">Question Order Mode</Label>
+                  <Label htmlFor="questionOrderMode">Mode Urutan Soal</Label>
                   <Select
                     name="questionOrderMode"
                     value={questionOrderMode}
@@ -613,22 +606,10 @@ export function TryoutDraftBuilder({
                       <SelectValue placeholder="Pilih urutan" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="mixed_random">Mixed Random</SelectItem>
-                      <SelectItem value="category_order">Category Order</SelectItem>
+                      <SelectItem value="mixed_random">Acak Campur</SelectItem>
+                      <SelectItem value="category_order">Urut per Kategori</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="avoidRecentExamCount">Avoid Recent Exam Count</Label>
-                  <Input
-                    id="avoidRecentExamCount"
-                    name="avoidRecentExamCount"
-                    type="number"
-                    min={0}
-                    value={avoidRecentExamCount}
-                    onChange={(event) => setAvoidRecentExamCount(Number(event.target.value) || 0)}
-                    className="rounded-xl border-slate-200"
-                  />
                 </div>
                 <div className="flex items-end">
                   <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-slate-700 text-sm">
@@ -638,7 +619,7 @@ export function TryoutDraftBuilder({
                       checked={avoidRecentQuestions}
                       onChange={(event) => setAvoidRecentQuestions(event.target.checked)}
                     />
-                    Hindari soal dari exam terbaru
+                    Hindari soal dari ujian terbaru
                   </label>
                 </div>
               </div>
@@ -646,7 +627,7 @@ export function TryoutDraftBuilder({
               {draft.tryoutType === "adaptive" ? (
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="grid gap-2">
-                    <Label htmlFor="maxWeakAreas">Max Weak Areas</Label>
+                    <Label htmlFor="maxWeakAreas">Maksimal Area Lemah</Label>
                     <Input
                       id="maxWeakAreas"
                       name="maxWeakAreas"
@@ -658,7 +639,7 @@ export function TryoutDraftBuilder({
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="perWeakAreaQuestionCap">Cap per Weak Area</Label>
+                    <Label htmlFor="perWeakAreaQuestionCap">Batas Soal per Area Lemah</Label>
                     <Input
                       id="perWeakAreaQuestionCap"
                       name="perWeakAreaQuestionCap"
@@ -736,6 +717,11 @@ export function TryoutDraftBuilder({
                       Pilih semua kategori
                     </label>
                     <StatusBadge tone="neutral">{sections.length} kategori dipilih</StatusBadge>
+                    <StatusBadge tone="brand">Target info: {draft.totalQuestions} soal</StatusBadge>
+                    <StatusBadge tone="neutral">Terisi: {totalTargetQuestions} soal</StatusBadge>
+                    <StatusBadge tone={remainingTargetQuestions === 0 ? "success" : "warning"}>
+                      Sisa: {remainingTargetQuestions} soal
+                    </StatusBadge>
                   </div>
                 </div>
 
@@ -771,15 +757,19 @@ export function TryoutDraftBuilder({
                     </div>
                     <div className="grid gap-4 md:grid-cols-4">
                       <div className="grid gap-2">
-                        <Label htmlFor={`${section.category}-count`}>Question Count</Label>
+                        <Label htmlFor={`${section.category}-count`}>Jumlah Soal</Label>
                         <Input
                           id={`${section.category}-count`}
                           type="number"
                           min={0}
+                          max={getQuestionCountLimit(section.category)}
                           value={section.questionCount}
                           onChange={(event) => updateSection(section.category, "questionCount", event.target.value)}
                           className="rounded-xl border-slate-200"
                         />
+                        <p className="text-xs text-slate-500">
+                          Maksimal untuk kategori ini: {getQuestionCountLimit(section.category)} soal
+                        </p>
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor={`${section.category}-easy`}>Easy</Label>
@@ -832,27 +822,36 @@ export function TryoutDraftBuilder({
               </div>
 
               <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-600 text-sm">
-                <span>
-                  Total target section: {sections.reduce((sum, section) => sum + section.questionCount, 0)} soal
-                </span>
-                <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700">
+                <div className="grid gap-1">
+                  <span>Total target bagian: {totalTargetQuestions} soal</span>
+                  <span className={isStrategyQuestionCountComplete ? "text-emerald-600" : "text-amber-600"}>
+                    {isStrategyQuestionCountComplete
+                      ? `Jumlah soal sudah pas dengan target info (${draft.totalQuestions} soal).`
+                      : `Lengkapi sampai totalnya ${draft.totalQuestions} soal.`}
+                  </span>
+                </div>
+                <Button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700"
+                  disabled={!isStrategyQuestionCountComplete}
+                >
                   Simpan Strategi
                 </Button>
               </div>
             </form>
-          )}
         </SectionCard>
       ) : null}
 
       {activeStep === "bank-soal" ? (
         <SectionCard
           title="Bank Soal"
-          description="Pilih soal aktif dari bank soal untuk draft manual atau hybrid, lalu atur urutannya."
+          description="Soal tryout diambil dari Bank Soal aktif berdasarkan strategi yang sudah disimpan."
         >
           {draft.tryoutType === "generated" || draft.tryoutType === "adaptive" ? (
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-600 text-sm">
-              Mode {draft.tryoutType} tidak membutuhkan manual question set sebagai sumber utama. Step ini hanya relevan
-              untuk manual atau hybrid.
+              Tipe {draft.tryoutType === "generated" ? "Otomatis" : "Adaptive"} tidak memakai pemilihan soal manual.
+              Lengkapi kategori, jumlah soal, difficulty, dan topik pada step Strategi agar sistem dapat mengambil soal
+              dari Bank Soal aktif.
             </div>
           ) : (
             <div className="grid gap-6">
@@ -919,13 +918,13 @@ export function TryoutDraftBuilder({
                     onValueChange={(value) => setQuestionDifficulty(value as typeof questionDifficulty)}
                   >
                     <SelectTrigger className="rounded-xl border-slate-200 bg-white">
-                      <SelectValue placeholder="Difficulty" />
+                      <SelectValue placeholder="Tingkat Kesulitan" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Semua Difficulty</SelectItem>
-                      <SelectItem value="easy">Easy</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="hard">Hard</SelectItem>
+                      <SelectItem value="all">Semua Tingkat Kesulitan</SelectItem>
+                      <SelectItem value="easy">Mudah</SelectItem>
+                      <SelectItem value="medium">Sedang</SelectItem>
+                      <SelectItem value="hard">Sulit</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -957,7 +956,7 @@ export function TryoutDraftBuilder({
                         <TableHead>Soal</TableHead>
                         <TableHead>Kategori</TableHead>
                         <TableHead>Topik</TableHead>
-                        <TableHead>Difficulty</TableHead>
+                        <TableHead>Tingkat Kesulitan</TableHead>
                         <TableHead className="text-right">Aksi</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1007,7 +1006,7 @@ export function TryoutDraftBuilder({
                 </SectionCard>
 
                 <SectionCard
-                  title="Manual Question Set"
+                  title="Set Soal"
                   description={`Tersusun ${selectedQuestions.length} soal. ${metadataOptions.categories
                     .map((item) => `${item.name} ${selectedCounts[item.code] ?? 0}`)
                     .join(", ")}.`}
@@ -1017,34 +1016,15 @@ export function TryoutDraftBuilder({
                     <input type="hidden" name="scope" value={scope} />
                     <input type="hidden" name="questionIdsJson" value={JSON.stringify(selectedQuestionIds)} />
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="grid gap-2">
-                        <Label htmlFor="manualSetName">Nama Set</Label>
-                        <Input
-                          id="manualSetName"
-                          name="name"
-                          value={manualSetName}
-                          onChange={(event) => setManualSetName(event.target.value)}
-                          className="rounded-xl border-slate-200"
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="manualSetStatus">Status Set</Label>
-                        <Select
-                          value={manualSetStatus}
-                          onValueChange={(value) => setManualSetStatus(value as "draft" | "review" | "approved")}
-                        >
-                          <SelectTrigger id="manualSetStatus" className="rounded-xl border-slate-200 bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="review">Review</SelectItem>
-                            {scope === "super-admin" ? <SelectItem value="approved">Approved</SelectItem> : null}
-                          </SelectContent>
-                        </Select>
-                        <input type="hidden" name="status" value={manualSetStatus} />
-                      </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="manualSetName">Nama Set</Label>
+                      <Input
+                        id="manualSetName"
+                        name="name"
+                        value={manualSetName}
+                        onChange={(event) => setManualSetName(event.target.value)}
+                        className="rounded-xl border-slate-200"
+                      />
                     </div>
 
                     <div className="grid gap-2">
@@ -1065,7 +1045,7 @@ export function TryoutDraftBuilder({
                             <TableHead>#</TableHead>
                             <TableHead>Soal</TableHead>
                             <TableHead>Kategori</TableHead>
-                            <TableHead>Difficulty</TableHead>
+                            <TableHead>Tingkat Kesulitan</TableHead>
                             <TableHead className="text-right">Urutan</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -1126,7 +1106,7 @@ export function TryoutDraftBuilder({
 
                     <div className="flex justify-end">
                       <Button type="submit" className="rounded-xl bg-blue-600 hover:bg-blue-700">
-                        Simpan Manual Set
+                        Simpan Set Soal
                       </Button>
                     </div>
                   </form>
@@ -1234,12 +1214,8 @@ export function TryoutDraftBuilder({
 
       {activeStep === "submit" ? (
         <SectionCard
-          title={scope === "super-admin" ? "Finalisasi Tryout" : "Publish Tryout"}
-          description={
-            scope === "super-admin"
-              ? "Super admin dapat langsung mempublish atau mengarsipkan tryout dari builder yang sama."
-              : "Admin dapat langsung mempublish tryout yang sudah lolos validasi struktur dan availability."
-          }
+          title="Publish Tryout"
+          description="Admin dapat langsung mempublish tryout yang sudah lolos validasi struktur dan availability."
         >
           <div className="grid gap-4">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-600 text-sm">
@@ -1248,102 +1224,100 @@ export function TryoutDraftBuilder({
               </p>
               <p className="mt-2">Jumlah soal manual terpilih: {selectedQuestions.length}</p>
               <p className="mt-2">
-                Total target section: {sections.reduce((sum, section) => sum + section.questionCount, 0)}
+                Total target bagian: {sections.reduce((sum, section) => sum + section.questionCount, 0)}
               </p>
             </div>
-            {scope === "super-admin" ? (
-              <div className="grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    {draft.builderStatus.isStructurallyValid ? (
-                      <CheckCircle2 className="size-5 text-emerald-600" />
-                    ) : (
-                      <AlertCircle className="size-5 text-amber-600" />
-                    )}
-                    <h3 className="font-medium text-slate-950">Kelengkapan Builder</h3>
-                  </div>
-                  <p className="text-slate-600 text-sm">
-                    {draft.builderStatus.isStructurallyValid
-                      ? "Struktur minimum tryout sudah lengkap."
-                      : "Masih ada bagian wajib yang perlu dilengkapi sebelum tryout bisa dipublish."}
-                  </p>
-                  <div className="mt-4 grid gap-2 text-sm">
-                    {draft.builderStatus.missingParts.length === 0 ? (
-                      <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
-                        Tidak ada missing parts.
-                      </div>
-                    ) : (
-                      draft.builderStatus.missingParts.map((item, index) => (
-                        <div
-                          key={`${item}-${index}`}
-                          className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700"
-                        >
-                          {item}
-                        </div>
-                      ))
-                    )}
-                    {draft.builderStatus.modeSpecificWarnings.map((item, index) => (
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  {draft.builderStatus.isStructurallyValid ? (
+                    <CheckCircle2 className="size-5 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className="size-5 text-amber-600" />
+                  )}
+                  <h3 className="font-medium text-slate-950">Kelengkapan Builder</h3>
+                </div>
+                <p className="text-slate-600 text-sm">
+                  {draft.builderStatus.isStructurallyValid
+                    ? "Struktur minimum tryout sudah lengkap."
+                    : "Masih ada bagian wajib yang perlu dilengkapi sebelum tryout bisa dipublish."}
+                </p>
+                <div className="mt-4 grid gap-2 text-sm">
+                  {draft.builderStatus.missingParts.length === 0 ? (
+                    <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-emerald-700">
+                      Tidak ada missing parts.
+                    </div>
+                  ) : (
+                    draft.builderStatus.missingParts.map((item, index) => (
                       <div
                         key={`${item}-${index}`}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                        className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700"
                       >
                         {item}
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium text-slate-950">Kesiapan Publish</h3>
-                      <p className="text-slate-600 text-sm">Blokir publish ditampilkan langsung di finalisasi.</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="rounded-xl border-slate-200 bg-white"
-                      onClick={refreshAvailability}
-                    >
-                      {isAvailabilityPending ? "Memuat..." : "Refresh Check"}
-                    </Button>
-                  </div>
-                  {!availability ? (
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-4 text-slate-500 text-sm">
-                      Mengecek availability tryout...
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 text-sm">
-                      <div
-                        className={`rounded-xl px-3 py-2 ${availability.isReady ? "border border-emerald-100 bg-emerald-50 text-emerald-700" : "border border-amber-100 bg-amber-50 text-amber-700"}`}
-                      >
-                        {availability.isReady ? "Tryout siap dipublish." : "Tryout belum siap dipublish."}
-                      </div>
-                      {!availability.isReady ? (
-                        <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700">
-                          Publish terkunci sampai semua issue bank soal aktif dan
-                          distribusi section di bawah ini terpenuhi.
-                        </div>
-                      ) : null}
-                      {availability.issues.length === 0 ? (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
-                          Tidak ada issue yang terdeteksi.
-                        </div>
-                      ) : (
-                        availability.issues.map((issue, index) => (
-                          <div
-                            key={`${issue}-${index}`}
-                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
-                          >
-                            {issue}
-                          </div>
-                        ))
-                      )}
-                    </div>
+                    ))
                   )}
+                  {draft.builderStatus.modeSpecificWarnings.map((item, index) => (
+                    <div
+                      key={`${item}-${index}`}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                    >
+                      {item}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ) : null}
+
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-medium text-slate-950">Kesiapan Publish</h3>
+                    <p className="text-slate-600 text-sm">Blokir publish ditampilkan langsung di finalisasi.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl border-slate-200 bg-white"
+                    onClick={refreshAvailability}
+                  >
+                    {isAvailabilityPending ? "Memuat..." : "Refresh Check"}
+                  </Button>
+                </div>
+                {!availability ? (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-4 text-slate-500 text-sm">
+                    Mengecek availability tryout...
+                  </div>
+                ) : (
+                  <div className="grid gap-3 text-sm">
+                    <div
+                      className={`rounded-xl px-3 py-2 ${availability.isReady ? "border border-emerald-100 bg-emerald-50 text-emerald-700" : "border border-amber-100 bg-amber-50 text-amber-700"}`}
+                    >
+                      {availability.isReady ? "Tryout siap dipublish." : "Tryout belum siap dipublish."}
+                    </div>
+                    {!availability.isReady ? (
+                      <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-amber-700">
+                        Publish terkunci sampai semua issue bank soal aktif dan distribusi section di bawah ini
+                        terpenuhi.
+                      </div>
+                    ) : null}
+                    {availability.issues.length === 0 ? (
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600">
+                        Tidak ada issue yang terdeteksi.
+                      </div>
+                    ) : (
+                      availability.issues.map((issue, index) => (
+                        <div
+                          key={`${issue}-${index}`}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-600"
+                        >
+                          {issue}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             {!draft.builderStatus.isStructurallyValid ? (
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-amber-700 text-sm">
                 Draft belum bisa diajukan karena masih ada bagian wajib yang belum lengkap. Lengkapi step Strategi atau
@@ -1351,42 +1325,18 @@ export function TryoutDraftBuilder({
               </div>
             ) : null}
             <div className="flex flex-wrap justify-end gap-2">
-              {scope === "super-admin" ? (
-                <>
-                  <form action={archiveAction}>
-                    <input type="hidden" name="tryoutDraftId" value={draft.id} />
-                    <Button type="submit" variant="outline" className="rounded-xl border-slate-200 bg-white">
-                      Arsipkan
-                    </Button>
-                  </form>
-                  <form action={publishAction}>
-                    <input type="hidden" name="tryoutDraftId" value={draft.id} />
-                    <Button
-                      type="submit"
-                      className="rounded-xl bg-emerald-600 hover:bg-emerald-700"
-                      disabled={
-                        !draft.builderStatus.isStructurallyValid || !availability?.isReady || isAvailabilityPending
-                      }
-                    >
-                      Publish
-                    </Button>
-                  </form>
-                </>
-              ) : null}
-              {scope !== "super-admin" ? (
-                <form action={submitAction}>
-                  <input type="hidden" name="tryoutDraftId" value={draft.id} />
-                  <input type="hidden" name="scope" value={scope} />
-                  <Button
-                    type="submit"
-                    className="rounded-xl bg-blue-600 hover:bg-blue-700"
-                    disabled={!draft.builderStatus.isStructurallyValid}
-                  >
-                    <Send className="mr-2 size-4" />
-                    Publish Tryout
-                  </Button>
-                </form>
-              ) : null}
+              <form action={submitAction}>
+                <input type="hidden" name="tryoutDraftId" value={draft.id} />
+                <input type="hidden" name="scope" value={scope} />
+                <Button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 hover:bg-blue-700"
+                  disabled={!draft.builderStatus.isStructurallyValid || !availability?.isReady || isAvailabilityPending}
+                >
+                  <Send className="mr-2 size-4" />
+                  Publish Tryout
+                </Button>
+              </form>
             </div>
           </div>
         </SectionCard>

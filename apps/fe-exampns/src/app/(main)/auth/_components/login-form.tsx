@@ -58,7 +58,9 @@ export function LoginForm({ defaultEmail = "" }: { readonly defaultEmail?: strin
 
       const redirectPath = getPostAuthRedirectPath(readAuthUserRole(data?.user));
       toast.success(
-        redirectPath === "/admin/dashboard" || redirectPath === "/super-admin/dashboard"
+        redirectPath === "/admin/dashboard" ||
+          redirectPath === "/super-admin/dashboard" ||
+          redirectPath === "/mitra/dashboard"
           ? "Login berhasil. Mengarahkan ke dashboard..."
           : "Login berhasil. Selamat datang di ExamCPNS.",
       );

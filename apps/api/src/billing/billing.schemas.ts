@@ -22,6 +22,7 @@ export const checkoutPaymentMethods = [
 export const createCheckoutSchema = z.object({
   subscriptionPlanId: z.string().uuid(),
   paymentMethod: z.enum(checkoutPaymentMethods),
+  referralCode: z.preprocess(emptyToUndefined, z.string().min(3).max(50).optional()),
 });
 
 export const listPaymentHistoryQuerySchema = z.object({

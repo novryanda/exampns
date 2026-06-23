@@ -230,7 +230,7 @@ export interface AdminTryoutDraftItem {
   id: string;
   name: string;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  status: "draft" | "review" | "published" | "archived";
+  status: "draft" | "published" | "archived";
   isPublic: boolean;
   isFeatured: boolean;
   totalQuestions: number;
@@ -256,7 +256,7 @@ export interface AdminTryoutDraftDetail {
     tier: "trial" | "standard" | "premium";
     isActive: boolean;
   } | null;
-  status: "draft" | "review" | "published" | "archived";
+  status: "draft" | "published" | "archived";
   isFeatured: boolean;
   sortOrder: number;
   durationMinutes: number;
@@ -309,7 +309,7 @@ export interface AdminWorkingManualQuestionSet {
   id: string;
   name: string;
   description: string | null;
-  status: "draft" | "review" | "approved" | "archived";
+  status: "draft" | "archived";
   questionIds: string[];
   itemCount: number;
   updatedAt: string;
@@ -609,6 +609,30 @@ export async function getAdminLearningMaterials(params?: {
 export async function getAdminLearningMaterialDetail(materialId: string) {
   const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem & { modules: any[] }>>(
     `/api/v1/admin/learning-materials/${materialId}`,
+  );
+  return response.data;
+}
+
+export async function getSuperAdminLearningMaterials(params?: {
+  status?: string;
+  categoryId?: string;
+}) {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem[]>>(
+      `/api/v1/super-admin/learning-materials${toQueryString({
+        status: params?.status,
+        categoryId: params?.categoryId,
+      })}`,
+    );
+    return response.data;
+  } catch {
+    return [];
+  }
+}
+
+export async function getSuperAdminLearningMaterialDetail(materialId: string) {
+  const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem & { modules: any[] }>>(
+    `/api/v1/super-admin/learning-materials/${materialId}`,
   );
   return response.data;
 }

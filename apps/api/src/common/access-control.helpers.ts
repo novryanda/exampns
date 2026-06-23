@@ -25,9 +25,9 @@ export interface AccessSubscriptionSnapshot {
 
 export interface AccessOverrideSnapshot {
   id: string;
-  tier: SubscriptionTier;
-  startsAt: Date;
-  expiresAt: Date;
+  subscriptionPlanId: string;
+  subscriptionPlanName: string;
+  subscriptionPlanTier: SubscriptionTier;
   revokedAt: Date | null;
   createdAt: Date;
 }
@@ -97,16 +97,12 @@ export const pickBestSubscription = (
 
 export const pickBestOverride = (overrides: AccessOverrideSnapshot[], now = new Date()) =>
   overrides
-    .filter((override) => override.revokedAt === null && override.startsAt <= now && override.expiresAt > now)
+    .filter((override) => override.revokedAt === null && override.createdAt <= now)
     .sort((left, right) => {
-      const tierDelta = tierRank[right.tier] - tierRank[left.tier];
+      const tierDelta =
+        tierRank[right.subscriptionPlanTier] - tierRank[left.subscriptionPlanTier];
       if (tierDelta !== 0) {
         return tierDelta;
-      }
-
-      const expiryDelta = right.expiresAt.getTime() - left.expiresAt.getTime();
-      if (expiryDelta !== 0) {
-        return expiryDelta;
       }
 
       return right.createdAt.getTime() - left.createdAt.getTime();
@@ -120,7 +116,7 @@ export const resolveEffectiveAccess = (
   const activeOverride = pickBestOverride(overrides, now);
   if (activeOverride) {
     return {
-      effectiveAccessLevel: toEffectiveAccessLevel(activeOverride.tier),
+      effectiveAccessLevel: toEffectiveAccessLevel(activeOverride.subscriptionPlanTier),
       effectiveAccessSource: 'override',
       activeSubscription: pickBestSubscription(subscriptions, now),
       activeOverride,

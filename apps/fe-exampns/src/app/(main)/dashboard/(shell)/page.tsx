@@ -36,10 +36,6 @@ function tryoutTypeLabel(value: string) {
   switch (value) {
     case "generated":
       return "Otomatis";
-    case "manual":
-      return "Manual";
-    case "hybrid":
-      return "Hybrid";
     case "adaptive":
       return "Adaptive";
     default:
@@ -50,7 +46,13 @@ function tryoutTypeLabel(value: string) {
 export default async function UserDashboardPage() {
   const profile = await requireServerCurrentUserProfile();
   if (profile.role !== "USER") {
-    redirect(profile.role === "ADMIN" ? "/admin/dashboard" : "/super-admin/dashboard");
+    redirect(
+      profile.role === "ADMIN"
+        ? "/admin/dashboard"
+        : profile.role === "PARTNER"
+          ? "/mitra/dashboard"
+          : "/super-admin/dashboard",
+    );
   }
 
   const [summary, activeExam, tryouts] = await Promise.all([

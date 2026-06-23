@@ -6,7 +6,13 @@ export default async function AppLayout({ children }: { readonly children: React
   const currentUser = await requireServerCurrentUserProfile();
 
   if (currentUser.role !== "USER") {
-    redirect(currentUser.role === "ADMIN" ? "/admin/dashboard" : "/super-admin/dashboard");
+    redirect(
+      currentUser.role === "ADMIN"
+        ? "/admin/dashboard"
+        : currentUser.role === "PARTNER"
+          ? "/mitra/dashboard"
+          : "/super-admin/dashboard",
+    );
   }
 
   return <>{children}</>;

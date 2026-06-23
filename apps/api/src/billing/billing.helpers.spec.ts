@@ -2,25 +2,18 @@ import { PaymentStatus, SubscriptionStatus } from '../../generated/prisma/client
 import {
   addDays,
   buildInvoiceNumber,
-  buildPaymentUrl,
   computeDaysRemaining,
   computeTryoutRemaining,
   isSubscriptionCurrentlyActive,
   mapWebhookStatusToPaymentStatus,
   verifyWebhookSignature,
 } from './billing.helpers.js';
-import { createHmac } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 describe('Billing helpers', () => {
   it('builds invoice number with date and padded sequence', () => {
     expect(buildInvoiceNumber(7, new Date('2026-05-17T00:00:00.000Z'))).toBe(
       'INV-20260517-0007',
-    );
-  });
-
-  it('builds payment url without duplicate slashes', () => {
-    expect(buildPaymentUrl('https://pay.example/', 'pay-123')).toBe(
-      'https://pay.example/pay/pay-123',
     );
   });
 
@@ -35,15 +28,21 @@ describe('Billing helpers', () => {
     expect(mapWebhookStatusToPaymentStatus('expired')).toBe(PaymentStatus.expired);
   });
 
-  it('verifies webhook signature using sha256 hmac', () => {
-    const payload = { invoiceNumber: 'INV-1', status: 'success' };
-    const secret = 'webhook-secret';
-    const signature = createHmac('sha256', secret)
-      .update(JSON.stringify(payload))
+  it('verifies Midtrans webhook signature using sha512 payload fields', () => {
+    const orderId = 'INV-1';
+    const statusCode = '200';
+    const grossAmount = '90000.00';
+    const serverKey = 'server-key';
+    const signature = createHash('sha512')
+      .update(`${orderId}${statusCode}${grossAmount}${serverKey}`)
       .digest('hex');
 
-    expect(verifyWebhookSignature(payload, signature, secret)).toBe(true);
-    expect(verifyWebhookSignature(payload, 'bad-signature', secret)).toBe(false);
+    expect(verifyWebhookSignature(orderId, statusCode, grossAmount, signature, serverKey)).toBe(
+      true,
+    );
+    expect(verifyWebhookSignature(orderId, statusCode, grossAmount, 'bad-signature', serverKey)).toBe(
+      false,
+    );
   });
 
   it('checks whether subscription is currently active', () => {

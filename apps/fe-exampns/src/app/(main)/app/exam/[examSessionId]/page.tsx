@@ -12,7 +12,13 @@ export default async function ExamRoomPage({
 }) {
   const profile = await requireServerCurrentUserProfile();
   if (profile.role !== "USER") {
-    redirect(profile.role === "ADMIN" ? "/admin/dashboard" : "/super-admin/dashboard");
+    redirect(
+      profile.role === "ADMIN"
+        ? "/admin/dashboard"
+        : profile.role === "PARTNER"
+          ? "/mitra/dashboard"
+          : "/super-admin/dashboard",
+    );
   }
 
   const { examSessionId } = await params;

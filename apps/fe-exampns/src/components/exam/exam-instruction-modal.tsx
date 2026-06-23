@@ -170,7 +170,7 @@ function SlideContent({ slide }: { slide: (typeof SLIDES)[number] }) {
   const Icon = slide.icon;
 
   return (
-    <div className="flex h-full flex-col gap-5">
+    <div className="flex min-h-full flex-col gap-5">
       {/* Header */}
       <div className="flex flex-col items-center gap-3 pt-2 text-center">
         <div className={`rounded-2xl p-4 ${slide.iconBg}`}>
@@ -189,7 +189,7 @@ function SlideContent({ slide }: { slide: (typeof SLIDES)[number] }) {
       </div>
 
       {/* Body */}
-      <div className="flex flex-col gap-3 overflow-y-auto">
+      <div className="space-y-3 pr-1">
         {slide.content.map((item, i) => (
           <div
             key={i}
@@ -314,7 +314,7 @@ export function ExamInstructionModal({
     >
       {/* Panel */}
       <div
-        className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border"
+        className="relative grid max-h-[90dvh] w-full max-w-lg grid-rows-[auto_auto_minmax(0,1fr)_auto] overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 ring-border"
         style={{ maxHeight: "90dvh" }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -349,9 +349,9 @@ export function ExamInstructionModal({
         </div>
 
         {/* Slide area */}
-        <div className="flex-1 overflow-hidden p-5">
+        <div className="min-h-0 overflow-y-auto overscroll-y-contain p-5">
           <div
-            className="h-full transition-all duration-200"
+            className="transition-all duration-200"
             style={{
               opacity: isAnimating ? 0 : 1,
               transform: isAnimating

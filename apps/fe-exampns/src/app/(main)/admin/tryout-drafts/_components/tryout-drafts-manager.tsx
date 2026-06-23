@@ -29,6 +29,14 @@ function formatDateTime(value: string) {
 }
 
 function toLabel(value: string) {
+  if (value === "generated") {
+    return "Otomatis";
+  }
+
+  if (value === "adaptive") {
+    return "Adaptive";
+  }
+
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -181,8 +189,6 @@ export function TryoutDraftsManager({
           <SelectContent>
             <SelectItem value="all">Semua Tipe</SelectItem>
             <SelectItem value="generated">Otomatis</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-            <SelectItem value="hybrid">Hybrid</SelectItem>
             <SelectItem value="adaptive">Adaptive</SelectItem>
           </SelectContent>
         </Select>
@@ -193,7 +199,6 @@ export function TryoutDraftsManager({
           <SelectContent>
             <SelectItem value="all">Semua Status</SelectItem>
             <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="review">Review Lama</SelectItem>
             <SelectItem value="published">Published</SelectItem>
           </SelectContent>
         </Select>
@@ -241,11 +246,7 @@ export function TryoutDraftsManager({
                   <TableCell>
                     <StatusBadge
                       tone={
-                        draft.status === "published"
-                          ? "success"
-                          : draft.status === "review"
-                            ? "warning"
-                            : "neutral"
+                        draft.status === "published" ? "success" : "neutral"
                       }
                     >
                       {toLabel(draft.status)}

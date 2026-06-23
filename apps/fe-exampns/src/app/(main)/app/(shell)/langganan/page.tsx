@@ -1,10 +1,11 @@
-import { CheckoutPlanButton } from "@/app/(main)/app/_components/checkout-plan-button";
 import { ContinuePaymentButton } from "@/app/(main)/app/_components/continue-payment-button";
 import { MetricCard, PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { formatDateTimeId, formatSubscriptionStatusLabel } from "@/lib/user-app/labels";
 import { getMyPaymentHistory, getMySubscription, getSubscriptionPlans } from "@/server/user-dashboard-data";
 import { Sparkles, WalletCards } from "lucide-react";
+import Link from "next/link";
 
 function toneForPaymentStatus(status: string) {
   if (status === "success") {
@@ -32,6 +33,7 @@ export default async function LanggananPage() {
     getSubscriptionPlans(),
     getMyPaymentHistory({ page: 1, limit: 10 }),
   ]);
+  const purchasablePlans = plans.filter((plan) => plan.isActive && !plan.isTrial && plan.tier !== "trial");
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,21 +76,32 @@ export default async function LanggananPage() {
         />
       </div>
 
-      <SectionCard title="Paket Berlangganan" description="Pilih paket untuk memperpanjang atau meningkatkan akses tryout.">
+      <SectionCard
+        title="Paket Berlangganan"
+        description="Pilih paket terlebih dahulu, lalu lanjut ke halaman checkout untuk memasukkan kode referral dan meninjau total pembayaran."
+      >
         <div className="grid gap-4 lg:grid-cols-3">
-          {plans.map((plan) => (
-            <article key={plan.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="font-semibold text-slate-950 text-xl">{plan.name}</h3>
-              <p className="mt-2 min-h-12 text-slate-600 text-sm">{plan.description}</p>
-              <p className="mt-4 font-semibold text-2xl text-slate-950">
-                {formatCurrency(plan.price, plan.currency)}
-              </p>
-              <p className="mt-1 text-slate-500 text-sm">{plan.durationDays} hari akses</p>
-              <div className="mt-4">
-                <CheckoutPlanButton planId={plan.id} planName={plan.name} />
-              </div>
-            </article>
-          ))}
+          {purchasablePlans.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-slate-500 text-sm">
+              Belum ada paket berlangganan aktif yang bisa dipilih saat ini.
+            </div>
+          ) : (
+            purchasablePlans.map((plan) => (
+              <article key={plan.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="font-semibold text-slate-950 text-xl">{plan.name}</h3>
+                <p className="mt-2 min-h-12 text-slate-600 text-sm">{plan.description}</p>
+                <p className="mt-4 font-semibold text-2xl text-slate-950">
+                  {formatCurrency(plan.price, plan.currency)}
+                </p>
+                <p className="mt-1 text-slate-500 text-sm">{plan.durationDays} hari akses</p>
+                <div className="mt-4">
+                  <Button asChild className="w-full rounded-xl bg-blue-600 hover:bg-blue-700">
+                    <Link href={`/app/langganan/checkout/${plan.id}`}>Pilih Paket</Link>
+                  </Button>
+                </div>
+              </article>
+            ))
+          )}
         </div>
       </SectionCard>
 

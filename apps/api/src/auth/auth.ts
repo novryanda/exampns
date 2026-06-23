@@ -50,7 +50,7 @@ export const auth = betterAuth({
         required: false,
       },
       role: {
-        type: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+        type: ['SUPER_ADMIN', 'ADMIN', 'PARTNER', 'USER'],
         required: false,
         defaultValue: 'USER',
         input: false,

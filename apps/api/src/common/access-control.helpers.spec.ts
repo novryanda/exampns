@@ -27,9 +27,9 @@ describe('access-control helpers', () => {
       [
         {
           id: 'override-premium',
-          tier: SubscriptionTier.premium,
-          startsAt: new Date('2026-06-01T00:00:00.000Z'),
-          expiresAt: new Date('2026-06-02T00:00:00.000Z'),
+          subscriptionPlanId: 'plan-premium',
+          subscriptionPlanName: 'Premium Plan',
+          subscriptionPlanTier: SubscriptionTier.premium,
           revokedAt: null,
           createdAt: new Date('2026-06-01T01:00:00.000Z'),
         },
@@ -72,22 +72,22 @@ describe('access-control helpers', () => {
     expect(best?.id).toBe('standard-active');
   });
 
-  it('ignores revoked or expired overrides', () => {
+  it('ignores revoked overrides', () => {
     const best = pickBestOverride(
       [
         {
           id: 'override-revoked',
-          tier: SubscriptionTier.premium,
-          startsAt: new Date('2026-05-30T00:00:00.000Z'),
-          expiresAt: new Date('2026-06-05T00:00:00.000Z'),
+          subscriptionPlanId: 'plan-premium',
+          subscriptionPlanName: 'Premium Plan',
+          subscriptionPlanTier: SubscriptionTier.premium,
           revokedAt: new Date('2026-05-31T00:00:00.000Z'),
           createdAt: new Date('2026-05-30T00:00:00.000Z'),
         },
         {
-          id: 'override-expired',
-          tier: SubscriptionTier.standard,
-          startsAt: new Date('2026-05-25T00:00:00.000Z'),
-          expiresAt: new Date('2026-05-31T00:00:00.000Z'),
+          id: 'override-active',
+          subscriptionPlanId: 'plan-standard',
+          subscriptionPlanName: 'Standard Plan',
+          subscriptionPlanTier: SubscriptionTier.standard,
           revokedAt: null,
           createdAt: new Date('2026-05-25T00:00:00.000Z'),
         },
@@ -95,7 +95,7 @@ describe('access-control helpers', () => {
       now,
     );
 
-    expect(best).toBeNull();
+    expect(best?.id).toBe('override-active');
   });
 
   it('enforces tryout access by effective tier', () => {

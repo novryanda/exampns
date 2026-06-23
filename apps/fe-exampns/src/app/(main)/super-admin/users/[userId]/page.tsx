@@ -6,7 +6,7 @@ import { ArrowLeft, BookOpenCheck, Mail, Phone, UserRound } from "lucide-react";
 import { MetricCard, PageHeader, SectionCard, StatusBadge } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
 import { requirePrivilegedProfile } from "@/lib/auth/server-auth";
-import { getAdminUserDetail } from "@/server/admin-data";
+import { getAdminUserDetail, getSubscriptionPlans } from "@/server/admin-data";
 
 import { AccessOverrideManager } from "../_components/access-override-manager";
 import { UserDetailActions } from "../_components/user-detail-actions";
@@ -48,7 +48,10 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
   const isSuperAdmin = profile.role === "SUPER_ADMIN";
   const { userId } = await params;
 
-  const user = await getAdminUserDetail(userId).catch(() => notFound());
+  const [user, subscriptionPlans] = await Promise.all([
+    getAdminUserDetail(userId).catch(() => notFound()),
+    getSubscriptionPlans(),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -197,9 +200,13 @@ export default async function UserDetailPage({ params }: UserDetailPageProps) {
 
       <SectionCard
         title="Access Override"
-        description="Berikan akses standard atau premium sementara tanpa mengubah plan utama pengguna."
+        description="Berikan akses berdasarkan subscription plan tanpa mengubah plan utama pengguna."
       >
-        <AccessOverrideManager userId={user.id} overrides={user.accessOverrides} />
+        <AccessOverrideManager
+          userId={user.id}
+          overrides={user.accessOverrides}
+          subscriptionPlans={subscriptionPlans}
+        />
       </SectionCard>
     </div>
   );

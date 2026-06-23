@@ -25,12 +25,12 @@ import {
 } from '../common/api-response.js';
 import { PdfImportService } from './pdf-import.service.js';
 
-@Roles('ADMIN', 'SUPER_ADMIN')
 @Controller('admin')
 export class PdfImportController {
   constructor(private readonly pdfImportService: PdfImportService) {}
 
   @Post('pdf-imports')
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor('file'))
   async uploadPdfForParsing(
@@ -53,6 +53,7 @@ export class PdfImportController {
   }
 
   @Get('pdf-imports')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   async listPdfImportBatches(
     @Query() query: Record<string, unknown>,
   ): Promise<ApiPaginatedResponse<unknown[]>> {
@@ -61,6 +62,7 @@ export class PdfImportController {
   }
 
   @Get('parsed-questions')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   async listParsedQuestions(
     @Query() query: Record<string, unknown>,
   ): Promise<ApiPaginatedResponse<unknown[]>> {
@@ -69,6 +71,7 @@ export class PdfImportController {
   }
 
   @Get('pdf-imports/:batchId')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   async getPdfImportBatchDetail(
     @Param('batchId') batchId: string,
   ): Promise<ApiSuccessResponse<unknown>> {
@@ -76,6 +79,7 @@ export class PdfImportController {
   }
 
   @Get('parsed-questions/:parsedQuestionId')
+  @Roles('ADMIN', 'SUPER_ADMIN')
   async getParsedQuestionDetail(
     @Param('parsedQuestionId') parsedQuestionId: string,
   ): Promise<ApiSuccessResponse<unknown>> {
@@ -83,6 +87,7 @@ export class PdfImportController {
   }
 
   @Patch('parsed-questions/:parsedQuestionId')
+  @Roles('ADMIN')
   async updateParsedQuestion(
     @Param('parsedQuestionId') parsedQuestionId: string,
     @Body() body: unknown,
@@ -93,6 +98,7 @@ export class PdfImportController {
   }
 
   @Post('parsed-questions/:parsedQuestionId/approve')
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async approveParsedQuestion(
     @Param('parsedQuestionId') parsedQuestionId: string,
@@ -106,6 +112,7 @@ export class PdfImportController {
   }
 
   @Post('parsed-questions/bulk-approve')
+  @Roles('ADMIN')
   @HttpCode(HttpStatus.CREATED)
   async bulkApproveParsedQuestions(
     @Body() body: unknown,
@@ -121,6 +128,7 @@ export class PdfImportController {
   }
 
   @Post('parsed-questions/:parsedQuestionId/reject')
+  @Roles('ADMIN')
   async rejectParsedQuestion(
     @Param('parsedQuestionId') parsedQuestionId: string,
     @Body() body: unknown,

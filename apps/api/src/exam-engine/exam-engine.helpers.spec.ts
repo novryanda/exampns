@@ -1,4 +1,4 @@
-import { QuestionCategory, ReasonCode } from '../../generated/prisma/client.js';
+import { QuestionAnswerMode, ReasonCode } from '../../generated/prisma/client.js';
 import {
   buildBreakdown,
   buildFallbackRecommendationItems,
@@ -9,6 +9,12 @@ import {
 } from './exam-engine.helpers.js';
 import { Prisma } from '../../generated/prisma/client.js';
 
+const QuestionCategory = {
+  TWK: 'TWK',
+  TIU: 'TIU',
+  TKP: 'TKP',
+} as const;
+
 describe('ExamEngine helpers', () => {
   it('computes accuracy correctly', () => {
     expect(computeAccuracy(2, 8)).toBe(25);
@@ -18,6 +24,7 @@ describe('ExamEngine helpers', () => {
     const breakdown = buildBreakdown([
       {
         category: QuestionCategory.TWK,
+        answerMode: QuestionAnswerMode.single_correct,
         subCategory: 'A',
         topicTag: 'B',
         difficulty: 'medium',
@@ -28,6 +35,7 @@ describe('ExamEngine helpers', () => {
       },
       {
         category: QuestionCategory.TWK,
+        answerMode: QuestionAnswerMode.single_correct,
         subCategory: 'A',
         topicTag: 'B',
         difficulty: 'medium',
@@ -38,6 +46,7 @@ describe('ExamEngine helpers', () => {
       },
       {
         category: QuestionCategory.TWK,
+        answerMode: QuestionAnswerMode.single_correct,
         subCategory: 'A',
         topicTag: 'B',
         difficulty: 'medium',
@@ -64,6 +73,7 @@ describe('ExamEngine helpers', () => {
       [
         {
           category: QuestionCategory.TWK,
+          answerMode: QuestionAnswerMode.single_correct,
           subCategory: 'Tata Negara',
           topicTag: 'UUD',
           difficulty: 'medium',
@@ -98,6 +108,7 @@ describe('ExamEngine helpers', () => {
     const breakdown = buildBreakdown([
       {
         category: QuestionCategory.TKP,
+        answerMode: QuestionAnswerMode.weighted_options,
         subCategory: 'Pelayanan',
         topicTag: 'Empati',
         difficulty: 'easy',
@@ -108,6 +119,7 @@ describe('ExamEngine helpers', () => {
       },
       {
         category: QuestionCategory.TKP,
+        answerMode: QuestionAnswerMode.weighted_options,
         subCategory: 'Pelayanan',
         topicTag: 'Empati',
         difficulty: 'easy',
@@ -141,6 +153,7 @@ describe('ExamEngine helpers', () => {
           priorityLevel: 'HIGH',
           priorityScore: new Prisma.Decimal(91),
           category: QuestionCategory.TWK,
+          answerMode: QuestionAnswerMode.single_correct,
           subCategory: 'Tata Negara',
           topicTag: 'UUD',
           reasonCode: ReasonCode.LOW_ACCURACY,

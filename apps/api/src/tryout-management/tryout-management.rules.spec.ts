@@ -21,11 +21,11 @@ describe('TryoutManagement rules', () => {
           avoidRecentExamCount: 0,
           sections: [
             {
-              category: 'TWK',
+              categoryCode: 'TWK',
               questionCount: 4,
             },
             {
-              category: 'TIU',
+              categoryCode: 'TIU',
               questionCount: 4,
             },
           ],
@@ -37,7 +37,7 @@ describe('TryoutManagement rules', () => {
   it('rejects duplicate question ids in manual question set', () => {
     expect(() =>
       assertManualQuestionSetRules(
-        { totalQuestions: 5, tryoutType: TryoutType.manual },
+        { totalQuestions: 5, tryoutType: TryoutType.generated },
         {
           status: 'draft',
           questionIds: ['a', 'a'],

@@ -93,8 +93,10 @@ export default async function SuperAdminTransactionsPage() {
               <TableHead>Invoice</TableHead>
               <TableHead>User</TableHead>
               <TableHead>Plan</TableHead>
+              <TableHead>Referral</TableHead>
               <TableHead>Method</TableHead>
               <TableHead>Amount</TableHead>
+              <TableHead>Commission</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Aksi</TableHead>
             </TableRow>
@@ -102,7 +104,7 @@ export default async function SuperAdminTransactionsPage() {
           <TableBody>
             {allTransactions.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-slate-400">
+                <TableCell colSpan={9} className="py-10 text-center text-slate-400">
                   Belum ada transaksi yang tersedia.
                 </TableCell>
               </TableRow>
@@ -117,6 +119,7 @@ export default async function SuperAdminTransactionsPage() {
                     </div>
                   </TableCell>
                   <TableCell>{transaction.planName}</TableCell>
+                  <TableCell>{transaction.referralCode ?? "-"}</TableCell>
                   <TableCell>
                     <div className="inline-flex items-center gap-2">
                       <WalletCards className="size-4 text-slate-400" />
@@ -129,6 +132,15 @@ export default async function SuperAdminTransactionsPage() {
                       locale: "id-ID",
                       noDecimals: true,
                     })}
+                  </TableCell>
+                  <TableCell>
+                    {transaction.referralCommissionAmount > 0
+                      ? formatCurrency(transaction.referralCommissionAmount, {
+                          currency: "IDR",
+                          locale: "id-ID",
+                          noDecimals: true,
+                        })
+                      : "-"}
                   </TableCell>
                   <TableCell>
                     <StatusBadge tone={toneForStatus(transaction.status)}>{toLabel(transaction.status)}</StatusBadge>

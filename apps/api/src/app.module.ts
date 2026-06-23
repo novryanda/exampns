@@ -12,6 +12,7 @@ import { MeModule } from './me/me.module.js';
 import { ExamEngineModule } from './exam-engine/exam-engine.module.js';
 import { OperationsModule } from './operations/operations.module.js';
 import { PdfImportModule } from './pdf-import/pdf-import.module.js';
+import { PartnerModule } from './partner/partner.module.js';
 import { QuestionBankModule } from './question-bank/question-bank.module.js';
 import { PublicSampleModule } from './public-sample/public-sample.module.js';
 import { QuestionMetadataModule } from './question-metadata/question-metadata.module.js';
@@ -30,6 +31,7 @@ import { LearningMaterialModule } from './learning-material/learning-material.mo
     MeModule,
     ExamEngineModule,
     OperationsModule,
+    PartnerModule,
     PdfImportModule,
     QuestionBankModule,
     QuestionMetadataModule,

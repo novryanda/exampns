@@ -13,6 +13,7 @@ import { ProfilePhotoUpload } from "./_components/profile-photo-upload";
 function formatRoleBadge(role: string) {
   if (role === "SUPER_ADMIN") return "Peran Super Admin";
   if (role === "ADMIN") return "Peran Admin";
+  if (role === "PARTNER") return "Peran Mitra";
   return "Peran User";
 }
 

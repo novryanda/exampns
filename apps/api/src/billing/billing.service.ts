@@ -17,6 +17,7 @@ import {
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { PrismaService } from '../common/prisma.service.js';
 import { ValidationService } from '../common/validation.service.js';
+import { PartnerService } from '../partner/partner.service.js';
 import {
   addDays,
   buildInvoiceNumber,
@@ -40,6 +41,7 @@ export class BillingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly validationService: ValidationService,
+    private readonly partnerService: PartnerService,
   ) {
     this.snap = new midtransClient.Snap({
       isProduction: process.env.MIDTRANS_IS_PRODUCTION === 'true',
@@ -110,6 +112,10 @@ export class BillingService {
         ? computeDaysRemaining(subscription.endDate)
         : 0,
     };
+  }
+
+  async previewReferral(rawQuery: unknown) {
+    return this.partnerService.previewReferral(rawQuery);
   }
 
   async createCheckout(
@@ -187,11 +193,32 @@ export class BillingService {
       });
     }
 
+    const referralQuote = await this.partnerService.resolveReferralForCheckout(
+      plan,
+      payload.referralCode,
+    );
+    const checkoutPricing = referralQuote ?? {
+      originalAmount: Number(plan.price),
+      discountAmount: 0,
+      finalAmount: Number(plan.price),
+      commissionAmount: null,
+      referralCodeId: null,
+      code: null,
+      discountType: null,
+      discountValue: null,
+      commissionType: null,
+      commissionValue: null,
+    };
+
     // Reuse existing pending invoice for the same plan (avoid duplicate charges)
     const existingPendingTransaction = await this.prisma.paymentTransaction.findFirst({
       where: {
         userId: actor.id,
         subscriptionPlanId: payload.subscriptionPlanId,
+        referralCodeId: checkoutPricing.referralCodeId,
+        referralCodeSnapshot: checkoutPricing.code,
+        amount: checkoutPricing.finalAmount,
+        discountAmount: checkoutPricing.discountAmount,
         status: PaymentStatus.pending,
         expiredAt: {
           gt: new Date(),
@@ -221,7 +248,16 @@ export class BillingService {
           idempotencyKey: normalizedIdempotencyKey,
           invoiceNumber: buildInvoiceNumber(sequence, now),
           gatewayProvider,
-          amount: plan.price,
+          amount: checkoutPricing.finalAmount,
+          originalAmount: checkoutPricing.originalAmount,
+          discountAmount: checkoutPricing.discountAmount,
+          referralCodeId: checkoutPricing.referralCodeId,
+          referralCodeSnapshot: checkoutPricing.code,
+          referralDiscountType: checkoutPricing.discountType,
+          referralDiscountValue: checkoutPricing.discountValue,
+          referralCommissionType: checkoutPricing.commissionType,
+          referralCommissionValue: checkoutPricing.commissionValue,
+          referralCommissionAmount: checkoutPricing.commissionAmount,
           currency: plan.currency,
           paymentMethod: payload.paymentMethod,
           status: PaymentStatus.pending,
@@ -246,7 +282,7 @@ export class BillingService {
         item_details: [
           {
             id: plan.id,
-            price: Number(plan.price),
+            price: Number(transaction.amount),
             quantity: 1,
             name: plan.name.substring(0, 50),
           },
@@ -324,6 +360,10 @@ export class BillingService {
       invoiceNumber: payment.invoiceNumber,
       planName: payment.subscriptionPlan.name,
       amount: Number(payment.amount),
+      originalAmount: Number(payment.originalAmount ?? payment.amount),
+      discountAmount: Number(payment.discountAmount),
+      referralCode: payment.referralCodeSnapshot,
+      referralCommissionAmount: Number(payment.referralCommissionAmount ?? 0),
       currency: payment.currency,
       paymentMethod: payment.paymentMethod,
       status: payment.status,
@@ -369,6 +409,7 @@ export class BillingService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const activatedSubscriptionId = await this.activateSubscriptionForPayment(tx, payment);
+      await this.partnerService.recordCommissionForPayment(tx, payment);
       return tx.paymentTransaction.update({
         where: { id: payment.id },
         data: {
@@ -421,6 +462,10 @@ export class BillingService {
         invoiceNumber: payment.invoiceNumber,
         planName: payment.subscriptionPlan.name,
         amount: Number(payment.amount),
+        originalAmount: Number(payment.originalAmount ?? payment.amount),
+        discountAmount: Number(payment.discountAmount),
+        referralCode: payment.referralCodeSnapshot,
+        referralCommissionAmount: Number(payment.referralCommissionAmount ?? 0),
         paymentMethod: payment.paymentMethod,
         status: payment.status,
         createdAt: payment.createdAt,
@@ -452,7 +497,7 @@ export class BillingService {
       webhookSecret
     );
 
-    const gatewayEventId = payload.transaction_id || payload.order_id;
+    const gatewayEventId = `${payload.transaction_id || payload.order_id}:${payload.transaction_status}`;
 
     const existingEvent = await this.prisma.paymentWebhookEvent.findUnique({
       where: { gatewayEventId },
@@ -513,6 +558,14 @@ export class BillingService {
 
       if (statusAllowsSubscriptionActivation(mappedStatus) && !payment.userSubscriptionId) {
         activatedSubscriptionId = await this.activateSubscriptionForPayment(tx, payment);
+      }
+
+      if (statusAllowsSubscriptionActivation(mappedStatus)) {
+        await this.partnerService.recordCommissionForPayment(tx, payment);
+      }
+
+      if (mappedStatus === PaymentStatus.refunded) {
+        await this.partnerService.reverseCommissionForPayment(tx, payment);
       }
 
       await tx.paymentTransaction.update({
@@ -637,6 +690,10 @@ export class BillingService {
       id: string;
       invoiceNumber: string;
       amount: Prisma.Decimal | number;
+      originalAmount?: Prisma.Decimal | number | null;
+      discountAmount?: Prisma.Decimal | number;
+      referralCodeSnapshot?: string | null;
+      referralCommissionAmount?: Prisma.Decimal | number | null;
       currency: string;
       status: PaymentStatus;
       paymentMethod: string | null;
@@ -649,6 +706,10 @@ export class BillingService {
       paymentTransactionId: payment.id,
       invoiceNumber: payment.invoiceNumber,
       amount: Number(payment.amount),
+      originalAmount: Number(payment.originalAmount ?? payment.amount),
+      discountAmount: Number(payment.discountAmount ?? 0),
+      referralCode: payment.referralCodeSnapshot ?? null,
+      referralCommissionAmount: Number(payment.referralCommissionAmount ?? 0),
       currency: payment.currency,
       status: payment.status,
       paymentMethod: payment.paymentMethod,

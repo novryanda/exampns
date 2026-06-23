@@ -20,7 +20,7 @@ import {
 } from '../common/api-response.js';
 import { TryoutManagementService } from './tryout-management.service.js';
 
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles('ADMIN')
 @Controller('admin/tryout-catalogs/:tryoutCatalogId/manual-question-sets')
 export class ManualQuestionSetController {
   constructor(private readonly tryoutManagementService: TryoutManagementService) {}

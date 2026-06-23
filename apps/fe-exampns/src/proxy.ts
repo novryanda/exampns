@@ -14,7 +14,7 @@ const guestOnlyAuthRoutes = new Set([
 
 interface ProxySessionPayload {
   user?: {
-    role?: "SUPER_ADMIN" | "ADMIN" | "USER";
+    role?: "SUPER_ADMIN" | "ADMIN" | "PARTNER" | "USER";
   } | null;
 }
 
@@ -46,6 +46,7 @@ export async function proxy(request: NextRequest) {
     (pathname.startsWith("/app") ||
       pathname.startsWith("/dashboard") ||
       pathname.startsWith("/admin") ||
+      pathname.startsWith("/mitra") ||
       pathname.startsWith("/super-admin") ||
       pathname === "/profil")
   ) {
@@ -60,7 +61,10 @@ export async function proxy(request: NextRequest) {
 
   if (
     sessionCookie &&
-    (pathname.startsWith("/admin") || pathname.startsWith("/super-admin") || pathname === "/profil")
+    (pathname.startsWith("/admin") ||
+      pathname.startsWith("/super-admin") ||
+      pathname.startsWith("/mitra") ||
+      pathname === "/profil")
   ) {
     const session = await getSessionPayload(request);
     const role = session?.user?.role;
@@ -73,7 +77,11 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
 
-    if (pathname === "/profil" && role !== "ADMIN" && role !== "SUPER_ADMIN") {
+    if (pathname.startsWith("/mitra") && role !== "PARTNER") {
+      return NextResponse.redirect(new URL("/unauthorized", request.url));
+    }
+
+    if (pathname === "/profil" && role !== "ADMIN" && role !== "SUPER_ADMIN" && role !== "PARTNER") {
       return NextResponse.redirect(new URL("/unauthorized", request.url));
     }
   }
@@ -82,5 +90,14 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/auth/:path*", "/app/:path*", "/dashboard/:path*", "/admin/:path*", "/super-admin/:path*", "/profil"],
+  matcher: [
+    "/",
+    "/auth/:path*",
+    "/app/:path*",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/mitra/:path*",
+    "/super-admin/:path*",
+    "/profil",
+  ],
 };

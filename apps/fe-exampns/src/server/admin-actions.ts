@@ -317,8 +317,8 @@ export async function createTryoutCatalogAction(
     const tryoutType = String(formData.get("tryoutType") ?? "generated");
     const totalQuestions = parseNumber(formData.get("totalQuestions"), 110);
     const randomizationMode =
-      tryoutType === "hybrid"
-        ? "hybrid_manual_and_random"
+      tryoutType === "adaptive"
+        ? "adaptive_weak_area"
         : String(formData.get("randomizationMode") ?? "random_by_category_and_difficulty");
 
     const createResponse = await serverApiFetch<{
@@ -347,7 +347,7 @@ export async function createTryoutCatalogAction(
       }),
     });
 
-    if (tryoutType !== "manual") {
+    if (tryoutType === "generated" || tryoutType === "adaptive") {
       await serverApiFetch<{ success: true; message?: string }>(
         `/api/v1/super-admin/tryout-catalogs/${createResponse.data.id}/generation-rule`,
         {
@@ -447,11 +447,7 @@ export async function grantUserAccessOverrideAction(
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        tier: String(formData.get("tier") ?? "premium"),
-        startsAt: new Date(String(formData.get("startsAt") ?? new Date().toISOString())).toISOString(),
-        expiresAt: new Date(
-          String(formData.get("expiresAt") ?? new Date(Date.now() + 86400000).toISOString()),
-        ).toISOString(),
+        subscriptionPlanId: String(formData.get("subscriptionPlanId") ?? "").trim(),
         reason: String(formData.get("reason") ?? "").trim(),
       }),
     });

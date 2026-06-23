@@ -331,7 +331,7 @@ export class OperationsService {
       }),
       this.prisma.tryoutCatalog.count({
         where: {
-          status: 'review',
+          status: 'published',
         },
       }),
       this.prisma.questionImportBatch.count({
@@ -509,6 +509,14 @@ export class OperationsService {
         },
         accessOverrides: {
           include: {
+            subscriptionPlan: {
+              select: {
+                id: true,
+                name: true,
+                tier: true,
+                isActive: true,
+              },
+            },
             grantedByUser: {
               select: {
                 id: true,
@@ -568,13 +576,17 @@ export class OperationsService {
         : null,
       accessOverrides: user.accessOverrides.map((override) => ({
         id: override.id,
-        tier: override.tier,
-        startsAt: override.startsAt,
-        expiresAt: override.expiresAt,
+        subscriptionPlan: {
+          id: override.subscriptionPlan.id,
+          name: override.subscriptionPlan.name,
+          tier: override.subscriptionPlan.tier,
+          isActive: override.subscriptionPlan.isActive,
+        },
         reason: override.reason,
         revokedAt: override.revokedAt,
         grantedBy: override.grantedByUser.name,
         revokedBy: override.revokedByUser?.name ?? null,
+        createdAt: override.createdAt,
       })),
       examSummary: {
         totalExams,
@@ -790,6 +802,10 @@ export class OperationsService {
         userEmail: transaction.user.email,
         planName: transaction.subscriptionPlan.name,
         amount: Number(transaction.amount),
+        originalAmount: Number(transaction.originalAmount ?? transaction.amount),
+        discountAmount: Number(transaction.discountAmount),
+        referralCode: transaction.referralCodeSnapshot,
+        referralCommissionAmount: Number(transaction.referralCommissionAmount ?? 0),
         paymentMethod: transaction.paymentMethod,
         status: transaction.status,
         createdAt: transaction.createdAt,
@@ -1532,9 +1548,12 @@ export class OperationsService {
 
   async grantUserAccessOverride(rawBody: unknown, actor: AuthenticatedUser) {
     const payload = this.validationService.validate(createUserAccessOverrideSchema, rawBody);
-    const [user] = await Promise.all([
+    const [user, subscriptionPlan] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: payload.userId },
+      }),
+      this.prisma.subscriptionPlan.findUnique({
+        where: { id: payload.subscriptionPlanId },
       }),
     ]);
 
@@ -1542,19 +1561,18 @@ export class OperationsService {
       throw new NotFoundException('User tidak ditemukan');
     }
 
-    const startsAt = new Date(payload.startsAt);
-    const expiresAt = new Date(payload.expiresAt);
+    if (!subscriptionPlan || !subscriptionPlan.isActive) {
+      throw new NotFoundException('Subscription plan override tidak ditemukan');
+    }
 
-    if (expiresAt <= startsAt) {
-      throw new ConflictException('Masa berlaku override harus setelah waktu mulai');
+    if (subscriptionPlan.tier === SubscriptionTier.trial || subscriptionPlan.isTrial) {
+      throw new ConflictException('Trial plan tidak dapat digunakan untuk access override');
     }
 
     const created = await this.prisma.userAccessOverride.create({
       data: {
         userId: payload.userId,
-        tier: payload.tier,
-        startsAt,
-        expiresAt,
+        subscriptionPlanId: payload.subscriptionPlanId,
         reason: payload.reason,
         grantedBy: actor.id,
       },
@@ -1571,8 +1589,7 @@ export class OperationsService {
 
     return {
       id: created.id,
-      tier: created.tier,
-      expiresAt: created.expiresAt,
+      subscriptionPlanId: created.subscriptionPlanId,
     };
   }
 
@@ -1589,6 +1606,14 @@ export class OperationsService {
     const overrides = await this.prisma.userAccessOverride.findMany({
       where: { userId },
       include: {
+        subscriptionPlan: {
+          select: {
+            id: true,
+            name: true,
+            tier: true,
+            isActive: true,
+          },
+        },
         grantedByUser: {
           select: {
             id: true,
@@ -1607,9 +1632,12 @@ export class OperationsService {
 
     return overrides.map((override) => ({
       id: override.id,
-      tier: override.tier,
-      startsAt: override.startsAt,
-      expiresAt: override.expiresAt,
+      subscriptionPlan: {
+        id: override.subscriptionPlan.id,
+        name: override.subscriptionPlan.name,
+        tier: override.subscriptionPlan.tier,
+        isActive: override.subscriptionPlan.isActive,
+      },
       reason: override.reason,
       revokedAt: override.revokedAt,
       grantedBy: override.grantedByUser.name,

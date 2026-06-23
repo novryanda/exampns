@@ -71,15 +71,14 @@ export function CreateTryoutForm({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
         <div className="grid gap-2">
-          <Label htmlFor="tryoutType">Type</Label>
+          <Label htmlFor="tryoutType">Tipe</Label>
           <Select name="tryoutType" defaultValue="generated">
             <SelectTrigger id="tryoutType" className="rounded-xl border-slate-200 bg-white">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder="Tipe" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="generated">Generated</SelectItem>
-              <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="hybrid">Hybrid</SelectItem>
+              <SelectItem value="generated">Otomatis</SelectItem>
+              <SelectItem value="adaptive">Adaptive</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -105,7 +104,6 @@ export function CreateTryoutForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="review">Review</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -153,8 +151,9 @@ export function CreateTryoutForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="random_by_category_and_difficulty">By Category & Difficulty</SelectItem>
-              <SelectItem value="fully_random">Fully Random</SelectItem>
-              <SelectItem value="hybrid_manual_and_random">Hybrid Manual & Random</SelectItem>
+              <SelectItem value="random_by_category">By Category</SelectItem>
+              <SelectItem value="random_by_topic_distribution">By Topic Distribution</SelectItem>
+              <SelectItem value="adaptive_weak_area">Adaptive Weak Area</SelectItem>
             </SelectContent>
           </Select>
         </div>

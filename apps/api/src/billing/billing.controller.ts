@@ -56,6 +56,13 @@ export class BillingController {
     );
   }
 
+  @Get('payments/referral-preview')
+  async previewReferral(
+    @Query() query: Record<string, unknown>,
+  ): Promise<ApiSuccessResponse<unknown>> {
+    return apiData(await this.billingService.previewReferral(query));
+  }
+
   @Get('payments/me')
   async listMyPaymentHistory(
     @Query() query: Record<string, unknown>,

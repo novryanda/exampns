@@ -3,7 +3,6 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import {
-  ManualQuestionSetStatus,
   QuestionOrderMode,
   RandomizationMode,
   TryoutStatus,
@@ -45,20 +44,35 @@ export const assertGenerationRuleRules = (
   }
 
   if (
-    input.randomizationMode === RandomizationMode.manual_question_set &&
-    catalog.tryoutType !== TryoutType.manual
+    input.randomizationMode === RandomizationMode.manual_question_set ||
+    input.randomizationMode === RandomizationMode.hybrid_manual_and_random
   ) {
     throw new BadRequestException(
-      'manual_question_set randomization mode is only valid for manual tryout type',
+      'Manual and hybrid randomization modes are no longer available',
     );
   }
 
   if (
-    input.questionOrderMode === QuestionOrderMode.manual_order &&
-    input.randomizationMode !== RandomizationMode.manual_question_set
+    catalog.tryoutType === TryoutType.generated &&
+    input.randomizationMode === RandomizationMode.adaptive_weak_area
   ) {
     throw new BadRequestException(
-      'manual_order question order requires manual_question_set randomization mode',
+      'adaptive_weak_area randomization mode is only valid for adaptive tryout type',
+    );
+  }
+
+  if (
+    catalog.tryoutType === TryoutType.adaptive &&
+    input.randomizationMode !== RandomizationMode.adaptive_weak_area
+  ) {
+    throw new BadRequestException(
+      'Adaptive tryout must use adaptive_weak_area randomization mode',
+    );
+  }
+
+  if (input.questionOrderMode === QuestionOrderMode.manual_order) {
+    throw new BadRequestException(
+      'manual_order question order is no longer available',
     );
   }
 
@@ -97,12 +111,6 @@ export const assertManualQuestionSetRules = (
 ) => {
   if (input.questionIds) {
     assertQuestionIdsUnique(input.questionIds);
-  }
-
-  if (catalog.tryoutType === TryoutType.generated && input.status === ManualQuestionSetStatus.approved) {
-    throw new BadRequestException(
-      'Generated tryout catalog cannot approve manual question sets without hybrid/manual type',
-    );
   }
 
   if (input.questionIds && input.questionIds.length > catalog.totalQuestions) {

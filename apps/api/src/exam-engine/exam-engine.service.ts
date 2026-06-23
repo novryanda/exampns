@@ -106,7 +106,9 @@ export class ExamEngineService {
           },
           manualQuestionSets: {
             where: {
-              status: 'approved',
+              status: {
+                not: 'archived',
+              },
             },
             include: {
               items: {
@@ -158,7 +160,7 @@ export class ExamEngineService {
     const startedAt = new Date();
     const expiresAt = new Date(startedAt.getTime() + catalog.durationMinutes * 60 * 1000);
     const generationModeSnapshot =
-      catalog.generationRule?.randomizationMode ?? RandomizationMode.manual_question_set;
+      catalog.generationRule?.randomizationMode ?? RandomizationMode.random_by_category_and_difficulty;
 
     const session = await this.prisma.$transaction(async (tx) => {
       const createdSession = await tx.examSession.create({
@@ -1378,33 +1380,12 @@ export class ExamEngineService {
         difficultySnapshot: QuestionDifficulty;
       }
     >();
-    const approvedSet = catalog.manualQuestionSets[0] ?? null;
-
     switch (catalog.tryoutType) {
       case TryoutType.manual: {
-        if (!approvedSet) {
-          throw new ConflictException('Approved manual question set is missing');
-        }
-
-        await this.appendManualQuestionSet(selected, approvedSet);
-        return [...selected.values()].slice(0, catalog.totalQuestions);
+        throw new ConflictException('Manual tryout type is no longer supported');
       }
       case TryoutType.hybrid: {
-        if (!approvedSet) {
-          throw new ConflictException('Approved manual question set is missing');
-        }
-
-        if (!catalog.generationRule) {
-          throw new ConflictException('Generation rule is missing');
-        }
-
-        await this.appendManualQuestionSet(selected, approvedSet);
-        await this.appendQuestionsUsingGenerationSections(
-          selected,
-          catalog.generationRule.sections,
-          excludedQuestionIds,
-        );
-        return [...selected.values()].slice(0, catalog.totalQuestions);
+        throw new ConflictException('Hybrid tryout type is no longer supported');
       }
       case TryoutType.adaptive: {
         if (!catalog.generationRule) {
@@ -1450,14 +1431,14 @@ export class ExamEngineService {
         difficultySnapshot: QuestionDifficulty;
       }
     >,
-    approvedSet: {
+    manualSet: {
       items: Array<{ questionId: string }>;
     },
   ) {
     const manualQuestions = await this.prisma.question.findMany({
       where: {
         id: {
-          in: approvedSet.items.map((item) => item.questionId),
+          in: manualSet.items.map((item) => item.questionId),
         },
         status: QuestionStatus.active,
         deletedAt: null,
@@ -1487,7 +1468,7 @@ export class ExamEngineService {
     });
 
     const byId = new Map(manualQuestions.map((item) => [item.id, item]));
-    for (const item of approvedSet.items) {
+    for (const item of manualSet.items) {
       const question = byId.get(item.questionId);
       if (!question) {
         continue;

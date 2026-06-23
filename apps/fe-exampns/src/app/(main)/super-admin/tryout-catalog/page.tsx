@@ -5,12 +5,19 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getTryoutCatalogs } from "@/server/admin-data";
-import { TryoutPublishSwitch } from "./_components/tryout-publish-switch";
 
 const statIcons = [ClipboardList, CheckCircle2, FileText, Layers2] as const;
 const statTints = ["blue", "green", "amber", "violet"] as const;
 
 function toLabel(value: string) {
+  if (value === "generated") {
+    return "Otomatis";
+  }
+
+  if (value === "adaptive") {
+    return "Adaptive";
+  }
+
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -25,7 +32,6 @@ function formatDate(value: string) {
 
 function toneForStatus(status: string) {
   if (status === "published") return "success";
-  if (status === "review") return "warning";
   if (status === "archived") return "danger";
   return "neutral";
 }
@@ -78,7 +84,7 @@ export default async function SuperAdminTryoutCatalogPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Tryout Catalog"
-        description="Pantau katalog tryout dan ubah status publish/archive tanpa masuk ke builder."
+        description="Pantau katalog tryout. Pengelolaan publish dan arsip dilakukan oleh admin konten."
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -91,10 +97,8 @@ export default async function SuperAdminTryoutCatalogPage() {
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all-type">Semua Type</SelectItem>
-            <SelectItem value="generated">Generated</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-            <SelectItem value="hybrid">Hybrid</SelectItem>
+            <SelectItem value="all-type">Semua Tipe</SelectItem>
+            <SelectItem value="generated">Otomatis</SelectItem>
             <SelectItem value="adaptive">Adaptive</SelectItem>
           </SelectContent>
         </Select>
@@ -123,20 +127,19 @@ export default async function SuperAdminTryoutCatalogPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Nama Tryout</TableHead>
-              <TableHead>Type</TableHead>
+              <TableHead>Tipe</TableHead>
               <TableHead>Plan Akses</TableHead>
               <TableHead>Jumlah Soal</TableHead>
               <TableHead>Durasi</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead>Updated At</TableHead>
-              <TableHead className="text-right">Publish</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {allTryouts.data.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-10 text-center text-slate-400">
+                <TableCell colSpan={8} className="py-10 text-center text-slate-400">
                   Belum ada tryout yang tersedia.
                 </TableCell>
               </TableRow>
@@ -166,12 +169,6 @@ export default async function SuperAdminTryoutCatalogPage() {
                     </StatusBadge>
                   </TableCell>
                   <TableCell>{formatDate(tryout.updatedAt)}</TableCell>
-                  <TableCell className="text-right">
-                    <TryoutPublishSwitch
-                      tryoutId={tryout.id}
-                      initialChecked={tryout.status === "published"}
-                    />
-                  </TableCell>
                 </TableRow>
               ))
             )}

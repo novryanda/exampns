@@ -44,9 +44,11 @@ const tryoutRuleSectionSchema = z.object({
   sortOrder: z.number().int().min(0).optional(),
 });
 
+const activeTryoutTypeSchema = z.enum([TryoutType.generated, TryoutType.adaptive]);
+
 export const listTryoutCatalogsQuerySchema = z.object({
   search: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  tryoutType: z.preprocess(emptyToUndefined, z.nativeEnum(TryoutType).optional()),
+  tryoutType: z.preprocess(emptyToUndefined, activeTryoutTypeSchema.optional()),
   accessType: z.preprocess(emptyToUndefined, z.nativeEnum(AccessType).optional()),
   requiredSubscriptionPlanId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   status: z.preprocess(emptyToUndefined, z.nativeEnum(TryoutStatus).optional()),
@@ -61,8 +63,8 @@ export const listTryoutCatalogsQuerySchema = z.object({
 export const createTryoutCatalogSchema = z.object({
   name: z.string().trim().min(1).max(150),
   description: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  tryoutType: z.nativeEnum(TryoutType),
-  status: z.nativeEnum(TryoutStatus),
+  tryoutType: activeTryoutTypeSchema,
+  status: z.literal(TryoutStatus.draft).default(TryoutStatus.draft),
   requiredSubscriptionPlanId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
   isPublic: z.boolean().default(false),
   isFeatured: z.boolean().default(false),
@@ -92,7 +94,7 @@ export const generationRuleSchema = z.object({
 export const manualQuestionSetSchema = z.object({
   name: z.string().trim().min(1).max(150),
   description: z.preprocess(emptyToUndefined, z.string().trim().optional()),
-  status: z.nativeEnum(ManualQuestionSetStatus),
+  status: z.literal(ManualQuestionSetStatus.draft).default(ManualQuestionSetStatus.draft),
   questionIds: z.array(z.string().uuid()).min(1),
 });
 

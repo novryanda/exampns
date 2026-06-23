@@ -17,7 +17,7 @@ interface BetterAuthSessionPayload {
     email: string;
     image?: string | null;
     phone?: string | null;
-    role?: "SUPER_ADMIN" | "ADMIN" | "USER";
+    role?: "SUPER_ADMIN" | "ADMIN" | "PARTNER" | "USER";
     status?: "active" | "inactive" | "suspended";
     emailVerified?: boolean;
   };
@@ -35,7 +35,7 @@ export interface CurrentUserProfile {
   email: string;
   image: string | null;
   phone: string | null;
-  role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  role: "SUPER_ADMIN" | "ADMIN" | "PARTNER" | "USER";
   status: "active" | "inactive" | "suspended";
   emailVerified: boolean;
   emailVerifiedAt: string | null;
@@ -44,7 +44,7 @@ export interface CurrentUserProfile {
   updatedAt: string;
 }
 
-export type PrivilegedRole = "SUPER_ADMIN" | "ADMIN";
+export type PrivilegedRole = "SUPER_ADMIN" | "ADMIN" | "PARTNER";
 
 async function getRequestCookieHeader() {
   const requestHeaders = await headers();
@@ -100,7 +100,7 @@ export async function requireServerCurrentUserProfile() {
 export async function requirePrivilegedProfile() {
   const profile = await requireServerCurrentUserProfile();
 
-  if (profile.role !== "SUPER_ADMIN" && profile.role !== "ADMIN") {
+  if (profile.role !== "SUPER_ADMIN" && profile.role !== "ADMIN" && profile.role !== "PARTNER") {
     redirect("/unauthorized");
   }
 
@@ -121,6 +121,16 @@ export async function requireSuperAdminProfile() {
   const profile = await requirePrivilegedProfile();
 
   if (profile.role !== "SUPER_ADMIN") {
+    redirect("/unauthorized");
+  }
+
+  return profile;
+}
+
+export async function requirePartnerProfile() {
+  const profile = await requirePrivilegedProfile();
+
+  if (profile.role !== "PARTNER") {
     redirect("/unauthorized");
   }
 

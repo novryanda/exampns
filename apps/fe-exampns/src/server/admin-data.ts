@@ -25,6 +25,10 @@ export interface AdminDashboardSummary {
     userEmail: string;
     planName: string;
     amount: number;
+    originalAmount: number;
+    discountAmount: number;
+    referralCode: string | null;
+    referralCommissionAmount: number;
     paymentMethod: string | null;
     status: string;
     createdAt: string;
@@ -72,14 +76,17 @@ export interface AdminUserDetail {
 
 export interface UserAccessOverrideItem {
   id: string;
-  tier: "standard" | "premium";
-  startsAt: string;
-  expiresAt: string;
+  subscriptionPlan: {
+    id: string;
+    name: string;
+    tier: "trial" | "standard" | "premium";
+    isActive: boolean;
+  };
   reason: string;
   revokedAt: string | null;
   grantedBy: string;
   revokedBy: string | null;
-  createdAt?: string;
+  createdAt: string;
 }
 
 export interface SuperAdminAccountItem {
@@ -98,6 +105,10 @@ export interface AdminTransactionItem {
   userEmail: string;
   planName: string;
   amount: number;
+  originalAmount: number;
+  discountAmount: number;
+  referralCode: string | null;
+  referralCommissionAmount: number;
   paymentMethod: string | null;
   status: "pending" | "success" | "failed" | "expired" | "cancelled" | "refunded";
   createdAt: string;
@@ -108,7 +119,7 @@ export interface TryoutCatalogItem {
   id: string;
   name: string;
   tryoutType: "generated" | "manual" | "hybrid" | "adaptive";
-  status: "draft" | "review" | "published" | "archived";
+  status: "draft" | "published" | "archived";
   isPublic: boolean;
   isFeatured: boolean;
   totalQuestions: number;

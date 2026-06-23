@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import {
   Bot,
   BookCopy,
@@ -6,21 +7,17 @@ import {
   FileSearch,
   Files,
   FileText,
+  Handshake,
   History,
+  Landmark,
   LayoutDashboard,
-  LogOut,
   ReceiptText,
   ScrollText,
   Settings2,
   ShieldUser,
-  TriangleAlert,
-  UserRound,
   Users,
   WalletCards,
-  Webhook,
 } from "lucide-react";
-
-import type { LucideIcon } from "lucide-react";
 
 export interface NavSubItem {
   title: string;
@@ -154,6 +151,35 @@ export const userSidebarItems: NavGroup[] = [
   },
 ];
 
+export const partnerSidebarItems: NavGroup[] = [
+  {
+    id: 1,
+    items: [
+      {
+        title: "Dashboard",
+        url: "/mitra/dashboard",
+        icon: LayoutDashboard,
+      },
+    ],
+  },
+  {
+    id: 2,
+    label: "Referral",
+    items: [
+      {
+        title: "Transaksi Referral",
+        url: "/mitra/transaksi",
+        icon: ReceiptText,
+      },
+      {
+        title: "Pencairan",
+        url: "/mitra/pencairan",
+        icon: WalletCards,
+      },
+    ],
+  },
+];
+
 export const superAdminSidebarItems: NavGroup[] = [
   {
     id: 1,
@@ -185,6 +211,17 @@ export const superAdminSidebarItems: NavGroup[] = [
         icon: ReceiptText,
       },
       {
+        title: "Mitra",
+        url: "/super-admin/partners",
+        icon: Handshake,
+        isNew: true,
+      },
+      {
+        title: "Pencairan Mitra",
+        url: "/super-admin/withdrawals",
+        icon: Landmark,
+      },
+      {
         title: "Subscription Plans",
         url: "/super-admin/subscription-plans",
         icon: WalletCards,
@@ -204,6 +241,11 @@ export const superAdminSidebarItems: NavGroup[] = [
         title: "Tryout Catalog",
         url: "/super-admin/tryout-catalog",
         icon: BookCopy,
+      },
+      {
+        title: "Materi Pembelajaran",
+        url: "/super-admin/materi",
+        icon: BookOpen,
       },
       {
         title: "Question Categories",
@@ -234,6 +276,10 @@ export function getSidebarItemsForRole(role: string): NavGroup[] {
 
   if (role === "USER") {
     return userSidebarItems;
+  }
+
+  if (role === "PARTNER") {
+    return partnerSidebarItems;
   }
 
   return superAdminSidebarItems;

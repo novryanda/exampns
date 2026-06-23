@@ -243,6 +243,10 @@ export interface PaymentHistoryItem {
   invoiceNumber: string;
   planName: string;
   amount: number;
+  originalAmount: number;
+  discountAmount: number;
+  referralCode: string | null;
+  referralCommissionAmount: number;
   paymentMethod: string | null;
   status: string;
   createdAt: string;
@@ -254,6 +258,10 @@ export interface PaymentStatusDetail {
   invoiceNumber: string;
   planName: string;
   amount: number;
+  originalAmount: number;
+  discountAmount: number;
+  referralCode: string | null;
+  referralCommissionAmount: number;
   currency: string;
   paymentMethod: string | null;
   status: string;

@@ -103,8 +103,6 @@ export function TryoutDraftForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="generated">Otomatis</SelectItem>
-              <SelectItem value="manual">Manual</SelectItem>
-              <SelectItem value="hybrid">Hybrid</SelectItem>
               <SelectItem value="adaptive">Adaptive</SelectItem>
             </SelectContent>
           </Select>

@@ -13,7 +13,13 @@ import { getActiveExamSummary, getUserDashboardSummary } from "@/server/user-das
 export default async function UserDashboardPage() {
   const profile = await requireServerCurrentUserProfile();
   if (profile.role !== "USER") {
-    redirect(profile.role === "ADMIN" ? "/admin/dashboard" : "/super-admin/dashboard");
+    redirect(
+      profile.role === "ADMIN"
+        ? "/admin/dashboard"
+        : profile.role === "PARTNER"
+          ? "/mitra/dashboard"
+          : "/super-admin/dashboard",
+    );
   }
 
   const [summary, activeExam] = await Promise.all([getUserDashboardSummary(), getActiveExamSummary()]);

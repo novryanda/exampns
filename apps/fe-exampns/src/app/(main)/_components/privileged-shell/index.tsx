@@ -29,6 +29,13 @@ function getShellConfig(role: string) {
     };
   }
 
+  if (role === "PARTNER") {
+    return {
+      homeHref: "/mitra/dashboard",
+      roleLabel: "Mitra",
+    };
+  }
+
   return {
     homeHref: "/super-admin/dashboard",
     roleLabel: "Super Admin",

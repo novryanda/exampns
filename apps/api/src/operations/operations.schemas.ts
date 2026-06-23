@@ -114,9 +114,7 @@ export const manualSubscriptionActivationSchema = z.object({
 
 export const createUserAccessOverrideSchema = z.object({
   userId: z.string().uuid(),
-  tier: z.enum([SubscriptionTier.standard, SubscriptionTier.premium]),
-  startsAt: z.string().datetime(),
-  expiresAt: z.string().datetime(),
+  subscriptionPlanId: z.string().uuid(),
   reason: z.string().min(5).max(500),
 });
 

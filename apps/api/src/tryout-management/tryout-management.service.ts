@@ -168,10 +168,6 @@ const manualSetSelect = {
   },
 } as const;
 
-interface HybridRuleConfig {
-  manualPlacement?: 'prepend';
-}
-
 interface AdaptiveRuleConfig {
   strategy?: 'latest_ai_recommendation';
   fallbackStrategy?: 'generation_rule';
@@ -535,14 +531,13 @@ export class TryoutManagementService {
     if (
       query.status &&
       query.status !== TryoutStatus.draft &&
-      query.status !== TryoutStatus.review &&
       query.status !== TryoutStatus.published
     ) {
-      throw new BadRequestException('Admin tryouts only support draft, review, or published status');
+      throw new BadRequestException('Admin tryouts only support draft or published status');
     }
 
     const where: Prisma.TryoutCatalogWhereInput = {
-      status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.review, TryoutStatus.published] },
+      status: query.status ?? { in: [TryoutStatus.draft, TryoutStatus.published] },
       ...(query.search
         ? {
             OR: [
@@ -863,7 +858,7 @@ export class TryoutManagementService {
     const payload = this.validationService.validate(manualQuestionSetSchema, rawBody);
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
     if (adminDraftOnly) {
-      this.assertAdminManualSetStatus(payload.status);
+      this.assertWorkingManualSetStatus(payload.status);
     }
     assertManualQuestionSetRules(catalog, payload);
     await this.assertQuestionsReadyForManualSet(payload.questionIds);
@@ -915,7 +910,7 @@ export class TryoutManagementService {
     const payload = this.validationService.validate(updateManualQuestionSetSchema, rawBody);
     const catalog = await this.ensureTryoutCatalogExists(tryoutCatalogId);
     if (adminDraftOnly && payload.status) {
-      this.assertAdminManualSetStatus(payload.status);
+      this.assertWorkingManualSetStatus(payload.status);
     }
     assertManualQuestionSetRules(catalog, payload);
 
@@ -998,6 +993,9 @@ export class TryoutManagementService {
               not: ManualQuestionSetStatus.archived,
             },
           },
+          orderBy: {
+            updatedAt: 'desc',
+          },
           include: {
             items: {
               include: {
@@ -1045,11 +1043,16 @@ export class TryoutManagementService {
       issues.push('Passing grade configuration is missing');
     }
 
-    const approvedManualSet = catalog.manualQuestionSets.find(
-      (set) => set.status === ManualQuestionSetStatus.approved,
-    );
-    const approvedManualCountsByCategory = approvedManualSet
-      ? approvedManualSet.items.reduce<Record<string, number>>((acc, item) => {
+    if (
+      catalog.tryoutType !== TryoutType.generated &&
+      catalog.tryoutType !== TryoutType.adaptive
+    ) {
+      issues.push('Tryout type manual/hybrid is no longer supported');
+    }
+
+    const workingManualSet = catalog.manualQuestionSets[0] ?? null;
+    const workingManualCountsByCategory = workingManualSet
+      ? workingManualSet.items.reduce<Record<string, number>>((acc, item) => {
           acc[item.question.categoryRef.code] = (acc[item.question.categoryRef.code] ?? 0) + 1;
           return acc;
         }, {})
@@ -1078,7 +1081,7 @@ export class TryoutManagementService {
 
         for (const section of catalog.generationRule.sections) {
           const sectionCategoryCode = categoryCodeById.get(section.categoryId) ?? section.categoryId;
-          const seededManualCount = approvedManualCountsByCategory[sectionCategoryCode] ?? 0;
+          const seededManualCount = workingManualCountsByCategory[sectionCategoryCode] ?? 0;
           const generatedRequired =
             catalog.tryoutType === TryoutType.hybrid
               ? Math.max(0, section.questionCount - seededManualCount)
@@ -1217,26 +1220,26 @@ export class TryoutManagementService {
       }));
 
       if (catalog.tryoutType === TryoutType.manual) {
-        if (!approvedManualSet) {
-          issues.push('At least one approved manual question set is required');
-        } else if (approvedManualSet.items.length !== catalog.totalQuestions) {
+        if (!workingManualSet) {
+          issues.push('Manual question set is required');
+        } else if (workingManualSet.items.length !== catalog.totalQuestions) {
           issues.push(
-            'Approved manual question set item count must match tryout catalog totalQuestions',
+            'Manual question set item count must match tryout catalog totalQuestions',
           );
         }
       }
 
       if (catalog.tryoutType === TryoutType.hybrid) {
-        if (!approvedManualSet) {
-          issues.push('At least one approved manual question set is required for hybrid tryout');
+        if (!workingManualSet) {
+          issues.push('Manual question set is required for hybrid tryout');
         } else {
-          if (approvedManualSet.items.length <= 0) {
-            issues.push('Approved manual question set for hybrid tryout must contain questions');
+          if (workingManualSet.items.length <= 0) {
+            issues.push('Manual question set for hybrid tryout must contain questions');
           }
 
-          if (approvedManualSet.items.length >= catalog.totalQuestions) {
+          if (workingManualSet.items.length >= catalog.totalQuestions) {
             issues.push(
-              'Approved manual question set for hybrid tryout must be smaller than totalQuestions',
+              'Manual question set for hybrid tryout must be smaller than totalQuestions',
             );
           }
 
@@ -1244,10 +1247,10 @@ export class TryoutManagementService {
             for (const section of catalog.generationRule.sections) {
               const sectionCategoryCode =
                 categoryCodeById.get(section.categoryId) ?? section.categoryId;
-              const manualCount = approvedManualCountsByCategory[sectionCategoryCode] ?? 0;
+              const manualCount = workingManualCountsByCategory[sectionCategoryCode] ?? 0;
               if (manualCount > section.questionCount) {
                 issues.push(
-                  `Approved manual question set exceeds section target for category ${sectionCategoryCode}`,
+                  `Manual question set exceeds section target for category ${sectionCategoryCode}`,
                 );
               }
             }
@@ -1311,7 +1314,6 @@ export class TryoutManagementService {
     const catalog = await this.ensureBuilderEditableCatalog(tryoutCatalogId);
     if (
       catalog.status !== TryoutStatus.draft &&
-      catalog.status !== TryoutStatus.review &&
       catalog.status !== TryoutStatus.published
     ) {
       throw new BadRequestException('Admin can only access non-archived tryouts');
@@ -1335,7 +1337,6 @@ export class TryoutManagementService {
 
     if (
       catalog.status !== TryoutStatus.draft &&
-      catalog.status !== TryoutStatus.review &&
       catalog.status !== TryoutStatus.published
     ) {
       throw new BadRequestException('Builder hanya bisa digunakan untuk tryout yang belum diarsipkan');
@@ -1415,11 +1416,7 @@ export class TryoutManagementService {
       where: {
         tryoutCatalogId,
         status: {
-          in: [
-            ManualQuestionSetStatus.draft,
-            ManualQuestionSetStatus.review,
-            ManualQuestionSetStatus.approved,
-          ],
+          in: [ManualQuestionSetStatus.draft],
         },
       },
       select: manualSetSelect,
@@ -1453,7 +1450,7 @@ export class TryoutManagementService {
 
   private buildBuilderStatus(
     detail: Prisma.TryoutCatalogGetPayload<{ select: typeof catalogDetailSelect }>,
-    workingManualQuestionSet:
+    _workingManualQuestionSet:
       | Prisma.ManualQuestionSetGetPayload<{ select: typeof manualSetSelect }>
       | null,
   ): BuilderStatusSummary {
@@ -1461,13 +1458,18 @@ export class TryoutManagementService {
     const modeSpecificWarnings: string[] = [];
     const sections = detail.generationRule?.sections ?? [];
     const sectionTotal = sections.reduce((sum, section) => sum + section.questionCount, 0);
-    const workingCount = workingManualQuestionSet?.items.length ?? 0;
-    const workingCountsByCategory = workingManualQuestionSet
-      ? workingManualQuestionSet.items.reduce<Record<string, number>>((acc, item) => {
-          acc[item.question.categoryRef.code] = (acc[item.question.categoryRef.code] ?? 0) + 1;
-          return acc;
-        }, {})
-      : {};
+
+    if (
+      detail.tryoutType !== TryoutType.generated &&
+      detail.tryoutType !== TryoutType.adaptive
+    ) {
+      missingParts.push('Tipe tryout manual/hybrid sudah tidak tersedia.');
+      return {
+        isStructurallyValid: false,
+        missingParts,
+        modeSpecificWarnings,
+      };
+    }
 
     switch (detail.tryoutType) {
       case TryoutType.generated: {
@@ -1475,58 +1477,6 @@ export class TryoutManagementService {
           missingParts.push('Generation rule belum dibuat.');
         } else if (sectionTotal !== detail.totalQuestions) {
           missingParts.push('Total section generation rule harus sama dengan total soal.');
-        }
-        break;
-      }
-      case TryoutType.manual: {
-        if (!workingManualQuestionSet) {
-          missingParts.push('Manual question set draft belum dibuat.');
-        } else if (workingCount !== detail.totalQuestions) {
-          missingParts.push('Jumlah soal manual harus sama dengan total soal draft.');
-        }
-
-        if (!detail.manualQuestionSets.some((set) => set.status === ManualQuestionSetStatus.approved)) {
-          modeSpecificWarnings.push('Belum ada manual question set berstatus approved untuk publish.');
-        }
-        break;
-      }
-      case TryoutType.hybrid: {
-        const hybridConfig = this.readHybridRuleConfig(detail.generationRule?.rulesJson);
-        if (!detail.generationRule) {
-          missingParts.push('Generation rule hybrid belum dibuat.');
-        } else if (sectionTotal !== detail.totalQuestions) {
-          missingParts.push('Total section generation rule hybrid harus sama dengan total soal.');
-        }
-
-        if (!workingManualQuestionSet) {
-          missingParts.push('Manual question set draft untuk hybrid belum dibuat.');
-        } else {
-          if (workingCount <= 0) {
-            missingParts.push('Hybrid membutuhkan minimal satu soal manual.');
-          }
-
-          if (workingCount >= detail.totalQuestions) {
-            missingParts.push('Jumlah soal manual hybrid harus lebih kecil dari total soal.');
-          }
-
-          if (detail.generationRule) {
-            for (const section of detail.generationRule.sections) {
-              const manualCount = workingCountsByCategory[section.categoryRef.code] ?? 0;
-              if (manualCount > section.questionCount) {
-                missingParts.push(
-                  `Soal manual kategori ${section.categoryRef.code} melebihi target section.`,
-                );
-              }
-            }
-          }
-        }
-
-        if (!hybridConfig) {
-          missingParts.push('Konfigurasi hybrid rulesJson harus menggunakan manualPlacement prepend.');
-        }
-
-        if (!detail.manualQuestionSets.some((set) => set.status === ManualQuestionSetStatus.approved)) {
-          modeSpecificWarnings.push('Hybrid belum memiliki manual question set approved untuk publish.');
         }
         break;
       }
@@ -1570,25 +1520,10 @@ export class TryoutManagementService {
     }
   }
 
-  private assertAdminManualSetStatus(status: ManualQuestionSetStatus) {
-    if (status !== ManualQuestionSetStatus.draft && status !== ManualQuestionSetStatus.review) {
-      throw new BadRequestException(
-        'Admin manual question set draft can only be saved as draft or review',
-      );
+  private assertWorkingManualSetStatus(status: ManualQuestionSetStatus) {
+    if (status !== ManualQuestionSetStatus.draft) {
+      throw new BadRequestException('Manual question set can only be saved as draft');
     }
-  }
-
-  private readHybridRuleConfig(rawValue: Prisma.JsonValue | null | undefined) {
-    if (!rawValue || typeof rawValue !== 'object' || Array.isArray(rawValue)) {
-      return null;
-    }
-
-    const manualPlacement = (rawValue as Record<string, unknown>).manualPlacement;
-    if (manualPlacement === 'prepend') {
-      return { manualPlacement } satisfies HybridRuleConfig;
-    }
-
-    return null;
   }
 
   private readAdaptiveRuleConfig(rawValue: Prisma.JsonValue | null | undefined) {

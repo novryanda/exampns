@@ -80,12 +80,13 @@ function buildQuestionPayload(formData: FormData) {
 }
 
 function buildTryoutDraftPayload(formData: FormData) {
+  const requestedTryoutType = String(formData.get("tryoutType") ?? "generated");
+
   return {
     name: String(formData.get("name") ?? "").trim(),
     description: optionalString(formData.get("description")) ?? "",
-    tryoutType: String(formData.get("tryoutType") ?? "generated"),
+    tryoutType: requestedTryoutType === "adaptive" ? "adaptive" : "generated",
     requiredSubscriptionPlanId: optionalString(formData.get("requiredSubscriptionPlanId")) ?? "",
-    status: String(formData.get("status") ?? "draft"),
     isFeatured: parseBoolean(formData.get("isFeatured")),
     isPublic: false,
     sortOrder: parseNumber(formData.get("sortOrder"), 0),
@@ -131,7 +132,8 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
   const randomizationMode = String(formData.get("randomizationMode") ?? "random_by_category");
   const rawSections = parseJsonField<
     Array<{
-      category: string;
+      category?: string;
+      categoryCode?: string;
       questionCount: number;
       difficultyDistribution?: Partial<Record<"easy" | "medium" | "hard", number>>;
       topicDistribution?: Array<{ topicTag: string; questionCount: number }>;
@@ -139,6 +141,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
     }>
   >(formData.get("sectionsJson"), []);
   const sections = rawSections.map((section) => {
+    const categoryCode = section.categoryCode ?? section.category ?? "";
     const topicDistribution = section.topicDistribution?.filter((item) => item.questionCount > 0) ?? [];
     const difficultyDistribution =
       section.difficultyDistribution && Object.values(section.difficultyDistribution).some((value) => (value ?? 0) > 0)
@@ -147,7 +150,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
 
     if (randomizationMode === "random_by_category") {
       return {
-        categoryCode: section.category,
+        categoryCode,
         questionCount: section.questionCount,
         sortOrder: section.sortOrder,
       };
@@ -155,7 +158,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
 
     if (randomizationMode === "random_by_topic_distribution") {
       return {
-        categoryCode: section.category,
+        categoryCode,
         questionCount: section.questionCount,
         topicDistribution,
         sortOrder: section.sortOrder,
@@ -163,7 +166,7 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
     }
 
     return {
-      categoryCode: section.category,
+      categoryCode,
       questionCount: section.questionCount,
       ...(difficultyDistribution ? { difficultyDistribution } : {}),
       ...(topicDistribution.length > 0 ? { topicDistribution } : {}),
@@ -175,23 +178,18 @@ function buildTryoutGenerationRulePayload(formData: FormData) {
   const baseRulesJson = parseJsonField<Record<string, unknown>>(formData.get("rulesJson"), {});
 
   const rulesJson =
-    tryoutType === "hybrid"
+    tryoutType === "adaptive"
       ? {
-          manualPlacement: "prepend",
+          strategy: "latest_ai_recommendation",
+          fallbackStrategy: "generation_rule",
+          maxWeakAreas: parseNumber(formData.get("maxWeakAreas"), 3),
+          perWeakAreaQuestionCap: parseNumber(formData.get("perWeakAreaQuestionCap"), 5),
+          includeTrendBoost: parseBoolean(formData.get("includeTrendBoost")),
           ...baseRulesJson,
         }
-      : tryoutType === "adaptive"
-        ? {
-            strategy: "latest_ai_recommendation",
-            fallbackStrategy: "generation_rule",
-            maxWeakAreas: parseNumber(formData.get("maxWeakAreas"), 3),
-            perWeakAreaQuestionCap: parseNumber(formData.get("perWeakAreaQuestionCap"), 5),
-            includeTrendBoost: parseBoolean(formData.get("includeTrendBoost")),
-            ...baseRulesJson,
-          }
-        : Object.keys(baseRulesJson).length > 0
-          ? baseRulesJson
-          : undefined;
+      : Object.keys(baseRulesJson).length > 0
+        ? baseRulesJson
+        : undefined;
 
   return {
     randomizationMode,
@@ -209,7 +207,6 @@ function buildManualQuestionSetPayload(formData: FormData) {
   return {
     name: String(formData.get("name") ?? "").trim(),
     description: optionalString(formData.get("description")) ?? "",
-    status: String(formData.get("status") ?? "draft"),
     questionIds,
   };
 }

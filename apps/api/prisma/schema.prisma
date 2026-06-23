@@ -10,6 +10,7 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN
   ADMIN
+  PARTNER
   USER
 }
 
@@ -68,7 +69,6 @@ enum SubscriptionTier {
 
 enum TryoutStatus {
   draft
-  review
   published
   archived
 }
@@ -90,8 +90,6 @@ enum QuestionOrderMode {
 
 enum ManualQuestionSetStatus {
   draft
-  review
-  approved
   archived
 }
 
@@ -164,6 +162,29 @@ enum PaymentStatus {
   refunded
 }
 
+enum PartnerStatus {
+  active
+  inactive
+  suspended
+}
+
+enum ReferralValueType {
+  percentage
+  fixed
+}
+
+enum PartnerLedgerEntryType {
+  commission_earned
+  commission_reversal
+  withdrawal_debit
+}
+
+enum PartnerWithdrawalStatus {
+  pending
+  approved
+  rejected
+}
+
 enum ImportBatchStatus {
   processing
   completed
@@ -179,39 +200,43 @@ enum ParsedQuestionStatus {
 }
 
 model User {
-  id                        String                 @id @default(uuid())
-  name                      String                 @map("full_name") @db.VarChar(150)
-  email                     String                 @unique @db.VarChar(255)
-  image                     String?
-  phone                     String?                @db.VarChar(30)
-  role                      UserRole               @default(USER)
-  status                    UserStatus             @default(active)
-  emailVerified             Boolean                @default(false) @map("email_verified")
-  emailVerifiedAt           DateTime?              @map("email_verified_at")
-  passwordSetAt             DateTime?              @map("password_set_at")
-  lastLoginAt               DateTime?              @map("last_login_at")
-  createdAt                 DateTime               @default(now()) @map("created_at")
-  updatedAt                 DateTime               @updatedAt @map("updated_at")
-  deletedAt                 DateTime?              @map("deleted_at")
-  sessions                  Session[]
-  accounts                  Account[]
-  createdQuestions          Question[]             @relation("QuestionCreatedBy")
-  updatedQuestions          Question[]             @relation("QuestionUpdatedBy")
-  uploadedImportBatches     QuestionImportBatch[]  @relation("ImportBatchUploadedBy")
-  reviewedParsedQuestions   ParsedQuestionReview[] @relation("ParsedQuestionReviewedBy")
-  createdTryoutCatalogs     TryoutCatalog[]        @relation("TryoutCatalogCreatedBy")
-  approvedTryoutCatalogs    TryoutCatalog[]        @relation("TryoutCatalogApprovedBy")
-  createdManualQuestionSets ManualQuestionSet[]    @relation("ManualQuestionSetCreatedBy")
-  examSessions              ExamSession[]
-  examResults               ExamResult[]
-  userSubscriptions         UserSubscription[]     @relation("SubscriptionUser")
-  activatedSubscriptions    UserSubscription[]     @relation("SubscriptionActivatedBy")
-  accessOverrides           UserAccessOverride[]   @relation("UserAccessOverrideUser")
-  grantedAccessOverrides    UserAccessOverride[]   @relation("UserAccessOverrideGrantedBy")
-  revokedAccessOverrides    UserAccessOverride[]   @relation("UserAccessOverrideRevokedBy")
-  paymentTransactions       PaymentTransaction[]
-  auditLogs                 AuditLog[]             @relation("AuditActor")
-  createdMaterials           Material[]             @relation("MaterialCreatedBy")
+  id                         String                     @id @default(uuid())
+  name                       String                     @map("full_name") @db.VarChar(150)
+  email                      String                     @unique @db.VarChar(255)
+  image                      String?
+  phone                      String?                    @db.VarChar(30)
+  role                       UserRole                   @default(USER)
+  status                     UserStatus                 @default(active)
+  emailVerified              Boolean                    @default(false) @map("email_verified")
+  emailVerifiedAt            DateTime?                  @map("email_verified_at")
+  passwordSetAt              DateTime?                  @map("password_set_at")
+  lastLoginAt                DateTime?                  @map("last_login_at")
+  createdAt                  DateTime                   @default(now()) @map("created_at")
+  updatedAt                  DateTime                   @updatedAt @map("updated_at")
+  deletedAt                  DateTime?                  @map("deleted_at")
+  sessions                   Session[]
+  accounts                   Account[]
+  createdQuestions           Question[]                 @relation("QuestionCreatedBy")
+  updatedQuestions           Question[]                 @relation("QuestionUpdatedBy")
+  uploadedImportBatches      QuestionImportBatch[]      @relation("ImportBatchUploadedBy")
+  reviewedParsedQuestions    ParsedQuestionReview[]     @relation("ParsedQuestionReviewedBy")
+  createdTryoutCatalogs      TryoutCatalog[]            @relation("TryoutCatalogCreatedBy")
+  approvedTryoutCatalogs     TryoutCatalog[]            @relation("TryoutCatalogApprovedBy")
+  createdManualQuestionSets  ManualQuestionSet[]        @relation("ManualQuestionSetCreatedBy")
+  examSessions               ExamSession[]
+  examResults                ExamResult[]
+  userSubscriptions          UserSubscription[]         @relation("SubscriptionUser")
+  activatedSubscriptions     UserSubscription[]         @relation("SubscriptionActivatedBy")
+  accessOverrides            UserAccessOverride[]       @relation("UserAccessOverrideUser")
+  grantedAccessOverrides     UserAccessOverride[]       @relation("UserAccessOverrideGrantedBy")
+  revokedAccessOverrides     UserAccessOverride[]       @relation("UserAccessOverrideRevokedBy")
+  paymentTransactions        PaymentTransaction[]
+  partnerProfile             PartnerProfile?            @relation("PartnerProfileUser")
+  createdPartnerProfiles     PartnerProfile[]           @relation("PartnerProfileCreatedBy")
+  createdPartnerCodes        PartnerReferralCode[]      @relation("PartnerReferralCodeCreatedBy")
+  approvedPartnerWithdrawals PartnerWithdrawalRequest[] @relation("PartnerWithdrawalApprovedBy")
+  auditLogs                  AuditLog[]                 @relation("AuditActor")
+  createdMaterials           Material[]                 @relation("MaterialCreatedBy")
   materialProgress           UserMaterialProgress[]
 
   @@index([role], map: "idx_users_role")
@@ -325,17 +350,17 @@ model Question {
 }
 
 model QuestionSubCategory {
-  id                    String               @id @default(uuid())
-  categoryId            String               @map("category_id")
-  name                  String               @db.VarChar(100)
-  slug                  String               @db.VarChar(120)
-  isActive              Boolean              @default(true) @map("is_active")
-  sortOrder             Int                  @default(0) @map("sort_order")
-  createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt             DateTime             @updatedAt @map("updated_at")
-  categoryRef           QuestionCategory     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  topicTags             QuestionTopicTag[]   @relation("QuestionSubCategoryTopicTags")
-  questions             Question[]           @relation("QuestionSubCategoryQuestions")
+  id                    String                 @id @default(uuid())
+  categoryId            String                 @map("category_id")
+  name                  String                 @db.VarChar(100)
+  slug                  String                 @db.VarChar(120)
+  isActive              Boolean                @default(true) @map("is_active")
+  sortOrder             Int                    @default(0) @map("sort_order")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  categoryRef           QuestionCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  topicTags             QuestionTopicTag[]     @relation("QuestionSubCategoryTopicTags")
+  questions             Question[]             @relation("QuestionSubCategoryQuestions")
   resolvedParsedReviews ParsedQuestionReview[] @relation("ParsedQuestionResolvedSubCategory")
 
   @@unique([categoryId, slug], map: "uq_question_sub_categories_category_slug")
@@ -344,16 +369,16 @@ model QuestionSubCategory {
 }
 
 model QuestionTopicTag {
-  id                    String               @id @default(uuid())
-  subCategoryId         String               @map("sub_category_id")
-  name                  String               @db.VarChar(150)
-  slug                  String               @db.VarChar(170)
-  isActive              Boolean              @default(true) @map("is_active")
-  sortOrder             Int                  @default(0) @map("sort_order")
-  createdAt             DateTime             @default(now()) @map("created_at")
-  updatedAt             DateTime             @updatedAt @map("updated_at")
-  subCategory           QuestionSubCategory  @relation("QuestionSubCategoryTopicTags", fields: [subCategoryId], references: [id], onDelete: Restrict)
-  questions             Question[]           @relation("QuestionTopicTagQuestions")
+  id                    String                 @id @default(uuid())
+  subCategoryId         String                 @map("sub_category_id")
+  name                  String                 @db.VarChar(150)
+  slug                  String                 @db.VarChar(170)
+  isActive              Boolean                @default(true) @map("is_active")
+  sortOrder             Int                    @default(0) @map("sort_order")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  subCategory           QuestionSubCategory    @relation("QuestionSubCategoryTopicTags", fields: [subCategoryId], references: [id], onDelete: Restrict)
+  questions             Question[]             @relation("QuestionTopicTagQuestions")
   resolvedParsedReviews ParsedQuestionReview[] @relation("ParsedQuestionResolvedTopicTag")
 
   @@unique([subCategoryId, slug], map: "uq_question_topic_tags_sub_category_slug")
@@ -411,29 +436,29 @@ model QuestionImportBatch {
 }
 
 model ParsedQuestionReview {
-  id              String               @id @default(uuid())
-  batchId         String               @map("batch_id")
-  questionId      String?              @map("question_id")
-  rawAiOutput     Json?                @map("raw_ai_output")
-  questionText    String               @map("question_text")
-  optionsJson     Json                 @map("options_json")
-  detectedAnswer  String?              @map("detected_answer") @db.VarChar(1)
-  categoryCode    String?              @map("category_code") @db.VarChar(50)
-  subCategory     String?              @map("sub_category") @db.VarChar(100)
-  topicTag        String?              @map("topic_tag") @db.VarChar(150)
-  resolvedSubCategoryId String?        @map("resolved_sub_category_id")
-  resolvedTopicTagId    String?        @map("resolved_topic_tag_id")
-  difficulty      QuestionDifficulty?
-  confidenceScore Decimal?             @map("confidence_score") @db.Decimal(5, 2)
-  status          ParsedQuestionStatus
-  reviewNotes     String?              @map("review_notes")
-  reviewedBy      String?              @map("reviewed_by")
-  reviewedAt      DateTime?            @map("reviewed_at")
-  createdAt       DateTime             @default(now()) @map("created_at")
-  updatedAt       DateTime             @updatedAt @map("updated_at")
-  batch           QuestionImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
-  question        Question?            @relation(fields: [questionId], references: [id], onDelete: SetNull)
-  reviewedByUser  User?                @relation("ParsedQuestionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  id                     String               @id @default(uuid())
+  batchId                String               @map("batch_id")
+  questionId             String?              @map("question_id")
+  rawAiOutput            Json?                @map("raw_ai_output")
+  questionText           String               @map("question_text")
+  optionsJson            Json                 @map("options_json")
+  detectedAnswer         String?              @map("detected_answer") @db.VarChar(1)
+  categoryCode           String?              @map("category_code") @db.VarChar(50)
+  subCategory            String?              @map("sub_category") @db.VarChar(100)
+  topicTag               String?              @map("topic_tag") @db.VarChar(150)
+  resolvedSubCategoryId  String?              @map("resolved_sub_category_id")
+  resolvedTopicTagId     String?              @map("resolved_topic_tag_id")
+  difficulty             QuestionDifficulty?
+  confidenceScore        Decimal?             @map("confidence_score") @db.Decimal(5, 2)
+  status                 ParsedQuestionStatus
+  reviewNotes            String?              @map("review_notes")
+  reviewedBy             String?              @map("reviewed_by")
+  reviewedAt             DateTime?            @map("reviewed_at")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  batch                  QuestionImportBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  question               Question?            @relation(fields: [questionId], references: [id], onDelete: SetNull)
+  reviewedByUser         User?                @relation("ParsedQuestionReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
   resolvedSubCategoryRef QuestionSubCategory? @relation("ParsedQuestionResolvedSubCategory", fields: [resolvedSubCategoryId], references: [id], onDelete: SetNull)
   resolvedTopicTagRef    QuestionTopicTag?    @relation("ParsedQuestionResolvedTopicTag", fields: [resolvedTopicTagId], references: [id], onDelete: SetNull)
 
@@ -445,34 +470,34 @@ model ParsedQuestionReview {
 }
 
 model TryoutCatalog {
-  id                    String                @id @default(uuid())
-  name                  String                @db.VarChar(150)
-  description           String?
-  tryoutType            TryoutType            @map("tryout_type")
-  accessType            AccessType            @map("access_type")
-  requiredSubscriptionPlanId String?          @map("required_subscription_plan_id")
-  status                TryoutStatus
-  isPublic              Boolean               @default(false) @map("is_public")
-  isFeatured            Boolean               @default(false) @map("is_featured")
-  sortOrder             Int                   @default(0) @map("sort_order")
-  durationMinutes       Int                   @map("duration_minutes")
-  totalQuestions        Int                   @map("total_questions")
-  passingGradeConfigId  String?               @map("passing_grade_config_id")
-  showResultImmediately Boolean               @default(true) @map("show_result_immediately")
-  showAnswerReview      Boolean               @default(true) @map("show_answer_review")
-  createdBy             String                @map("created_by")
-  approvedBy            String?               @map("approved_by")
-  publishedAt           DateTime?             @map("published_at")
-  archivedAt            DateTime?             @map("archived_at")
-  createdAt             DateTime              @default(now()) @map("created_at")
-  updatedAt             DateTime              @updatedAt @map("updated_at")
-  passingGradeConfig    PassingGradeConfig?   @relation(fields: [passingGradeConfigId], references: [id], onDelete: SetNull)
-  createdByUser         User                  @relation("TryoutCatalogCreatedBy", fields: [createdBy], references: [id])
-  approvedByUser        User?                 @relation("TryoutCatalogApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
-  requiredSubscriptionPlan SubscriptionPlan?  @relation("TryoutCatalogRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
-  generationRule        TryoutGenerationRule?
-  manualQuestionSets    ManualQuestionSet[]
-  examSessions          ExamSession[]
+  id                         String                @id @default(uuid())
+  name                       String                @db.VarChar(150)
+  description                String?
+  tryoutType                 TryoutType            @map("tryout_type")
+  accessType                 AccessType            @map("access_type")
+  requiredSubscriptionPlanId String?               @map("required_subscription_plan_id")
+  status                     TryoutStatus
+  isPublic                   Boolean               @default(false) @map("is_public")
+  isFeatured                 Boolean               @default(false) @map("is_featured")
+  sortOrder                  Int                   @default(0) @map("sort_order")
+  durationMinutes            Int                   @map("duration_minutes")
+  totalQuestions             Int                   @map("total_questions")
+  passingGradeConfigId       String?               @map("passing_grade_config_id")
+  showResultImmediately      Boolean               @default(true) @map("show_result_immediately")
+  showAnswerReview           Boolean               @default(true) @map("show_answer_review")
+  createdBy                  String                @map("created_by")
+  approvedBy                 String?               @map("approved_by")
+  publishedAt                DateTime?             @map("published_at")
+  archivedAt                 DateTime?             @map("archived_at")
+  createdAt                  DateTime              @default(now()) @map("created_at")
+  updatedAt                  DateTime              @updatedAt @map("updated_at")
+  passingGradeConfig         PassingGradeConfig?   @relation(fields: [passingGradeConfigId], references: [id], onDelete: SetNull)
+  createdByUser              User                  @relation("TryoutCatalogCreatedBy", fields: [createdBy], references: [id])
+  approvedByUser             User?                 @relation("TryoutCatalogApprovedBy", fields: [approvedBy], references: [id], onDelete: SetNull)
+  requiredSubscriptionPlan   SubscriptionPlan?     @relation("TryoutCatalogRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
+  generationRule             TryoutGenerationRule?
+  manualQuestionSets         ManualQuestionSet[]
+  examSessions               ExamSession[]
 
   @@index([status, isPublic, accessType])
   @@index([status, isPublic, requiredSubscriptionPlanId], map: "idx_tryout_catalogs_required_plan")
@@ -571,22 +596,22 @@ model ExamSession {
 }
 
 model ExamSessionQuestion {
-  id                  String             @id @default(uuid())
-  examSessionId       String             @map("exam_session_id")
-  questionId          String             @map("question_id")
-  questionOrder       Int                @map("question_order")
-  questionSnapshot    Json               @map("question_snapshot")
-  optionsSnapshot     Json               @map("options_snapshot")
-  categorySnapshot    String             @map("category_snapshot") @db.VarChar(50)
-  categoryNameSnapshot String            @map("category_name_snapshot") @db.VarChar(100)
-  answerModeSnapshot  QuestionAnswerMode @map("answer_mode_snapshot")
-  subCategorySnapshot String             @map("sub_category_snapshot") @db.VarChar(100)
-  topicTagSnapshot    String             @map("topic_tag_snapshot") @db.VarChar(150)
-  difficultySnapshot  QuestionDifficulty @map("difficulty_snapshot")
-  createdAt           DateTime           @default(now()) @map("created_at")
-  examSession         ExamSession        @relation(fields: [examSessionId], references: [id], onDelete: Cascade)
-  question            Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
-  answers             ExamAnswer[]
+  id                   String             @id @default(uuid())
+  examSessionId        String             @map("exam_session_id")
+  questionId           String             @map("question_id")
+  questionOrder        Int                @map("question_order")
+  questionSnapshot     Json               @map("question_snapshot")
+  optionsSnapshot      Json               @map("options_snapshot")
+  categorySnapshot     String             @map("category_snapshot") @db.VarChar(50)
+  categoryNameSnapshot String             @map("category_name_snapshot") @db.VarChar(100)
+  answerModeSnapshot   QuestionAnswerMode @map("answer_mode_snapshot")
+  subCategorySnapshot  String             @map("sub_category_snapshot") @db.VarChar(100)
+  topicTagSnapshot     String             @map("topic_tag_snapshot") @db.VarChar(150)
+  difficultySnapshot   QuestionDifficulty @map("difficulty_snapshot")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  examSession          ExamSession        @relation(fields: [examSessionId], references: [id], onDelete: Cascade)
+  question             Question           @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  answers              ExamAnswer[]
 
   @@unique([examSessionId, questionOrder], map: "uq_exam_question_order")
   @@unique([examSessionId, questionId], map: "uq_exam_question_original")
@@ -614,19 +639,19 @@ model ExamAnswer {
 }
 
 model ExamResult {
-  id                   String             @id @default(uuid())
-  examSessionId        String             @unique @map("exam_session_id")
-  userId               String             @map("user_id")
-  passingGradeConfigId String             @map("passing_grade_config_id")
-  totalScore           Int                @map("total_score")
-  totalPassed          Boolean            @map("total_passed")
-  overallPassed        Boolean            @map("overall_passed")
-  breakdownJson        Json               @map("breakdown_json")
-  generatedAt          DateTime           @map("generated_at")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  examSession          ExamSession        @relation(fields: [examSessionId], references: [id], onDelete: Restrict)
-  user                 User               @relation(fields: [userId], references: [id], onDelete: Restrict)
-  passingGradeConfig   PassingGradeConfig @relation(fields: [passingGradeConfigId], references: [id], onDelete: Restrict)
+  id                   String                    @id @default(uuid())
+  examSessionId        String                    @unique @map("exam_session_id")
+  userId               String                    @map("user_id")
+  passingGradeConfigId String                    @map("passing_grade_config_id")
+  totalScore           Int                       @map("total_score")
+  totalPassed          Boolean                   @map("total_passed")
+  overallPassed        Boolean                   @map("overall_passed")
+  breakdownJson        Json                      @map("breakdown_json")
+  generatedAt          DateTime                  @map("generated_at")
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  examSession          ExamSession               @relation(fields: [examSessionId], references: [id], onDelete: Restrict)
+  user                 User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  passingGradeConfig   PassingGradeConfig        @relation(fields: [passingGradeConfigId], references: [id], onDelete: Restrict)
   aiRecommendations    AIRecommendation[]
   categoryScores       ExamResultCategoryScore[]
 
@@ -635,15 +660,15 @@ model ExamResult {
 }
 
 model ExamResultCategoryScore {
-  id            String     @id @default(uuid())
-  examResultId  String     @map("exam_result_id")
-  categoryCode  String     @map("category_code") @db.VarChar(50)
-  categoryName  String     @map("category_name") @db.VarChar(100)
-  score         Int
-  minScore      Int        @default(0) @map("min_score")
-  passed        Boolean
-  createdAt     DateTime   @default(now()) @map("created_at")
-  examResult    ExamResult @relation(fields: [examResultId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  examResultId String     @map("exam_result_id")
+  categoryCode String     @map("category_code") @db.VarChar(50)
+  categoryName String     @map("category_name") @db.VarChar(100)
+  score        Int
+  minScore     Int        @default(0) @map("min_score")
+  passed       Boolean
+  createdAt    DateTime   @default(now()) @map("created_at")
+  examResult   ExamResult @relation(fields: [examResultId], references: [id], onDelete: Cascade)
 
   @@unique([examResultId, categoryCode], map: "uq_exam_result_category_score")
   @@index([examResultId], map: "idx_exam_result_category_scores_exam_result")
@@ -714,26 +739,27 @@ model AIRecommendationItem {
 }
 
 model SubscriptionPlan {
-  id                  String               @id @default(uuid())
-  name                String               @db.VarChar(100)
-  description         String?
-  durationDays        Int                  @map("duration_days")
-  price               Decimal              @db.Decimal(12, 2)
-  currency            String               @default("IDR") @db.VarChar(10)
-  isActive            Boolean              @default(true) @map("is_active")
-  isTrial             Boolean              @default(false) @map("is_trial")
-  tier                SubscriptionTier     @default(standard)
-  features            Json                 @default("[]")
-  isPopular           Boolean              @default(false) @map("is_popular")
-  showOnLandingPage   Boolean              @default(false) @map("show_on_landing_page")
-  trialTryoutLimit    Int?                 @map("trial_tryout_limit")
-  trialDayLimit       Int?                 @map("trial_day_limit")
-  createdAt           DateTime             @default(now()) @map("created_at")
-  updatedAt           DateTime             @updatedAt @map("updated_at")
-  requiredTryoutCatalogs TryoutCatalog[]   @relation("TryoutCatalogRequiredPlan")
-  requiredMaterials   Material[]           @relation("MaterialRequiredPlan")
-  userSubscriptions   UserSubscription[]
-  paymentTransactions PaymentTransaction[]
+  id                     String               @id @default(uuid())
+  name                   String               @db.VarChar(100)
+  description            String?
+  durationDays           Int                  @map("duration_days")
+  price                  Decimal              @db.Decimal(12, 2)
+  currency               String               @default("IDR") @db.VarChar(10)
+  isActive               Boolean              @default(true) @map("is_active")
+  isTrial                Boolean              @default(false) @map("is_trial")
+  tier                   SubscriptionTier     @default(standard)
+  features               Json                 @default("[]")
+  isPopular              Boolean              @default(false) @map("is_popular")
+  showOnLandingPage      Boolean              @default(false) @map("show_on_landing_page")
+  trialTryoutLimit       Int?                 @map("trial_tryout_limit")
+  trialDayLimit          Int?                 @map("trial_day_limit")
+  createdAt              DateTime             @default(now()) @map("created_at")
+  updatedAt              DateTime             @updatedAt @map("updated_at")
+  requiredTryoutCatalogs TryoutCatalog[]      @relation("TryoutCatalogRequiredPlan")
+  requiredMaterials      Material[]           @relation("MaterialRequiredPlan")
+  userSubscriptions      UserSubscription[]
+  accessOverrides        UserAccessOverride[]
+  paymentTransactions    PaymentTransaction[]
 
   @@index([isActive, isTrial])
   @@index([isActive, tier])
@@ -767,54 +793,164 @@ model UserSubscription {
 }
 
 model UserAccessOverride {
-  id         String           @id @default(uuid())
-  userId      String           @map("user_id")
-  tier        SubscriptionTier
-  startsAt    DateTime         @map("starts_at")
-  expiresAt   DateTime         @map("expires_at")
-  reason      String
-  grantedBy   String           @map("granted_by")
-  revokedAt   DateTime?        @map("revoked_at")
-  revokedBy   String?          @map("revoked_by")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
-  user        User             @relation("UserAccessOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
-  grantedByUser User           @relation("UserAccessOverrideGrantedBy", fields: [grantedBy], references: [id], onDelete: Restrict)
-  revokedByUser User?          @relation("UserAccessOverrideRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+  id                 String           @id @default(uuid())
+  userId             String           @map("user_id")
+  subscriptionPlanId String           @map("subscription_plan_id")
+  reason             String
+  grantedBy          String           @map("granted_by")
+  revokedAt          DateTime?        @map("revoked_at")
+  revokedBy          String?          @map("revoked_by")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  user               User             @relation("UserAccessOverrideUser", fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionPlan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+  grantedByUser      User             @relation("UserAccessOverrideGrantedBy", fields: [grantedBy], references: [id], onDelete: Restrict)
+  revokedByUser      User?            @relation("UserAccessOverrideRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
 
-  @@index([userId, revokedAt, expiresAt], map: "idx_user_access_overrides_user_active")
+  @@index([userId, revokedAt], map: "idx_user_access_overrides_user_active")
+  @@index([subscriptionPlanId, revokedAt], map: "idx_user_access_overrides_plan_active")
   @@index([grantedBy, createdAt], map: "idx_user_access_overrides_granted_by")
-  @@index([tier, expiresAt], map: "idx_user_access_overrides_tier_expires")
   @@map("user_access_overrides")
 }
 
 model PaymentTransaction {
-  id                   String                @id @default(uuid())
-  userId               String                @map("user_id")
-  subscriptionPlanId   String                @map("subscription_plan_id")
-  userSubscriptionId   String?               @map("user_subscription_id")
-  idempotencyKey       String?               @unique @map("idempotency_key") @db.VarChar(120)
-  invoiceNumber        String                @unique @map("invoice_number") @db.VarChar(100)
-  gatewayProvider      String                @map("gateway_provider") @db.VarChar(50)
-  gatewayTransactionId String?               @unique @map("gateway_transaction_id") @db.VarChar(150)
-  amount               Decimal               @db.Decimal(12, 2)
-  currency             String                @default("IDR") @db.VarChar(10)
-  paymentMethod        String?               @map("payment_method") @db.VarChar(50)
-  status               PaymentStatus
-  paymentUrl           String?               @map("payment_url")
-  paidAt               DateTime?             @map("paid_at")
-  expiredAt            DateTime?             @map("expired_at")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  user                 User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
-  subscriptionPlan     SubscriptionPlan      @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
-  userSubscription     UserSubscription?     @relation(fields: [userSubscriptionId], references: [id], onDelete: SetNull)
-  webhookEvents        PaymentWebhookEvent[]
+  id                       String                @id @default(uuid())
+  userId                   String                @map("user_id")
+  subscriptionPlanId       String                @map("subscription_plan_id")
+  userSubscriptionId       String?               @map("user_subscription_id")
+  idempotencyKey           String?               @unique @map("idempotency_key") @db.VarChar(120)
+  invoiceNumber            String                @unique @map("invoice_number") @db.VarChar(100)
+  gatewayProvider          String                @map("gateway_provider") @db.VarChar(50)
+  gatewayTransactionId     String?               @unique @map("gateway_transaction_id") @db.VarChar(150)
+  amount                   Decimal               @db.Decimal(12, 2)
+  originalAmount           Decimal?              @map("original_amount") @db.Decimal(12, 2)
+  discountAmount           Decimal               @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  referralCodeId           String?               @map("referral_code_id")
+  referralCodeSnapshot     String?               @map("referral_code_snapshot") @db.VarChar(50)
+  referralDiscountType     ReferralValueType?    @map("referral_discount_type")
+  referralDiscountValue    Decimal?              @map("referral_discount_value") @db.Decimal(12, 2)
+  referralCommissionType   ReferralValueType?    @map("referral_commission_type")
+  referralCommissionValue  Decimal?              @map("referral_commission_value") @db.Decimal(12, 2)
+  referralCommissionAmount Decimal?              @map("referral_commission_amount") @db.Decimal(12, 2)
+  currency                 String                @default("IDR") @db.VarChar(10)
+  paymentMethod            String?               @map("payment_method") @db.VarChar(50)
+  status                   PaymentStatus
+  paymentUrl               String?               @map("payment_url")
+  paidAt                   DateTime?             @map("paid_at")
+  expiredAt                DateTime?             @map("expired_at")
+  createdAt                DateTime              @default(now()) @map("created_at")
+  updatedAt                DateTime              @updatedAt @map("updated_at")
+  user                     User                  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  subscriptionPlan         SubscriptionPlan      @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+  userSubscription         UserSubscription?     @relation(fields: [userSubscriptionId], references: [id], onDelete: SetNull)
+  referralCode             PartnerReferralCode?  @relation(fields: [referralCodeId], references: [id], onDelete: SetNull)
+  webhookEvents            PaymentWebhookEvent[]
+  partnerLedgerEntries     PartnerLedgerEntry[]
 
   @@index([userId, createdAt], map: "idx_payment_user")
   @@index([idempotencyKey], map: "idx_payment_idempotency")
   @@index([gatewayTransactionId], map: "idx_payment_gateway_transaction")
+  @@index([referralCodeId, status], map: "idx_payment_referral_status")
   @@map("payment_transactions")
+}
+
+model PartnerProfile {
+  id                 String                     @id @default(uuid())
+  userId             String                     @unique @map("user_id")
+  displayName        String                     @map("display_name") @db.VarChar(150)
+  status             PartnerStatus              @default(active)
+  notes              String?
+  createdBy          String?                    @map("created_by")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
+  user               User                       @relation("PartnerProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdByUser      User?                      @relation("PartnerProfileCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  referralCodes      PartnerReferralCode[]
+  bankAccounts       PartnerBankAccount[]
+  ledgerEntries      PartnerLedgerEntry[]
+  withdrawalRequests PartnerWithdrawalRequest[]
+
+  @@index([status, createdAt], map: "idx_partner_profiles_status")
+  @@map("partner_profiles")
+}
+
+model PartnerReferralCode {
+  id                  String               @id @default(uuid())
+  partnerProfileId    String               @map("partner_profile_id")
+  code                String               @unique @db.VarChar(50)
+  isActive            Boolean              @default(true) @map("is_active")
+  discountType        ReferralValueType    @map("discount_type")
+  discountValue       Decimal              @map("discount_value") @db.Decimal(12, 2)
+  commissionType      ReferralValueType    @map("commission_type")
+  commissionValue     Decimal              @map("commission_value") @db.Decimal(12, 2)
+  createdBy           String?              @map("created_by")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  partnerProfile      PartnerProfile       @relation(fields: [partnerProfileId], references: [id], onDelete: Cascade)
+  createdByUser       User?                @relation("PartnerReferralCodeCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  paymentTransactions PaymentTransaction[]
+
+  @@index([partnerProfileId, isActive], map: "idx_partner_referral_codes_partner_active")
+  @@map("partner_referral_codes")
+}
+
+model PartnerBankAccount {
+  id                String         @id @default(uuid())
+  partnerProfileId  String         @map("partner_profile_id")
+  bankName          String         @map("bank_name") @db.VarChar(100)
+  accountNumber     String         @map("account_number") @db.VarChar(80)
+  accountHolderName String         @map("account_holder_name") @db.VarChar(150)
+  isPrimary         Boolean        @default(true) @map("is_primary")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  partnerProfile    PartnerProfile @relation(fields: [partnerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([partnerProfileId, isPrimary], map: "idx_partner_bank_accounts_primary")
+  @@map("partner_bank_accounts")
+}
+
+model PartnerLedgerEntry {
+  id                   String                    @id @default(uuid())
+  partnerProfileId     String                    @map("partner_profile_id")
+  paymentTransactionId String?                   @map("payment_transaction_id")
+  withdrawalRequestId  String?                   @map("withdrawal_request_id")
+  entryType            PartnerLedgerEntryType    @map("entry_type")
+  amount               Decimal                   @db.Decimal(12, 2)
+  description          String                    @db.VarChar(255)
+  metadata             Json?
+  createdAt            DateTime                  @default(now()) @map("created_at")
+  partnerProfile       PartnerProfile            @relation(fields: [partnerProfileId], references: [id], onDelete: Cascade)
+  paymentTransaction   PaymentTransaction?       @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+  withdrawalRequest    PartnerWithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([paymentTransactionId, entryType], map: "uq_partner_ledger_payment_entry_type")
+  @@unique([withdrawalRequestId, entryType], map: "uq_partner_ledger_withdrawal_entry_type")
+  @@index([partnerProfileId, createdAt], map: "idx_partner_ledger_partner_created")
+  @@map("partner_ledger_entries")
+}
+
+model PartnerWithdrawalRequest {
+  id                        String                  @id @default(uuid())
+  partnerProfileId          String                  @map("partner_profile_id")
+  amount                    Decimal                 @db.Decimal(12, 2)
+  status                    PartnerWithdrawalStatus @default(pending)
+  bankNameSnapshot          String                  @map("bank_name_snapshot") @db.VarChar(100)
+  accountNumberSnapshot     String                  @map("account_number_snapshot") @db.VarChar(80)
+  accountHolderNameSnapshot String                  @map("account_holder_name_snapshot") @db.VarChar(150)
+  requestedNote             String?                 @map("requested_note")
+  reviewedBy                String?                 @map("reviewed_by")
+  reviewedAt                DateTime?               @map("reviewed_at")
+  reviewNote                String?                 @map("review_note")
+  transferProofUrl          String?                 @map("transfer_proof_url")
+  createdAt                 DateTime                @default(now()) @map("created_at")
+  updatedAt                 DateTime                @updatedAt @map("updated_at")
+  partnerProfile            PartnerProfile          @relation(fields: [partnerProfileId], references: [id], onDelete: Cascade)
+  reviewedByUser            User?                   @relation("PartnerWithdrawalApprovedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+  ledgerEntries             PartnerLedgerEntry[]
+
+  @@index([partnerProfileId, status, createdAt], map: "idx_partner_withdrawals_partner_status")
+  @@index([status, createdAt], map: "idx_partner_withdrawals_status")
+  @@map("partner_withdrawal_requests")
 }
 
 model PaymentWebhookEvent {
@@ -924,25 +1060,25 @@ enum ModuleType {
 }
 
 model Material {
-  id                String             @id @default(uuid())
-  title             String             @db.VarChar(200)
-  description       String?
-  coverImageUrl     String?            @map("cover_image_url")
-  categoryId        String             @map("category_id")
-  requiredTier      SubscriptionTier   @default(trial) @map("required_tier")
-  requiredSubscriptionPlanId String?   @map("required_subscription_plan_id")
-  status            MaterialStatus     @default(draft)
-  sortOrder         Int                @default(0) @map("sort_order")
-  createdBy         String             @map("created_by")
-  publishedAt       DateTime?          @map("published_at")
-  archivedAt        DateTime?          @map("archived_at")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  categoryRef       QuestionCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  createdByUser     User               @relation("MaterialCreatedBy", fields: [createdBy], references: [id])
-  requiredSubscriptionPlan SubscriptionPlan? @relation("MaterialRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
-  modules           MaterialModule[]
-  userProgress      UserMaterialProgress[]
+  id                         String                 @id @default(uuid())
+  title                      String                 @db.VarChar(200)
+  description                String?
+  coverImageUrl              String?                @map("cover_image_url")
+  categoryId                 String                 @map("category_id")
+  requiredTier               SubscriptionTier       @default(trial) @map("required_tier")
+  requiredSubscriptionPlanId String?                @map("required_subscription_plan_id")
+  status                     MaterialStatus         @default(draft)
+  sortOrder                  Int                    @default(0) @map("sort_order")
+  createdBy                  String                 @map("created_by")
+  publishedAt                DateTime?              @map("published_at")
+  archivedAt                 DateTime?              @map("archived_at")
+  createdAt                  DateTime               @default(now()) @map("created_at")
+  updatedAt                  DateTime               @updatedAt @map("updated_at")
+  categoryRef                QuestionCategory       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdByUser              User                   @relation("MaterialCreatedBy", fields: [createdBy], references: [id])
+  requiredSubscriptionPlan   SubscriptionPlan?      @relation("MaterialRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
+  modules                    MaterialModule[]
+  userProgress               UserMaterialProgress[]
 
   @@index([status, requiredTier, sortOrder])
   @@index([status, requiredSubscriptionPlanId, sortOrder], map: "idx_materials_required_plan")
@@ -951,22 +1087,22 @@ model Material {
 }
 
 model MaterialModule {
-  id            String           @id @default(uuid())
-  materialId    String           @map("material_id")
-  title         String           @db.VarChar(200)
-  description   String?
-  moduleType    ModuleType       @map("module_type")
-  content       String?          // markdown/rich text for 'text' type
-  videoUrl      String?          @map("video_url")  // embed URL for 'video' type
-  pdfUrl        String?          @map("pdf_url")    // link for 'pdf' type
-  durationMinutes Int?           @map("duration_minutes")
-  sortOrder     Int              @default(0) @map("sort_order")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  updatedAt     DateTime         @updatedAt @map("updated_at")
-  material      Material         @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  quizQuestions MaterialModuleQuiz[]
+  id              String                         @id @default(uuid())
+  materialId      String                         @map("material_id")
+  title           String                         @db.VarChar(200)
+  description     String?
+  moduleType      ModuleType                     @map("module_type")
+  content         String? // markdown/rich text for 'text' type
+  videoUrl        String?                        @map("video_url") // embed URL for 'video' type
+  pdfUrl          String?                        @map("pdf_url") // link for 'pdf' type
+  durationMinutes Int?                           @map("duration_minutes")
+  sortOrder       Int                            @default(0) @map("sort_order")
+  createdAt       DateTime                       @default(now()) @map("created_at")
+  updatedAt       DateTime                       @updatedAt @map("updated_at")
+  material        Material                       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  quizQuestions   MaterialModuleQuiz[]
   manualQuestions MaterialModuleManualQuestion[]
-  userProgress  UserMaterialProgress[]
+  userProgress    UserMaterialProgress[]
 
   @@unique([materialId, sortOrder], map: "uq_material_module_order")
   @@index([materialId, sortOrder])
@@ -974,13 +1110,13 @@ model MaterialModule {
 }
 
 model MaterialModuleQuiz {
-  id              String         @id @default(uuid())
-  moduleId        String         @map("module_id")
-  questionId      String         @map("question_id")
-  questionOrder   Int            @map("question_order")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  module          MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  question        Question       @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  id            String         @id @default(uuid())
+  moduleId      String         @map("module_id")
+  questionId    String         @map("question_id")
+  questionOrder Int            @map("question_order")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  module        MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  question      Question       @relation(fields: [questionId], references: [id], onDelete: Restrict)
 
   @@unique([moduleId, questionId], map: "uq_material_module_quiz_question")
   @@unique([moduleId, questionOrder], map: "uq_material_module_quiz_order")
@@ -988,27 +1124,27 @@ model MaterialModuleQuiz {
 }
 
 model MaterialModuleManualQuestion {
-  id              String         @id @default(uuid())
-  moduleId        String         @map("module_id")
-  questionText    String         @map("question_text")
-  questionOrder   Int            @map("question_order")
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  module          MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  options         MaterialModuleManualQuestionOption[]
+  id            String                               @id @default(uuid())
+  moduleId      String                               @map("module_id")
+  questionText  String                               @map("question_text")
+  questionOrder Int                                  @map("question_order")
+  createdAt     DateTime                             @default(now()) @map("created_at")
+  updatedAt     DateTime                             @updatedAt @map("updated_at")
+  module        MaterialModule                       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  options       MaterialModuleManualQuestionOption[]
 
   @@index([moduleId, questionOrder])
   @@map("material_module_manual_questions")
 }
 
 model MaterialModuleManualQuestionOption {
-  id              String         @id @default(uuid())
-  questionId      String         @map("question_id")
-  label           String         @db.VarChar(1)
-  optionText      String         @map("option_text")
-  isCorrect       Boolean        @default(false) @map("is_correct")
-  displayOrder    Int            @map("display_order")
-  question        MaterialModuleManualQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  id           String                       @id @default(uuid())
+  questionId   String                       @map("question_id")
+  label        String                       @db.VarChar(1)
+  optionText   String                       @map("option_text")
+  isCorrect    Boolean                      @default(false) @map("is_correct")
+  displayOrder Int                          @map("display_order")
+  question     MaterialModuleManualQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, label], map: "uq_material_manual_option_label")
   @@index([questionId, displayOrder])
@@ -1016,15 +1152,15 @@ model MaterialModuleManualQuestionOption {
 }
 
 model UserMaterialProgress {
-  id            String         @id @default(uuid())
-  userId        String         @map("user_id")
-  materialId    String         @map("material_id")
-  moduleId      String         @map("module_id")
-  completedAt   DateTime       @default(now()) @map("completed_at")
-  quizScore     Int?           @map("quiz_score") // score if module type is quiz
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  module        MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  id          String         @id @default(uuid())
+  userId      String         @map("user_id")
+  materialId  String         @map("material_id")
+  moduleId    String         @map("module_id")
+  completedAt DateTime       @default(now()) @map("completed_at")
+  quizScore   Int?           @map("quiz_score") // score if module type is quiz
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material    Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  module      MaterialModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, moduleId], map: "uq_user_material_progress")
   @@index([userId, materialId])

@@ -73,14 +73,14 @@ export default async function AdminDashboardPage({
       title: "Draft Tryout",
       value: summary.draftTryouts.toLocaleString("id-ID"),
       delta: "",
-      deltaLabel: "belum diajukan untuk review",
+      deltaLabel: "belum dipublish",
       direction: "neutral" as const,
     },
     {
-      title: "Terkirim Review",
+      title: "Published Tryout",
       value: summary.submittedReviewTryouts.toLocaleString("id-ID"),
       delta: "",
-      deltaLabel: "sedang menunggu finalisasi",
+      deltaLabel: "siap digunakan user",
       direction: "neutral" as const,
     },
     {

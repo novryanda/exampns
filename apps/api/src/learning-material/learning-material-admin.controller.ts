@@ -18,7 +18,7 @@ import { saveMaterialFile, type UploadedMaterialFile } from './learning-material
 import { MaterialStatus, ModuleType } from '../../generated/prisma/client.js';
 
 @Controller('admin/learning-materials')
-@Roles('ADMIN', 'SUPER_ADMIN')
+@Roles('ADMIN')
 export class LearningMaterialAdminController {
   constructor(private readonly service: LearningMaterialService) {}
 

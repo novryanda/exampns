@@ -13,10 +13,6 @@ export function formatTryoutTypeLabel(value: string) {
   switch (value) {
     case "generated":
       return "Otomatis";
-    case "manual":
-      return "Manual";
-    case "hybrid":
-      return "Hybrid";
     case "adaptive":
       return "Adaptive";
     default:

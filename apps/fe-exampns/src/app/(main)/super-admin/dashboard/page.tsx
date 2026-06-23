@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { BookCopy, Bot, Settings2, ShieldUser, Users, WalletCards } from "lucide-react";
+import { BookCopy, BookOpen, Bot, Settings2, ShieldUser, Users, WalletCards } from "lucide-react";
 
 import { MetricCard, PageHeader, SectionCard } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,7 @@ export default async function SuperAdminDashboardPage() {
       title: "Tryout Catalog",
       value: tryouts.meta.totalItems.toLocaleString("id-ID"),
       delta: "",
-      deltaLabel: "draft, review, published, archived",
+      deltaLabel: "draft, published, archived",
       direction: "neutral" as const,
     },
     {
@@ -97,7 +97,13 @@ export default async function SuperAdminDashboardPage() {
               title: "Tryout Catalog",
               href: "/super-admin/tryout-catalog",
               icon: BookCopy,
-              description: "Kelola publish flow tryout",
+              description: "Pantau katalog tryout",
+            },
+            {
+              title: "Materi Pembelajaran",
+              href: "/super-admin/materi",
+              icon: BookOpen,
+              description: "Pantau materi dan modul",
             },
             {
               title: "Question Categories",

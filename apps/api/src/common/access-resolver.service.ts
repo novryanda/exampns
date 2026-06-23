@@ -35,19 +35,31 @@ export class AccessResolverService {
         },
         select: {
           id: true,
-          tier: true,
-          startsAt: true,
-          expiresAt: true,
+          subscriptionPlanId: true,
+          subscriptionPlan: {
+            select: {
+              id: true,
+              name: true,
+              tier: true,
+            },
+          },
           revokedAt: true,
           createdAt: true,
         },
-        orderBy: [{ expiresAt: 'desc' }, { createdAt: 'desc' }],
+        orderBy: [{ createdAt: 'desc' }],
       }),
     ]);
 
     return resolveEffectiveAccess(
       subscriptions as AccessSubscriptionSnapshot[],
-      overrides as AccessOverrideSnapshot[],
+      overrides.map((override) => ({
+        id: override.id,
+        subscriptionPlanId: override.subscriptionPlanId,
+        subscriptionPlanName: override.subscriptionPlan.name,
+        subscriptionPlanTier: override.subscriptionPlan.tier,
+        revokedAt: override.revokedAt,
+        createdAt: override.createdAt,
+      })) as AccessOverrideSnapshot[],
       now,
     );
   }

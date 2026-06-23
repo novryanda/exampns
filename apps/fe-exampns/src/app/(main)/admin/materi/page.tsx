@@ -5,13 +5,9 @@ import { PageHeader } from "@/app/(main)/_components/page-shell";
 import { Button } from "@/components/ui/button";
 import { getAdminLearningMaterials } from "@/server/admin-content-data";
 import { MaterialList } from "./_components/material-list";
-import { getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
 
 export default async function AdminMateriPage() {
-  const [materials, metadataOptions] = await Promise.all([
-    getAdminLearningMaterials(),
-    getAdminQuestionMetadataOptions(),
-  ]);
+  const materials = await getAdminLearningMaterials();
 
   return (
     <div className="flex min-w-0 w-full max-w-full flex-col gap-6">
@@ -27,7 +23,7 @@ export default async function AdminMateriPage() {
           </Button>
         }
       />
-      <MaterialList initialMaterials={materials} categories={metadataOptions.categories} />
+      <MaterialList initialMaterials={materials} />
     </div>
   );
 }

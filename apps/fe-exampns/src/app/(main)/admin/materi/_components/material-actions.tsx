@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Globe, Archive } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 export function MaterialActions({
@@ -27,10 +28,10 @@ export function MaterialActions({
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Gagal mempublikasikan materi");
       }
-      alert("Materi berhasil dipublikasikan!");
+      toast.success("Materi berhasil dipublikasikan!");
       router.refresh();
     } catch (error: any) {
-      alert(error.message || "Terjadi kesalahan");
+      toast.error(error.message || "Terjadi kesalahan");
     } finally {
       setIsPublishing(false);
     }
@@ -47,10 +48,10 @@ export function MaterialActions({
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Gagal mengarsipkan materi");
       }
-      alert("Materi berhasil diarsipkan!");
+      toast.success("Materi berhasil diarsipkan!");
       router.refresh();
     } catch (error: any) {
-      alert(error.message || "Terjadi kesalahan");
+      toast.error(error.message || "Terjadi kesalahan");
     } finally {
       setIsArchiving(false);
     }

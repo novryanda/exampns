@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { BookOpen } from "lucide-react";
 
 import { PageHeader } from "@/app/(main)/_components/page-shell";
-import { getAdminLearningMaterialDetail, getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
+import { getAdminLearningMaterialDetail, getAdminQuestionMetadataOptions, getAdminCertificateTemplates } from "@/server/admin-content-data";
 import { getSubscriptionPlans } from "@/server/user-dashboard-data";
 import { MaterialForm } from "../_components/material-form";
 import { ModuleManager } from "../_components/module-manager";
@@ -16,9 +16,10 @@ export default async function AdminMateriDetailPage({
   const { materialId } = await params;
 
   let material;
-  const [metadataOptions, subscriptionPlans] = await Promise.all([
+  const [metadataOptions, subscriptionPlans, certificateTemplates] = await Promise.all([
     getAdminQuestionMetadataOptions(),
     getSubscriptionPlans(),
+    getAdminCertificateTemplates(),
   ]);
   
   try {
@@ -46,6 +47,7 @@ export default async function AdminMateriDetailPage({
             <MaterialForm
               categories={metadataOptions.categories}
               subscriptionPlans={subscriptionPlans}
+              certificateTemplates={certificateTemplates}
               initialData={material}
             />
           </div>

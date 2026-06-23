@@ -91,6 +91,8 @@ function SortableModuleRow({
     isDragging,
   } = useSortable({ id: module.id });
 
+  const router = useRouter();
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -137,7 +139,7 @@ function SortableModuleRow({
           variant="ghost"
           size="icon"
           className="text-slate-400 hover:bg-blue-50 hover:text-blue-600"
-          onClick={() => window.open(`/admin/materi/${materialId}/modules/${module.id}/edit`, "_blank", "noopener,noreferrer")}
+          onClick={() => router.push(`/admin/materi/${materialId}/modules/${module.id}/edit`)}
           title="Edit Modul"
         >
           <Edit3 className="size-4" />
@@ -294,17 +296,10 @@ export function ModuleManager({
         <Button
             size="sm"
             className="rounded-xl bg-blue-600 hover:bg-blue-700 gap-1.5"
-            onClick={() =>
-              window.open(
-                `/admin/materi/${materialId}/modules/create`,
-                "_blank",
-                "noopener,noreferrer",
-              )
-            }
+            onClick={() => router.push(`/admin/materi/${materialId}/modules/create`)}
           >
             <Plus className="size-4" />
             Tambah Modul
-            <ExternalLink className="size-3 opacity-70" />
           </Button>
       </div>
 

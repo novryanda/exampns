@@ -63,6 +63,9 @@ export class LearningMaterialService {
     coverImageUrl?: string;
     categoryId: string;
     requiredSubscriptionPlanId?: string;
+    sortOrder?: number;
+    certificateTemplateId?: string | null;
+    certificatePassingGrade?: number | null;
     createdBy: string;
   }) {
     const requiredSubscriptionPlan = await this.ensureSubscriptionPlanExists(data.requiredSubscriptionPlanId);
@@ -75,6 +78,9 @@ export class LearningMaterialService {
         categoryId: data.categoryId,
         requiredTier: requiredSubscriptionPlan?.tier ?? SubscriptionTier.trial,
         requiredSubscriptionPlanId: data.requiredSubscriptionPlanId ?? null,
+        sortOrder: data.sortOrder,
+        certificateTemplateId: data.certificateTemplateId ?? null,
+        certificatePassingGrade: data.certificatePassingGrade ?? null,
         createdBy: data.createdBy,
       },
     });
@@ -89,6 +95,8 @@ export class LearningMaterialService {
       categoryId?: string;
       requiredSubscriptionPlanId?: string;
       sortOrder?: number;
+      certificateTemplateId?: string | null;
+      certificatePassingGrade?: number | null;
     },
   ) {
     await this.assertMaterialExists(id);
@@ -100,13 +108,19 @@ export class LearningMaterialService {
     return this.prisma.material.update({
       where: { id },
       data: {
-        ...data,
+        title: data.title,
+        description: data.description,
+        coverImageUrl: data.coverImageUrl,
+        categoryId: data.categoryId,
         ...(data.requiredSubscriptionPlanId !== undefined
           ? {
-              requiredSubscriptionPlanId: data.requiredSubscriptionPlanId,
+              requiredSubscriptionPlanId: data.requiredSubscriptionPlanId || null,
               requiredTier: requiredSubscriptionPlan?.tier ?? SubscriptionTier.trial,
             }
           : {}),
+        sortOrder: data.sortOrder,
+        certificateTemplateId: data.certificateTemplateId !== undefined ? (data.certificateTemplateId || null) : undefined,
+        certificatePassingGrade: data.certificatePassingGrade !== undefined ? (data.certificatePassingGrade || null) : undefined,
       },
     });
   }
@@ -363,7 +377,7 @@ export class LearningMaterialService {
       select: { moduleId: true, completedAt: true, quizScore: true },
     });
 
-    const completedModuleIds = new Set(progress.map((p) => p.moduleId));
+    const completedModuleIds = new Set(progress.filter(p => p.completedAt !== null).map((p) => p.moduleId));
     const progressMap = new Map(progress.map((p) => [p.moduleId, p]));
 
     const modulesWithProgress = material.modules.map((mod) => ({
@@ -423,15 +437,127 @@ export class LearningMaterialService {
     return module;
   }
 
-  // ─── User: Mark module complete ────────────────────────────────────────────
-
   async markModuleComplete(userId: string, materialId: string, moduleId: string, quizScore?: number) {
     await this.assertModuleExists(moduleId);
 
-    return this.prisma.userMaterialProgress.upsert({
+    const material = await this.prisma.material.findUnique({
+      where: { id: materialId },
+      include: {
+        modules: true,
+        certificateTemplate: true
+      }
+    });
+
+    let isCompleted = true;
+    if (quizScore !== undefined && material?.certificatePassingGrade !== null && material?.certificatePassingGrade !== undefined) {
+      if (quizScore < material.certificatePassingGrade) {
+        isCompleted = false;
+      }
+    }
+
+    const progress = await this.prisma.userMaterialProgress.upsert({
       where: { userId_moduleId: { userId, moduleId } },
-      create: { userId, materialId, moduleId, quizScore },
-      update: { quizScore, completedAt: new Date() },
+      create: { 
+        userId, 
+        materialId, 
+        moduleId, 
+        quizScore,
+        completedAt: isCompleted ? new Date() : null
+      },
+      update: { 
+        quizScore, 
+        completedAt: isCompleted ? new Date() : null
+      },
+    });
+    
+    let certificateIssued = false;
+
+    // Check if material is fully completed and issue certificate
+
+    if (material && material.certificateTemplateId) {
+      const allProgress = await this.prisma.userMaterialProgress.findMany({
+        where: { userId, materialId }
+      });
+      const completedModuleIds = new Set(allProgress.filter(p => p.completedAt !== null).map(p => p.moduleId));
+      const allModulesCompleted = material.modules.every(m => completedModuleIds.has(m.id));
+
+      if (allModulesCompleted) {
+        let meetsPassingGrade = true;
+
+        if (material.certificatePassingGrade !== null) {
+          const quizModulesProgress = allProgress.filter((p) => p.quizScore !== null);
+          if (quizModulesProgress.length > 0) {
+            // Option C: Setiap kuis wajib mencapai >= Passing Grade secara mandiri
+            const hasFailedQuiz = quizModulesProgress.some(
+              (p) => (p.quizScore || 0) < material.certificatePassingGrade!
+            );
+            if (hasFailedQuiz) {
+              meetsPassingGrade = false;
+            }
+          } else {
+            // If there are no quizzes, how can they pass a passing grade? We assume they pass.
+          }
+        }
+
+        if (meetsPassingGrade) {
+          // Issue certificate if not already issued
+          const existingCert = await this.prisma.userCertificate.findUnique({
+            where: { userId_materialId: { userId, materialId } }
+          });
+
+          if (!existingCert) {
+            await this.prisma.userCertificate.create({
+              data: {
+                userId,
+                materialId,
+                templateId: material.certificateTemplateId
+              }
+            });
+            certificateIssued = true;
+          }
+        }
+      }
+    }
+
+    return { progress, certificateIssued };
+  }
+
+  // ─── User: Certificates ────────────────────────────────────────────────────
+
+  async getUserCertificates(userId: string) {
+    return this.prisma.userCertificate.findMany({
+      where: { userId },
+      include: {
+        material: {
+          select: { title: true, coverImageUrl: true }
+        },
+        template: {
+          select: { name: true, dataJson: true, canvasDimsJson: true, displayScale: true }
+        }
+      },
+      orderBy: { issuedAt: 'desc' }
+    });
+  }
+
+  // ─── Admin User Certificates ───────────────────────────────────────────────
+
+  async getAdminUserCertificates() {
+    return this.prisma.userCertificate.findMany({
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        material: { select: { id: true, title: true } },
+        template: { select: { id: true, name: true } },
+      },
+      orderBy: { issuedAt: 'desc' },
+    });
+  }
+
+  async deleteUserCertificate(id: string) {
+    const cert = await this.prisma.userCertificate.findUnique({ where: { id } });
+    if (!cert) throw new NotFoundException('User certificate not found');
+
+    return this.prisma.userCertificate.delete({
+      where: { id },
     });
   }
 
@@ -497,5 +623,11 @@ export class LearningMaterialService {
     const module = await this.prisma.materialModule.findUnique({ where: { id } });
     if (!module) throw new NotFoundException('Module not found');
     return module;
+  }
+
+  async deleteModuleManualQuestion(materialId: string, moduleId: string, questionId: string) {
+    return this.prisma.manualQuestionSet.delete({
+      where: { id: questionId }
+    });
   }
 }

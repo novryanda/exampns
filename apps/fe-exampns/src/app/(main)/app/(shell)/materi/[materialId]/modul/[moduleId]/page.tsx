@@ -31,8 +31,11 @@ export default async function MateriModulPage({
 
   // Find next and prev module ids
   const currentIndex = material.modules.findIndex((m) => m.id === moduleId);
-  const prevModuleId = currentIndex > 0 ? material.modules[currentIndex - 1]?.id : undefined;
+  const prevModule = currentIndex > 0 ? material.modules[currentIndex - 1] : undefined;
+  const prevModuleId = prevModule?.id;
   const nextModuleId = currentIndex < material.modules.length - 1 ? material.modules[currentIndex + 1]?.id : undefined;
+
+  const isLocked = !moduleDetail.isCompleted && moduleDetail.moduleType === "quiz" && prevModule && !prevModule.isCompleted;
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.20))]">
@@ -60,6 +63,7 @@ export default async function MateriModulPage({
             module={moduleDetail} 
             prevModuleId={prevModuleId}
             nextModuleId={nextModuleId}
+            isLocked={isLocked}
           />
         </main>
       </div>

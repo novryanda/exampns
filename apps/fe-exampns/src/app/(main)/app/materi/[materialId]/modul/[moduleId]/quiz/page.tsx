@@ -96,6 +96,22 @@ function UserQuizPageInner() {
         const { data } = await res.json();
         setModuleData(data);
         
+        // Fetch material to check if locked
+        const materialRes = await fetch(`/api/user/learning-materials/${materialId}`);
+        if (materialRes.ok) {
+          const { data: material } = await materialRes.json();
+          const moduleIndex = material.modules.findIndex((m: any) => m.id === moduleId);
+          if (moduleIndex > 0) {
+            const currentModule = material.modules[moduleIndex];
+            const prevModule = material.modules[moduleIndex - 1];
+            if (!currentModule.isCompleted && !prevModule.isCompleted && !isReviewMode) {
+              toast.error("Harap selesaikan materi sebelumnya untuk mengakses latihan soal ini.");
+              router.push(`/app/materi/${materialId}/modul/${moduleId}`);
+              return;
+            }
+          }
+        }
+
         const qList = data.manualQuestions
           ?.sort((a: any, b: any) => a.questionOrder - b.questionOrder)
           || [];
@@ -188,13 +204,20 @@ function UserQuizPageInner() {
 
       localStorage.setItem(`quiz_answers_${moduleId}`, JSON.stringify(answers));
 
-      await fetch(`/api/user/learning-materials/${materialId}/modules/${moduleId}/complete`, {
+      const res = await fetch(`/api/user/learning-materials/${materialId}/modules/${moduleId}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ quizScore: calculatedScore }),
       });
+      const data = await res.json();
       
-      toast.success("Latihan soal berhasil diselesaikan!");
+      if (data?.data?.certificateIssued) {
+        toast.success("Selamat! Anda telah menyelesaikan materi dan mendapatkan Sertifikat Kelulusan!", { duration: 5000 });
+      } else if (data?.data?.progress?.completedAt === null) {
+        toast.error(`Nilai Anda ${calculatedScore}. Semangat! Coba lagi untuk mencapai nilai kelulusan.`, { duration: 4000 });
+      } else {
+        toast.success("Latihan soal berhasil diselesaikan!");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Terjadi kesalahan saat menyimpan hasil latihan.");

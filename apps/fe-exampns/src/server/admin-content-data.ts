@@ -607,8 +607,54 @@ export async function getAdminLearningMaterials(params?: {
 }
 
 export async function getAdminLearningMaterialDetail(materialId: string) {
-  const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem & { modules: any[] }>>(
+  const response = await serverApiFetch<ApiSuccessResponse<AdminLearningMaterialItem & { modules: any[], certificateTemplateId: string | null }>>(
     `/api/v1/admin/learning-materials/${materialId}`,
   );
   return response.data;
 }
+
+// ─── Admin Certificate Templates ───────────────────────────────────────────
+
+export interface AdminCertificateTemplateItem {
+  id: string;
+  name: string;
+  displayScale: number;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    materials: number;
+  };
+}
+
+export async function getAdminCertificateTemplates() {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<AdminCertificateTemplateItem[]>>(
+      "/api/v1/admin/certificate-templates"
+    );
+    return response.data;
+  } catch {
+    return [];
+  }
+}
+
+// ─── Admin User Certificates ───────────────────────────────────────────────
+
+export interface AdminUserCertificateItem {
+  id: string;
+  user: { id: string; name: string; email: string };
+  material: { id: string; title: string };
+  template: { id: string; name: string };
+  issuedAt: string;
+}
+
+export async function getAdminUserCertificates() {
+  try {
+    const response = await serverApiFetch<ApiSuccessResponse<AdminUserCertificateItem[]>>(
+      "/api/v1/admin/learning-materials/user-certificates/all"
+    );
+    return response.data;
+  } catch {
+    return [];
+  }
+}
+

@@ -3,22 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Save } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { QuestionCategorySummary } from "@/server/admin-content-data";
+import type { QuestionCategorySummary, AdminCertificateTemplateItem } from "@/server/admin-content-data";
 import type { SubscriptionPlanItem } from "@/server/user-dashboard-data";
 
 export function MaterialForm({
   categories,
   subscriptionPlans,
+  certificateTemplates,
   initialData,
 }: {
   readonly categories: QuestionCategorySummary[];
   readonly subscriptionPlans: SubscriptionPlanItem[];
+  readonly certificateTemplates?: AdminCertificateTemplateItem[];
   readonly initialData?: any;
 }) {
   const router = useRouter();
@@ -30,6 +33,10 @@ export function MaterialForm({
     categoryId: initialData?.categoryId || categories[0]?.id || "",
     requiredSubscriptionPlanId:
       initialData?.requiredSubscriptionPlanId || subscriptionPlans[0]?.id || "",
+    certificateTemplateId: initialData?.certificateTemplateId || "",
+    certificatePassingGrade: initialData?.certificatePassingGrade !== null && initialData?.certificatePassingGrade !== undefined 
+      ? String(initialData.certificatePassingGrade) 
+      : "",
     coverImageUrl: initialData?.coverImageUrl || "",
   });
 
@@ -44,16 +51,27 @@ export function MaterialForm({
         
       const method = initialData ? "PATCH" : "POST";
 
+      const bodyData = {
+        ...formData,
+        certificateTemplateId: formData.certificateTemplateId || null,
+        certificatePassingGrade: formData.certificatePassingGrade ? parseInt(formData.certificatePassingGrade, 10) : null,
+      };
+
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(bodyData),
       });
 
-      if (!res.ok) throw new Error("Gagal menyimpan materi");
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("API Error Response:", errorText);
+        throw new Error(`Gagal menyimpan materi: ${res.status} ${res.statusText}`);
+      }
 
       const data = await res.json();
       
+      toast.success(initialData ? "Materi berhasil diperbarui" : "Materi berhasil dibuat");
       router.refresh();
       if (!initialData) {
         router.push(`/admin/materi/${data.data.id}`);
@@ -62,7 +80,7 @@ export function MaterialForm({
       }
     } catch (error) {
       console.error(error);
-      alert("Gagal menyimpan materi");
+      toast.error("Gagal menyimpan materi");
     } finally {
       setIsSubmitting(false);
     }
@@ -132,15 +150,56 @@ export function MaterialForm({
         </div>
       </div>
 
-      <div className="grid gap-3">
-        <Label htmlFor="coverImageUrl">URL Cover Image (Opsional)</Label>
-        <Input
-          id="coverImageUrl"
-          type="url"
-          value={formData.coverImageUrl}
-          onChange={(e) => setFormData({ ...formData, coverImageUrl: e.target.value })}
-          placeholder="https://example.com/image.jpg"
-        />
+      <div className="grid grid-cols-2 gap-6">
+        <div className="grid gap-3">
+          <Label htmlFor="certificateTemplateId">Template Sertifikat Lulus (Opsional)</Label>
+          <Select
+            value={formData.certificateTemplateId || "none"}
+            onValueChange={(val) => setFormData({ ...formData, certificateTemplateId: val === "none" ? "" : val })}
+          >
+            <SelectTrigger id="certificateTemplateId">
+              <SelectValue placeholder="Pilih Template (Opsional)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Tidak Ada Sertifikat</SelectItem>
+              {certificateTemplates?.map((tmpl) => (
+                <SelectItem key={tmpl.id} value={tmpl.id}>
+                  {tmpl.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="grid gap-3">
+          <Label htmlFor="coverImageUrl">URL Cover Image (Opsional)</Label>
+          <Input
+            id="coverImageUrl"
+            type="url"
+            value={formData.coverImageUrl}
+            onChange={(e) => setFormData({ ...formData, coverImageUrl: e.target.value })}
+            placeholder="https://example.com/image.jpg"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {formData.certificateTemplateId && formData.certificateTemplateId !== "none" && (
+          <div className="grid gap-3">
+            <Label htmlFor="certificatePassingGrade">Passing Grade Sertifikat <span className="text-red-500">*</span></Label>
+            <Input
+              id="certificatePassingGrade"
+              type="number"
+              min="0"
+              max="100"
+              required
+              value={formData.certificatePassingGrade}
+              onChange={(e) => setFormData({ ...formData, certificatePassingGrade: e.target.value })}
+              placeholder="Contoh: 80"
+            />
+            <p className="text-xs text-slate-500">Nilai rata-rata minimal kuis agar user bisa klaim sertifikat. Wajib diisi jika memilih template sertifikat.</p>
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end border-t border-slate-100 pt-6">

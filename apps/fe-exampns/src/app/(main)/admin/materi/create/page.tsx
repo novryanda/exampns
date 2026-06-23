@@ -1,12 +1,13 @@
 import { PageHeader } from "@/app/(main)/_components/page-shell";
-import { getAdminQuestionMetadataOptions } from "@/server/admin-content-data";
+import { getAdminQuestionMetadataOptions, getAdminCertificateTemplates } from "@/server/admin-content-data";
 import { getSubscriptionPlans } from "@/server/user-dashboard-data";
 import { MaterialForm } from "../_components/material-form";
 
 export default async function AdminMateriCreatePage() {
-  const [metadataOptions, subscriptionPlans] = await Promise.all([
+  const [metadataOptions, subscriptionPlans, certificateTemplates] = await Promise.all([
     getAdminQuestionMetadataOptions(),
     getSubscriptionPlans(),
+    getAdminCertificateTemplates(),
   ]);
 
   return (
@@ -18,7 +19,7 @@ export default async function AdminMateriCreatePage() {
       />
       
       <div className="mx-auto w-full max-w-2xl">
-        <MaterialForm categories={metadataOptions.categories} subscriptionPlans={subscriptionPlans} />
+        <MaterialForm categories={metadataOptions.categories} subscriptionPlans={subscriptionPlans} certificateTemplates={certificateTemplates} />
       </div>
     </div>
   );

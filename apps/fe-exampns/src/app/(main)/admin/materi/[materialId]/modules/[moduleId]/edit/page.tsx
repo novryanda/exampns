@@ -16,6 +16,7 @@ import {
   Trash2,
   Check,
   Minus,
+  ArrowLeft,
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -89,6 +90,7 @@ function TypeCard({
 }
 
 export default function EditModulePage() {
+  const router = useRouter();
   const params = useParams<{ materialId: string; moduleId: string }>();
   const materialId = params.materialId;
   const moduleId = params.moduleId;
@@ -318,7 +320,7 @@ export default function EditModulePage() {
       setSaved(true);
 
       setTimeout(() => {
-        window.close();
+        router.push(`/admin/materi/${materialId}`);
       }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
@@ -343,46 +345,44 @@ export default function EditModulePage() {
             <CheckCircle2 className="size-8 text-emerald-600" />
           </div>
           <h2 className="text-xl font-semibold text-slate-900">Perubahan Berhasil Disimpan!</h2>
-          <p className="text-sm text-slate-500">Tab ini akan ditutup secara otomatis…</p>
+          <p className="text-sm text-slate-500">Mengarahkan kembali…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => window.close()}
-              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-            >
-              <X className="size-4" />
-              Tutup
-            </button>
-            <div className="h-4 w-px bg-slate-200" />
-            <h1 className="text-sm font-semibold text-slate-800">Edit Modul</h1>
-          </div>
-
-          <Button
-            type="submit"
-            form="module-edit-form"
-            disabled={isSubmitting || !title.trim()}
-            className="rounded-xl bg-blue-600 hover:bg-blue-700 gap-2"
+    <div className="pb-10">
+      <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-6">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/materi/${materialId}`)}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-200 hover:text-slate-900 transition-colors"
           >
-            {isSubmitting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Save className="size-4" />
-            )}
-            {isSubmitting ? "Menyimpan…" : "Simpan Perubahan"}
-          </Button>
+            <ArrowLeft className="size-4" />
+            Kembali
+          </button>
+          <div className="h-5 w-px bg-slate-300" />
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Edit Modul</h1>
         </div>
+
+        <Button
+          type="submit"
+          form="module-edit-form"
+          disabled={isSubmitting || !title.trim()}
+          className="rounded-xl bg-blue-600 hover:bg-blue-700 gap-2 px-5"
+        >
+          {isSubmitting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Save className="size-4" />
+          )}
+          {isSubmitting ? "Menyimpan…" : "Simpan Perubahan"}
+        </Button>
       </div>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
+      <div className="mx-auto max-w-4xl px-6">
         <form id="module-edit-form" onSubmit={handleSubmit} className="flex flex-col gap-8">
           {error && (
             <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

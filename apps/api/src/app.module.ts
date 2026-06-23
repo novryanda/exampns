@@ -17,6 +17,7 @@ import { PublicSampleModule } from './public-sample/public-sample.module.js';
 import { QuestionMetadataModule } from './question-metadata/question-metadata.module.js';
 import { TryoutManagementModule } from './tryout-management/tryout-management.module.js';
 import { LearningMaterialModule } from './learning-material/learning-material.module.js';
+import { CertificateTemplateModule } from './certificate-template/certificate-template.module.js';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { LearningMaterialModule } from './learning-material/learning-material.mo
     TryoutManagementModule,
     LearningMaterialModule,
     BootstrapModule,
+    CertificateTemplateModule,
   ],
   controllers: [AppController],
   providers: [

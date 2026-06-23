@@ -213,6 +213,8 @@ model User {
   auditLogs                 AuditLog[]             @relation("AuditActor")
   createdMaterials           Material[]             @relation("MaterialCreatedBy")
   materialProgress           UserMaterialProgress[]
+  createdTemplates         CertificateTemplate[] @relation("TemplateCreatedBy")
+  userCertificates         UserCertificate[]
 
   @@index([role], map: "idx_users_role")
   @@index([deletedAt])
@@ -941,8 +943,12 @@ model Material {
   categoryRef       QuestionCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   createdByUser     User               @relation("MaterialCreatedBy", fields: [createdBy], references: [id])
   requiredSubscriptionPlan SubscriptionPlan? @relation("MaterialRequiredPlan", fields: [requiredSubscriptionPlanId], references: [id], onDelete: SetNull)
+  certificateTemplateId String?            @map("certificate_template_id")
+  certificatePassingGrade Int?             @map("certificate_passing_grade")
+  certificateTemplate   CertificateTemplate? @relation("MaterialCertificateTemplate", fields: [certificateTemplateId], references: [id], onDelete: SetNull)
   modules           MaterialModule[]
   userProgress      UserMaterialProgress[]
+  userCertificates  UserCertificate[]
 
   @@index([status, requiredTier, sortOrder])
   @@index([status, requiredSubscriptionPlanId, sortOrder], map: "idx_materials_required_plan")
@@ -1020,7 +1026,7 @@ model UserMaterialProgress {
   userId        String         @map("user_id")
   materialId    String         @map("material_id")
   moduleId      String         @map("module_id")
-  completedAt   DateTime       @default(now()) @map("completed_at")
+  completedAt   DateTime?      @map("completed_at")
   quizScore     Int?           @map("quiz_score") // score if module type is quiz
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   material      Material       @relation(fields: [materialId], references: [id], onDelete: Cascade)
@@ -1029,4 +1035,39 @@ model UserMaterialProgress {
   @@unique([userId, moduleId], map: "uq_user_material_progress")
   @@index([userId, materialId])
   @@map("user_material_progress")
+}
+
+// ─── Certificates ────────────────────────────────────────────────────────────
+
+model CertificateTemplate {
+  id             String       @id @default(uuid())
+  name           String       @db.VarChar(150)
+  dataJson       Json         @map("data_json") // The fabric.js JSON state
+  canvasDimsJson Json         @map("canvas_dims_json")
+  displayScale   Decimal      @map("display_scale") @db.Decimal(5, 2)
+  createdBy      String       @map("created_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  materials      Material[]   @relation("MaterialCertificateTemplate")
+  userCertificates UserCertificate[]
+  
+  createdByUser  User         @relation("TemplateCreatedBy", fields: [createdBy], references: [id])
+  
+  @@map("certificate_templates")
+}
+
+model UserCertificate {
+  id             String       @id @default(uuid())
+  userId         String       @map("user_id")
+  materialId     String       @map("material_id")
+  templateId     String       @map("template_id")
+  pdfUrl         String?      @map("pdf_url") // Could be generated on the fly or stored
+  issuedAt       DateTime     @default(now()) @map("issued_at")
+  
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  material       Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  template       CertificateTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  
+  @@unique([userId, materialId], map: "uq_user_certificate")
+  @@map("user_certificates")
 }

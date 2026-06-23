@@ -53,6 +53,8 @@ export class LearningMaterialAdminController {
       coverImageUrl?: string;
       categoryId: string;
       requiredSubscriptionPlanId?: string;
+      certificateTemplateId?: string | null;
+      certificatePassingGrade?: number | null;
     },
   ) {
     const data = await this.service.createMaterial({
@@ -73,6 +75,8 @@ export class LearningMaterialAdminController {
       categoryId?: string;
       requiredSubscriptionPlanId?: string;
       sortOrder?: number;
+      certificateTemplateId?: string | null;
+      certificatePassingGrade?: number | null;
     },
   ) {
     const data = await this.service.updateMaterial(materialId, body);
@@ -184,6 +188,30 @@ export class LearningMaterialAdminController {
   ) {
     const data = await this.service.setQuizQuestions(moduleId, body.questionIds);
     return { data };
+  }
+
+  @Delete(':materialId/modules/:moduleId/questions/:questionId')
+  async removeManualQuestion(
+    @Param('materialId') materialId: string,
+    @Param('moduleId') moduleId: string,
+    @Param('questionId') questionId: string,
+  ) {
+    await this.service.deleteModuleManualQuestion(materialId, moduleId, questionId);
+    return { message: 'Question deleted' };
+  }
+
+  // ─── User Certificates ───────────────────────────────────────────────────
+
+  @Get('user-certificates/all')
+  async listUserCertificates() {
+    const data = await this.service.getAdminUserCertificates();
+    return { data };
+  }
+
+  @Delete('user-certificates/:certId')
+  async removeUserCertificate(@Param('certId') certId: string) {
+    await this.service.deleteUserCertificate(certId);
+    return { message: 'User certificate deleted' };
   }
 
   @Post(':materialId/modules/:moduleId/manual-quiz-questions')

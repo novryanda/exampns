@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Info } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Info, Lock } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import type { UserModuleContentDetail } from "@/server/user-dashboard-data";
@@ -12,11 +13,13 @@ export function ModuleContentViewer({
   module,
   nextModuleId,
   prevModuleId,
+  isLocked,
 }: {
   readonly materialId: string;
   readonly module: UserModuleContentDetail;
   readonly nextModuleId?: string;
   readonly prevModuleId?: string;
+  readonly isLocked?: boolean;
 }) {
   const router = useRouter();
   const [isMarking, setIsMarking] = useState(false);
@@ -24,11 +27,16 @@ export function ModuleContentViewer({
   const handleMarkComplete = async () => {
     setIsMarking(true);
     try {
-      await fetch(`/api/user/learning-materials/${materialId}/modules/${module.id}/complete`, {
+      const res = await fetch(`/api/user/learning-materials/${materialId}/modules/${module.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
+      const data = await res.json();
+      
+      if (data?.data?.certificateIssued) {
+        toast.success("Selamat! Anda telah menyelesaikan materi dan mendapatkan Sertifikat Kelulusan!", { duration: 5000 });
+      }
       // Refresh router to update progress in syllabus
       router.refresh();
       
@@ -154,7 +162,17 @@ export function ModuleContentViewer({
                 Modul ini berisi {module._count?.manualQuestions || 0} soal latihan untuk menguji pemahamanmu.
               </p>
               
-              {!module.isCompleted ? (
+              {isLocked ? (
+                <div className="mx-auto flex max-w-sm flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-800">
+                  <div className="rounded-full bg-amber-100 p-3">
+                    <Lock className="size-6 text-amber-600" />
+                  </div>
+                  <h4 className="font-semibold text-amber-900">Modul Terkunci</h4>
+                  <p className="text-sm">
+                    Harap selesaikan materi sebelumnya untuk membuka latihan soal ini.
+                  </p>
+                </div>
+              ) : !module.isCompleted ? (
                 <Button 
                   size="lg" 
                   className="rounded-xl bg-blue-600 hover:bg-blue-700"

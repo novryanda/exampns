@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { CheckCircle2, Circle, FileText, PlayCircle, FileQuestion, File } from "lucide-react";
+import { CheckCircle2, Circle, FileText, PlayCircle, FileQuestion, File, Lock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { UserLearningMaterialDetail, UserMaterialModule } from "@/server/user-dashboard-data";
@@ -58,29 +58,22 @@ export function MaterialSyllabus({
             const Icon = getModuleIcon(module.moduleType);
             const isActive = currentModuleId === module.id;
             
-            // If no module is selected and this is the first module, we might want to highlight it or just leave it.
-            // For now, we only highlight if explicitly in the URL.
+            // Lock logic: quiz is locked if previous module exists and is not completed
+            const isLocked = !module.isCompleted && module.moduleType === "quiz" && index > 0 && !material.modules[index - 1].isCompleted;
             
-            return (
-              <Link
-                key={module.id}
-                href={`/app/materi/${material.id}/modul/${module.id}`}
-                className={cn(
-                  "group relative flex items-start gap-3 rounded-2xl p-3 transition-all",
-                  isActive 
-                    ? "bg-white shadow-sm text-blue-900 ring-1 ring-slate-200" 
-                    : "hover:bg-white/60 text-slate-700",
-                )}
-              >
+            const content = (
+              <>
                 {isActive && (
                   <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-blue-600" />
                 )}
                 
                 <div className={cn(
                   "mt-0.5 flex-none",
-                  module.isCompleted ? "text-green-600" : "text-slate-300 group-hover:text-slate-400"
+                  isLocked ? "text-slate-400" : module.isCompleted ? "text-green-600" : "text-slate-300 group-hover:text-slate-400"
                 )}>
-                  {module.isCompleted ? (
+                  {isLocked ? (
+                    <Lock className="size-5" />
+                  ) : module.isCompleted ? (
                     <CheckCircle2 className="size-5" />
                   ) : (
                     <Circle className="size-5" />
@@ -90,11 +83,14 @@ export function MaterialSyllabus({
                 <div className="flex-1 min-w-0">
                   <div className={cn(
                     "font-medium text-sm leading-tight mb-1",
-                    isActive ? "text-blue-900" : "text-slate-900"
+                    isLocked ? "text-slate-500" : isActive ? "text-blue-900" : "text-slate-900"
                   )}>
                     {index + 1}. {module.title}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className={cn(
+                    "flex items-center gap-2 text-xs",
+                    isLocked ? "text-slate-400" : "text-slate-500"
+                  )}>
                     <Icon className="size-3.5" />
                     <span>{getModuleLabel(module.moduleType)}</span>
                     {module.durationMinutes ? (
@@ -106,11 +102,44 @@ export function MaterialSyllabus({
                     {module.moduleType === "quiz" && (
                       <>
                         <span>•</span>
-                        <span>{module._count.quizQuestions} soal</span>
+                        <span>{module._count?.quizQuestions || 0} soal</span>
                       </>
                     )}
                   </div>
                 </div>
+              </>
+            );
+
+            if (isLocked) {
+              return (
+                <div
+                  key={module.id}
+                  className={cn(
+                    "group relative flex items-start gap-3 rounded-2xl p-3 transition-all",
+                    isActive 
+                      ? "bg-white shadow-sm ring-1 ring-slate-200" 
+                      : "bg-transparent",
+                    "cursor-not-allowed opacity-80"
+                  )}
+                  title="Selesaikan materi sebelumnya untuk membuka"
+                >
+                  {content}
+                </div>
+              );
+            }
+
+            return (
+              <Link
+                key={module.id}
+                href={`/app/materi/${material.id}/modul/${module.id}`}
+                className={cn(
+                  "group relative flex items-start gap-3 rounded-2xl p-3 transition-all",
+                  isActive 
+                    ? "bg-white shadow-sm text-blue-900 ring-1 ring-slate-200" 
+                    : "hover:bg-white/60 text-slate-700",
+                )}
+              >
+                {content}
               </Link>
             );
           })}

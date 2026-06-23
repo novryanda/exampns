@@ -1,4 +1,5 @@
 import {
+  Award,
   Bot,
   BookCopy,
   BookOpen,
@@ -95,6 +96,12 @@ export const adminSidebarItems: NavGroup[] = [
         isNew: true,
       },
       {
+        title: "Template Sertifikat",
+        url: "/admin/certificates",
+        icon: Award,
+        isNew: true,
+      },
+      {
         title: "Audit Aktivitas",
         url: "/admin/audit-aktivitas",
         icon: ScrollText,
@@ -133,6 +140,12 @@ export const userSidebarItems: NavGroup[] = [
         title: "Hasil Ujian",
         url: "/app/hasil",
         icon: ChartNoAxesCombined,
+      },
+      {
+        title: "Sertifikat Saya",
+        url: "/app/certificates",
+        icon: Award,
+        isNew: true,
       },
       {
         title: "Riwayat",
